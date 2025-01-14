@@ -15,6 +15,50 @@ class BaseDataModel(DataFrameModel):
         strict = False  # allow extra columns
 
 
+class GeoTiffTimeSeriesMetadataModel(BaseDataModel):
+    """Base schema for time series metadata files."""
+
+    example_id: Series[str] = pa.Field(
+        description="Unique identifier for the example, name of the file",
+        nullable=False,
+    )
+
+    image_idx: Series[int] = pa.Field(
+        description="Index of the image on the time axis for the geotiff",
+        nullable=False,
+    )
+
+    start_time: Series[str] = pa.Field(
+        description="Start time in ISO format",
+        nullable=False,
+        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",
+    )
+
+    end_time: Series[str] = pa.Field(
+        description="End time in ISO format",
+        nullable=False,
+        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",
+    )
+
+
+class Sentinel2FrequencyMetadataDataModel(GeoTiffTimeSeriesMetadataModel):
+    """Schema for Sentinel-2 Frequency metadata files."""
+
+    # Inherits all fields from TimeSeriesMetadataModel
+    pass
+
+
+class Sentinel2MonthlyMetadataDataModel(GeoTiffTimeSeriesMetadataModel):
+    """Schema for Sentinel-2 Monthly metadata files."""
+
+    # Inherits all fields from TimeSeriesMetadataModel
+    # Could override image_idx description if needed:
+    image_idx: Series[int] = pa.Field(
+        description="Index of the monthly mosaic on the time axis for the geotiff",
+        nullable=False,
+    )
+
+
 class TrainingDataIndexDataModel(BaseDataModel):
     """Schema for training data index files.
 
@@ -64,64 +108,4 @@ class TrainingDataIndexDataModel(BaseDataModel):
         description="Whether the example_id is available in the Sentinel-2 Monthly dataset",
         nullable=False,
         isin=["y", "n"],
-    )
-
-
-class Sentinel2FrequencyMetadataDataModel(BaseDataModel):
-    """Schema for Sentinel-2 Frequency metadata files.
-
-    This file contains metadata about the Sentinel-2 Frequency dataset, including the example_id,
-    image_idx, start_time, and end_time.
-    """
-
-    example_id: Series[str] = pa.Field(
-        description="Unique identifier for the example, name of the file",
-        nullable=False,
-    )
-
-    image_idx: Series[int] = pa.Field(
-        description="Index of the image on the time axis for the geotiff",
-        nullable=False,
-    )
-
-    start_time: Series[str] = pa.Field(
-        description="Start time of the image in ISO format",
-        nullable=False,
-        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",  # ISO timestamp format
-    )
-
-    end_time: Series[str] = pa.Field(
-        description="End time of the image in ISO format",
-        nullable=False,
-        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",  # ISO timestamp format
-    )
-
-
-class Sentinel2MonthlyMetadataDataModel(BaseDataModel):
-    """Schema for Sentinel-2 Monthly metadata files.
-
-    This file contains metadata about the Sentinel-2 Monthly dataset, including the example_id,
-    image_idx, start_time, and end_time.
-    """
-
-    example_id: Series[str] = pa.Field(
-        description="Unique identifier for the example, name of the file",
-        nullable=False,
-    )
-
-    image_idx: Series[int] = pa.Field(
-        description="Index of the monthly mosaic on the time axis for the geotiff",
-        nullable=False,
-    )
-
-    start_time: Series[str] = pa.Field(
-        description="Start time of the monthly mosaic in ISO format",
-        nullable=False,
-        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",  # ISO timestamp format
-    )
-
-    end_time: Series[str] = pa.Field(
-        description="End time of the monthly mosaic in ISO format",
-        nullable=False,
-        regex=r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}",  # ISO timestamp format
     )

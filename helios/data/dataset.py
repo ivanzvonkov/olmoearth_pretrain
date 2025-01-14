@@ -13,6 +13,8 @@ import xarray as xr
 from einops import rearrange
 from torch.utils.data import Dataset as PyTorchDataset
 
+from helios.data.utils import load_data_index
+
 
 class DatasetOutput(NamedTuple):
     """A named tuple for storing the output of a dataset.
@@ -47,13 +49,6 @@ class DatasetOutput(NamedTuple):
         st_x = np.stack([o.static_x for o in datasetoutputs], axis=0)
         months = np.stack([o.months for o in datasetoutputs], axis=0)
         return cls(s_t_x, sp_x, t_x, st_x, months)
-
-
-def load_data_index(data_index_path: Path) -> pd.DataFrame:
-    """Load the data index from a csv file."""
-    columns = ["path", "start_date", "end_date", "location", "other metadata"]
-    # How do we want to store and load this index? perhaps switch to parquet?
-    return pd.read_csv(data_index_path)
 
 
 def to_cartesian(
@@ -133,19 +128,20 @@ def to_cartesian(
 
 
 # TODO: Adding a Dataset specific fingerprint is probably good for an evolving dataset
+# TODO: We want to make what data sources and examples we use configuration drivend
 class HeliosDataset(PyTorchDataset):
     """Helios dataset."""
 
-    def __init__(self, data_index_path: Path, output_hw: int = 256):
+    def __init__(self, data_index_path: Path | str, output_hw: int = 256):
         self.data_index_path = data_index_path
         self.data_index = load_data_index(data_index_path)
+        print(self.data_index.head())
         self.output_hw = output_hw
-        # TODO: Appropriate Interface for file access
 
     def __len__(self) -> int:
         return len(self.data_index)
 
-    def _tif_to_array(self, tif_path: Path) -> DatasetOutput:
+    def _tif_to_array(self, tif_path: Path | str) -> DatasetOutput:
         """Convert a tif file to an array.
 
         Args:
@@ -159,80 +155,81 @@ class HeliosDataset(PyTorchDataset):
             # all_combined_bands includes all dynamic-in-time bands
             # interleaved for all timesteps
             # followed by the static-in-time bands
+            print(data)
             values = cast(np.ndarray, data.values)
             lon = np.mean(cast(np.ndarray, data.x)).item()
             lat = np.mean(cast(np.ndarray, data.y)).item()
 
-        # this is a bit hackey but is a unique edge case for locations,
-        # which are not part of the exported bands but are instead
-        # computed here
-        static_bands_in_tif = len(EO_STATIC_BANDS) - len(LOCATION_BANDS)
+        # # this is a bit hackey but is a unique edge case for locations,
+        # # which are not part of the exported bands but are instead
+        # # computed here
+        # static_bands_in_tif = len(EO_STATIC_BANDS) - len(LOCATION_BANDS)
 
-        num_timesteps = (
-            values.shape[0] - len(SPACE_BANDS) - static_bands_in_tif
-        ) / len(ALL_DYNAMIC_IN_TIME_BANDS)
-        assert num_timesteps % 1 == 0, f"{tif_path} has incorrect number of channels"
-        dynamic_in_time_x = rearrange(
-            values[: -(len(SPACE_BANDS) + static_bands_in_tif)],
-            "(t c) h w -> h w t c",
-            c=len(ALL_DYNAMIC_IN_TIME_BANDS),
-            t=int(num_timesteps),
-        )
-        dynamic_in_time_x = self._fillna(dynamic_in_time_x, EO_DYNAMIC_IN_TIME_BANDS_NP)
-        space_time_x = dynamic_in_time_x[:, :, :, : -len(TIME_BANDS)]
+        # num_timesteps = (
+        #     values.shape[0] - len(SPACE_BANDS) - static_bands_in_tif
+        # ) / len(ALL_DYNAMIC_IN_TIME_BANDS)
+        # assert num_timesteps % 1 == 0, f"{tif_path} has incorrect number of channels"
+        # dynamic_in_time_x = rearrange(
+        #     values[: -(len(SPACE_BANDS) + static_bands_in_tif)],
+        #     "(t c) h w -> h w t c",
+        #     c=len(ALL_DYNAMIC_IN_TIME_BANDS),
+        #     t=int(num_timesteps),
+        # )
+        # dynamic_in_time_x = self._fillna(dynamic_in_time_x, EO_DYNAMIC_IN_TIME_BANDS_NP)
+        # space_time_x = dynamic_in_time_x[:, :, :, : -len(TIME_BANDS)]
 
-        # calculate indices, which have shape [h, w, t, 1]
-        ndvi = self.calculate_ndi(space_time_x, band_1="B8", band_2="B4")
+        # # calculate indices, which have shape [h, w, t, 1]
+        # ndvi = self.calculate_ndi(space_time_x, band_1="B8", band_2="B4")
 
-        space_time_x = np.concatenate((space_time_x, ndvi), axis=-1)
+        # space_time_x = np.concatenate((space_time_x, ndvi), axis=-1)
 
-        time_x = dynamic_in_time_x[:, :, :, -len(TIME_BANDS) :]
-        time_x = np.nanmean(time_x, axis=(0, 1))
+        # time_x = dynamic_in_time_x[:, :, :, -len(TIME_BANDS) :]
+        # time_x = np.nanmean(time_x, axis=(0, 1))
 
-        space_x = rearrange(
-            values[-(len(SPACE_BANDS) + static_bands_in_tif) : -static_bands_in_tif],
-            "c h w -> h w c",
-        )
-        space_x = self._fillna(space_x, np.array(SPACE_BANDS))
+        # space_x = rearrange(
+        #     values[-(len(SPACE_BANDS) + static_bands_in_tif) : -static_bands_in_tif],
+        #     "c h w -> h w c",
+        # )
+        # space_x = self._fillna(space_x, np.array(SPACE_BANDS))
 
-        static_x = values[-static_bands_in_tif:]
-        # add DW_STATIC and WC_STATIC
-        dw_bands = space_x[
-            :, :, [i for i, v in enumerate(SPACE_BANDS) if v in DW_BANDS]
-        ]
-        wc_bands = space_x[
-            :, :, [i for i, v in enumerate(SPACE_BANDS) if v in WC_BANDS]
-        ]
-        static_x = np.concatenate(
-            [
-                np.nanmean(static_x, axis=(1, 2)),
-                to_cartesian(lat, lon),
-                np.nanmean(dw_bands, axis=(0, 1)),
-                np.nanmean(wc_bands, axis=(0, 1)),
-            ]
-        )
-        static_x = self._fillna(static_x, np.array(STATIC_BANDS))
+        # static_x = values[-static_bands_in_tif:]
+        # # add DW_STATIC and WC_STATIC
+        # dw_bands = space_x[
+        #     :, :, [i for i, v in enumerate(SPACE_BANDS) if v in DW_BANDS]
+        # ]
+        # wc_bands = space_x[
+        #     :, :, [i for i, v in enumerate(SPACE_BANDS) if v in WC_BANDS]
+        # ]
+        # static_x = np.concatenate(
+        #     [
+        #         np.nanmean(static_x, axis=(1, 2)),
+        #         to_cartesian(lat, lon),
+        #         np.nanmean(dw_bands, axis=(0, 1)),
+        #         np.nanmean(wc_bands, axis=(0, 1)),
+        #     ]
+        # )
+        # static_x = self._fillna(static_x, np.array(STATIC_BANDS))
 
-        months = self.month_array_from_file(tif_path, int(num_timesteps))
+        # months = self.month_array_from_file(tif_path, int(num_timesteps))
 
-        try:
-            assert not np.isnan(space_time_x).any(), f"NaNs in s_t_x for {tif_path}"
-            assert not np.isnan(space_x).any(), f"NaNs in sp_x for {tif_path}"
-            assert not np.isnan(time_x).any(), f"NaNs in t_x for {tif_path}"
-            assert not np.isnan(static_x).any(), f"NaNs in st_x for {tif_path}"
-            assert not np.isinf(space_time_x).any(), f"Infs in s_t_x for {tif_path}"
-            assert not np.isinf(space_x).any(), f"Infs in sp_x for {tif_path}"
-            assert not np.isinf(time_x).any(), f"Infs in t_x for {tif_path}"
-            assert not np.isinf(static_x).any(), f"Infs in st_x for {tif_path}"
-            return DatasetOutput(
-                space_time_x.astype(np.half),
-                space_x.astype(np.half),
-                time_x.astype(np.half),
-                static_x.astype(np.half),
-                months,
-            )
-        except AssertionError as e:
-            raise e
+        # try:
+        #     assert not np.isnan(space_time_x).any(), f"NaNs in s_t_x for {tif_path}"
+        #     assert not np.isnan(space_x).any(), f"NaNs in sp_x for {tif_path}"
+        #     assert not np.isnan(time_x).any(), f"NaNs in t_x for {tif_path}"
+        #     assert not np.isnan(static_x).any(), f"NaNs in st_x for {tif_path}"
+        #     assert not np.isinf(space_time_x).any(), f"Infs in s_t_x for {tif_path}"
+        #     assert not np.isinf(space_x).any(), f"Infs in sp_x for {tif_path}"
+        #     assert not np.isinf(time_x).any(), f"Infs in t_x for {tif_path}"
+        #     assert not np.isinf(static_x).any(), f"Infs in st_x for {tif_path}"
+        #     return DatasetOutput(
+        #         space_time_x.astype(np.half),
+        #         space_x.astype(np.half),
+        #         time_x.astype(np.half),
+        #         static_x.astype(np.half),
+        #         months,
+        #     )
+        # except AssertionError as e:
+        #     raise e
 
     def _tif_to_array_with_checks(self, idx):
         tif_path = self.tifs[idx]
@@ -254,3 +251,10 @@ class HeliosDataset(PyTorchDataset):
 
     def __getitem__(self, index: int) -> DatasetOutput:
         return self.data_index.iloc[index]
+
+
+if __name__ == "__main__":
+    data_index_path = "gs://ai2-helios/data/20250113-sample-dataset-helios/index.csv"
+    sample_tif_path = "gs://ai2-helios/data/20250113-sample-dataset-helios/sentinel2_freq/EPSG:32610_10_55243_-418286_2023-12-06T00:00:00+00:00.tif"
+    dataset = HeliosDataset(data_index_path)
+    print(dataset._tif_to_array(sample_tif_path))
