@@ -1,5 +1,6 @@
 """Helios DataLoader."""
 
+import logging
 import math
 from collections.abc import Callable, Iterable, Iterator
 from itertools import islice
@@ -14,6 +15,8 @@ from olmo_core.utils import roundrobin, threaded_generator
 from upath import UPath
 
 from helios.data.dataset import HeliosDataset
+
+logger = logging.getLogger(__name__)
 
 
 def iter_batched_helios(
@@ -193,9 +196,9 @@ class HeliosDataLoader(NumpyDataLoaderBase):
             rng.shuffle(indices)
         # what shape should this be?
         # TODO:Remove tail of data to make it evenly divisible, not sure yet if we need this
-        print(f"indices shape before removing tail {indices.shape}")
+        logger.debug(f"indices shape before removing tail {indices.shape}")
         indices = indices[: self.total_size]
-        print(f"indices shape after removing tail {indices.shape}")
+        logger.debug(f"indices shape after removing tail {indices.shape}")
         return indices
 
     def _get_local_instance_indices(self, indices: np.ndarray) -> Iterable[int]:
@@ -204,27 +207,24 @@ class HeliosDataLoader(NumpyDataLoaderBase):
         # Slice up by batch.
         instances_per_batch = self.global_batch_size
         # shape: (global num batches, global num instances per batch)
-        print(f"indices shape before reshape {indices.shape}")
+        logger.debug(f"indices shape before reshape {indices.shape}")
         indices = indices.reshape(-1, instances_per_batch)
-        print(
+        logger.debug(
             f"indices shape after reshape to (global num batches, global num instances per batch) {indices.shape}"
         )
 
         # Offset by the number of batches already processed.
         if self.batches_processed > 0:
             indices = indices[self.batches_processed :]
-        print(f"indices shape after offset {indices.shape}")
+        logger.debug(f"indices shape after offset {indices.shape}")
 
         # Slice batches by data loader worker rank to avoid duplicates.
         if (worker_info := self.worker_info) is not None:
-            # Note that each data loading worker gathers a whole batch at a time, and the workers
-            # are called round-robin by rank. So to slice these up in a way that preserves order, regardless
-            # of the number of workers, we give worker 0 the first batch, worker 1 the second batch, etc.
             indices = indices[worker_info.id :: worker_info.num_workers]
-            print(f"indices shape after slicing by worker rank {indices.shape}")
+            logger.debug(f"indices shape after slicing by worker rank {indices.shape}")
         # Finally slice batches into micro batches for the local DP rank.
         indices = indices[:, self.dp_rank :: self.dp_world_size].reshape((-1,))
-        print(f"indices shape after slicing by local DP rank {indices.shape}")
+        logger.debug(f"indices shape after slicing by local DP rank {indices.shape}")
         return indices
 
     @property

@@ -1,5 +1,6 @@
 """Collator functions for the dataset."""
 
+import logging
 from collections.abc import Sequence
 from typing import NamedTuple
 
@@ -8,6 +9,8 @@ from torch.nn import functional as F
 
 from helios.data.constants import DATA_SOURCE_TO_VARIATION_TYPE
 from helios.data.masking import apply_random_masking
+
+logger = logging.getLogger(__name__)
 
 
 class CollateFnOutput(NamedTuple):
@@ -39,7 +42,7 @@ def variable_time_collate_fn(
     """Collate function for inputs with variable time data."""
     assert items
     max_len = max(item["num_timesteps"] for item in items)
-    print(f"Max len: {max_len}")
+    logger.debug(f"Max len: {max_len}")
     all_space_time_x: list[torch.Tensor] = []
     all_space_x: list[torch.Tensor] = []
     all_time_x: list[torch.Tensor] = []

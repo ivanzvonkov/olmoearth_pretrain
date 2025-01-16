@@ -1,5 +1,6 @@
 """Dataset module for helios."""
 
+import logging
 from typing import Any, cast
 
 import numpy as np
@@ -11,6 +12,8 @@ from torch.utils.data import Dataset
 from upath import UPath
 
 from helios.data.constants import DATA_SOURCE_TO_VARIATION_TYPE, S2_BANDS
+
+logger = logging.getLogger(__name__)
 
 
 class HeliosDataset(NumpyDatasetBase, Dataset):
@@ -112,7 +115,7 @@ class HeliosDataset(NumpyDatasetBase, Dataset):
             output = self._tif_to_array(tif_path, data_source)
             return output
         except Exception as e:
-            print(f"Replacing tif {tif_path} due to {e}")
+            logger.error(f"Replacing tif {tif_path} due to {e}")
             raise e
 
     def __getitem__(self, index: int) -> dict[str, Any]:

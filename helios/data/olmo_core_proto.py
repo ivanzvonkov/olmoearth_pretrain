@@ -1,15 +1,23 @@
 """Trying to prototype fitting everything into olmo core."""
 
+import logging
+import time
+
 import numpy as np
+from olmo_core.utils import setup_logging
 from upath import UPath
 
+from helios.data.collator import variable_time_collate_fn
 from helios.data.dataloader import HeliosDataLoader
 from helios.data.dataset import HeliosDataset
 from helios.data.index import DatasetIndexParser
 
+logger = logging.getLogger(__name__)
+
+
 ## Config does not yet support our new dataset type so we will construct manually for now
 if __name__ == "__main__":
-    from helios.data.collator import variable_time_collate_fn
+    setup_logging()
 
     index_path = "gs://ai2-helios/data/20250113-sample-dataset-helios/index.csv"
     index_parser = DatasetIndexParser(index_path)
@@ -22,14 +30,7 @@ if __name__ == "__main__":
         work_dir=workdir,
         num_threads=4,
     )
-    import time
 
-    # Things needed?
-    # Global indices is a file of all the indices in the dataset
-    # then the local indices provides a way to get the indices for the current rank
-    # - A way to get the global indices which is an array
-    # - A way to get the local indices
-    # - We want to be able to do muulti threaded and not multithreadd way
     # potentially missing dataset prepare
     for epoch in range(1, 3):
         dataloader.reshuffle(epoch=epoch)
@@ -40,11 +41,11 @@ if __name__ == "__main__":
         for batch in batch_iterator:
             batch_end = time.time()
             if batches_found > 0:
-                print(f"batch time {batch_end - batch_start}")
+                logger.info(f"batch time {batch_end - batch_start}")
             batches_found += 1
             time.sleep(10)
             batch_start = time.time()
-            print("batch found")
+            logger.info("batch found")
         dataloader.reset()
 
     # need to call reset after the epich
