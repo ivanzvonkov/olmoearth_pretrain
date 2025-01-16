@@ -51,12 +51,7 @@ class DatasetIndexParser:
         self.monthly_example_ids = self.get_example_ids_by_frequency_type("monthly")
         self.freq_example_ids = self.get_example_ids_by_frequency_type("freq")
 
-        # figure out which datasources are available for all example_ids
-        # I want a list of data sources for each example_id per frequency type
-        # What we want is a dict per sample mapping the data_source to a path, along with associated metadata
         # SO {paths: {data_source: path}, data_source_metadata: {data_source: metadata}, sample_metadata: {sample_metadata}}
-        # We can then use this to create a dataset
-        # SUper slow implementation for now
         samples = self.get_sample_information_from_example_id_list(
             self.monthly_example_ids, "monthly"
         ) + self.get_sample_information_from_example_id_list(

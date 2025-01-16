@@ -4,6 +4,7 @@ gcsfs
 numpy
 pandas
 pandera
+pytest
 rasterio
 rioxarray
 torch>=2.5
