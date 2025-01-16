@@ -8,27 +8,10 @@ from typing import Literal
 import numpy as np
 from upath import UPath
 
-from helios.data.utils import (load_data_index,
-                               load_sentinel2_frequency_metadata,
-                               load_sentinel2_monthly_metadata)
-
-# Quick and dirty interface for data sources
-ALL_DATA_SOURCES = ["sentinel2"]
-
-DATA_FREQUENCY_TYPES = ["freq", "monthly"]
-
-LOAD_DATA_SOURCE_METADATA_FUNCTIONS = {
-    "sentinel2": {
-        "freq": load_sentinel2_frequency_metadata,
-        "monthly": load_sentinel2_monthly_metadata,
-    },
-}
+from helios.data.constants import ALL_DATA_SOURCES
+from helios.data.utils import LOAD_DATA_SOURCE_METADATA_FUNCTIONS, load_data_index
 
 
-# what should this do
-# Create sample paths from the index for each example_id and each frequency type
-# Gather all the metadata associated with a sample
-# create an index that allows you to access via index for a dict that it goes
 class DatasetIndexParser:
     """Parses the dataset index and provides paths to individual samples along with sample_me."""
 
@@ -176,10 +159,3 @@ class DatasetIndexParser:
     def samples(self) -> list[dict]:
         """Get the samples."""
         return self._samples
-
-
-if __name__ == "__main__":
-    index_path = "gs://ai2-helios/data/20250113-sample-dataset-helios/index.csv"
-    index_parser = DatasetIndexParser(index_path)
-    print(index_parser.samples)
-    print(len(index_parser))

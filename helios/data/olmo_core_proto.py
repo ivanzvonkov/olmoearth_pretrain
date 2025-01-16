@@ -1,13 +1,13 @@
-"""Trying to prototype fitting everything into olmo core"""
+"""Trying to prototype fitting everything into olmo core."""
+# ruff: noqa
+# mypy: ignore-errors
 
 import math
-from copy import deepcopy
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from itertools import islice
-from typing import (Any, Callable, Iterable, Iterator, Literal, NamedTuple,
-                    Optional, Sequence, cast)
+from typing import Any, cast
 
 import numpy as np
-import olmo_core
 import rioxarray
 import torch
 import xarray as xr
@@ -162,7 +162,6 @@ def iter_batched_helios(
     instances = 0
     # shape: Optional[tuple[int, ...]] = None
     for x in iterable:
-
         if instances > local_batch_size:
             yield tuple(batch)
             batch.clear()
@@ -273,18 +272,17 @@ class HeliosDataLoader(NumpyDataLoaderBase):
         *,
         global_batch_size: int,
         collator: Callable[[Sequence[dict]], dict],
-        work_dir: Optional[UPath] = None,
+        work_dir: UPath | None = None,
         seed: int = 0,
         dp_world_size: int = 1,
         dp_rank: int = 0,
         fs_local_rank: int = 0,
-        num_threads: Optional[int] = None,
+        num_threads: int | None = None,
         num_workers: int = 0,
-        prefetch_factor: Optional[int] = None,
+        prefetch_factor: int | None = None,
         target_device_type: str = "cpu",
     ) -> "NumpyDataLoaderBase":
-        """
-        Construct the corresponding :class:`NumpyDataLoaderBase` instance for the given :class:`NumpyDatasetBase`.
+        """Construct the corresponding :class:`NumpyDataLoaderBase` instance for the given :class:`NumpyDatasetBase`.
 
         :param dataset: The dataset to wrap.
         """
@@ -328,7 +326,7 @@ class HeliosDataLoader(NumpyDataLoaderBase):
         This an array of all the training indices that wil be used globally in the distributed
         setup.
         """
-        rng: Optional[np.random.Generator] = None
+        rng: np.random.Generator | None = None
         if self.shuffle:
             # Deterministically shuffle based on epoch and seed
             rng = get_rng(self.seed + self.epoch)
@@ -374,7 +372,6 @@ class HeliosDataLoader(NumpyDataLoaderBase):
     @property
     def total_size(self) -> int:
         """Total size."""
-
         return self.total_batches * self.global_batch_size
 
     @property

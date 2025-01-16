@@ -66,4 +66,11 @@ def load_sentinel2_frequency_metadata(
     )
 
 
+LOAD_DATA_SOURCE_METADATA_FUNCTIONS = {
+    "sentinel2": {
+        "freq": load_sentinel2_frequency_metadata,
+        "monthly": load_sentinel2_monthly_metadata,
+    },
+}
+
 # TODO: I just want a factory function that returns the metadata for a given data source and validates it

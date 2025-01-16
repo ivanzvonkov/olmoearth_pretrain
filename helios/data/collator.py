@@ -5,8 +5,11 @@ from typing import NamedTuple
 import torch
 from torch.nn import functional as F
 
-from helios.data.dataset import (DATA_SOURCE_TO_VARIATION_TYPE,
-                                 ArrayWithMetadata, DatasetOutput)
+from helios.data.dataset import (
+    DATA_SOURCE_TO_VARIATION_TYPE,
+    ArrayWithMetadata,
+    DatasetOutput,
+)
 from helios.data.masking import apply_random_masking
 
 
@@ -208,6 +211,7 @@ def olmo_compatible_variable_time_collate_fn(
     )
 
     return collated_output
+
 
 if __name__ == "__main__":
     from torch.utils.data import DataLoader
