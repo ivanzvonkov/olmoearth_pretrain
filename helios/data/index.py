@@ -8,11 +8,9 @@ from typing import Literal
 import numpy as np
 from upath import UPath
 
-from helios.data.utils import (
-    load_data_index,
-    load_sentinel2_frequency_metadata,
-    load_sentinel2_monthly_metadata,
-)
+from helios.data.utils import (load_data_index,
+                               load_sentinel2_frequency_metadata,
+                               load_sentinel2_monthly_metadata)
 
 # Quick and dirty interface for data sources
 ALL_DATA_SOURCES = ["sentinel2"]
@@ -93,6 +91,7 @@ class DatasetIndexParser:
         data_source_metadata = {}
         data_source_paths = {}
         sample_metadata = self.example_id_to_sample_metadata_dict[example_id]
+        sample_metadata["example_id"] = example_id
         example_row = self.data_index_df[
             self.data_index_df["example_id"] == example_id
         ].iloc[0]
@@ -167,9 +166,6 @@ class DatasetIndexParser:
             image_idx = record.pop("image_idx")
             record.pop("example_id")
             meta_dict[image_idx] = record
-        print(
-            f"Metadata for {example_id} from {data_source} {frequency_type}: {meta_dict}"
-        )
         return meta_dict
 
     def __len__(self) -> int:

@@ -9,11 +9,9 @@ from einops import rearrange
 from torch.utils.data import Dataset as PyTorchDataset
 from upath import UPath
 
-from helios.data.utils import (
-    load_data_index,
-    load_sentinel2_frequency_metadata,
-    load_sentinel2_monthly_metadata,
-)
+from helios.data.utils import (load_data_index,
+                               load_sentinel2_frequency_metadata,
+                               load_sentinel2_monthly_metadata)
 
 # TODO: Move these to a .sources folder specific to each data source
 # WARNING: TEMPORARY BANDS: We forgot to pull B9, B10 from the export
@@ -93,6 +91,9 @@ class HeliosDataset(PyTorchDataset):
 
     def __init__(self, data_index_path: UPath | str):
         """Initialize the dataset."""
+
+        # TODO: INstead I want to use the index parser so the dataset format is abstracted from this class
+
         self.data_sources = ALL_DATA_SOURCES
         self.data_index_path = UPath(data_index_path)
         self.root_dir = self.data_index_path.parent
