@@ -52,6 +52,12 @@ repos:
     hooks:
       - id: bandit
         exclude: ^tests/
+        args:
+          [
+            # Skip error about using pseudo-random number generator, since we are not
+            # using it for a cryptographic purpose.
+            --skip=B311,
+          ]
   - repo: local
     hooks:
       - id: interrogate
@@ -84,11 +90,3 @@ repos:
         types: ["dockerfile"]
         entry: ghcr.io/hadolint/hadolint hadolint
         args: ["--ignore", "DL3008"]
-  - repo: local
-    hooks:
-      - id: convert-list
-        name: Convert List to list (note case)
-        entry: python3 convert_List_to_list.py
-        language: system
-        types: [python] # Ensures it only runs on Python files
-        files: \.py$ # Ensures it only runs on files with a .py extension
