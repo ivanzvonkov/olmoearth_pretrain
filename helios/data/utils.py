@@ -1,7 +1,8 @@
 """Utility functions for the data module."""
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 import pandas as pd
 import pandera as pa
@@ -14,6 +15,7 @@ from helios.data.schemas import (
 )
 
 T = TypeVar("T")
+FrequencyType = Literal["monthly", "freq"]
 
 
 def load_metadata(path: Path | str, schema: type[T], **kwargs: Any) -> DataFrame[T]:
@@ -46,6 +48,38 @@ def load_data_index(
     return load_metadata(data_index_path, TrainingDataIndexDataModel, **kwargs)
 
 
+class DataSourceMetadataRegistry:
+    """Registry for data source metadata loading functions."""
+
+    _registry: dict[str, dict[FrequencyType, Callable[..., DataFrame[T]]]] = {}
+
+    @classmethod
+    def register(cls, data_source: str, frequency_type: FrequencyType) -> Callable:
+        """Register a metadata loading function for a data source and frequency type."""
+
+        def decorator(func: Callable[..., DataFrame[T]]) -> Callable[..., DataFrame[T]]:
+            if data_source not in cls._registry:
+                cls._registry[data_source] = {}
+            cls._registry[data_source][frequency_type] = func
+            return func
+
+        return decorator
+
+    @classmethod
+    def load_and_validate(
+        cls, data_source: str, frequency_type: FrequencyType, **kwargs: Any
+    ) -> DataFrame[T]:
+        """Load and validate metadata for a given data source and frequency type."""
+        if data_source not in cls._registry:
+            raise ValueError(f"Unknown data source: {data_source}")
+        if frequency_type not in cls._registry[data_source]:
+            raise ValueError(
+                f"Unknown frequency type {frequency_type} for data source {data_source}"
+            )
+        return cls._registry[data_source][frequency_type](**kwargs)
+
+
+@DataSourceMetadataRegistry.register("sentinel2", "monthly")
 @pa.check_types
 def load_sentinel2_monthly_metadata(
     sentinel2_monthly_metadata_path: Path | str, **kwargs: Any
@@ -56,6 +90,7 @@ def load_sentinel2_monthly_metadata(
     )
 
 
+@DataSourceMetadataRegistry.register("sentinel2", "freq")
 @pa.check_types
 def load_sentinel2_frequency_metadata(
     sentinel2_frequency_metadata_path: Path | str, **kwargs: Any
@@ -64,13 +99,3 @@ def load_sentinel2_frequency_metadata(
     return load_metadata(
         sentinel2_frequency_metadata_path, Sentinel2FrequencyMetadataDataModel, **kwargs
     )
-
-
-LOAD_DATA_SOURCE_METADATA_FUNCTIONS = {
-    "sentinel2": {
-        "freq": load_sentinel2_frequency_metadata,
-        "monthly": load_sentinel2_monthly_metadata,
-    },
-}
-
-# TODO: I just want a factory function that returns the metadata for a given data source and validates it

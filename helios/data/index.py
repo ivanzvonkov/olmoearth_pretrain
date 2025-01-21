@@ -3,15 +3,11 @@
 TODO: Add the assumed dataset organizing format and rules
 """
 
-from typing import Literal
-
 import numpy as np
 from upath import UPath
 
 from helios.data.constants import ALL_DATA_SOURCES
-from helios.data.utils import LOAD_DATA_SOURCE_METADATA_FUNCTIONS, load_data_index
-
-FrequencyType = Literal["monthly", "freq"]
+from helios.data.utils import DataSourceMetadataRegistry, FrequencyType, load_data_index
 
 
 class DatasetIndexParser:
@@ -32,16 +28,10 @@ class DatasetIndexParser:
         self.monthly_metadata_df_dict = {}
         for data_source in self.data_sources:
             self.freq_metadata_df_dict[data_source] = (
-                LOAD_DATA_SOURCE_METADATA_FUNCTIONS[
-                    data_source
-                ]["freq"](self.get_path_to_data_source_metadata(data_source, "freq"))
+                DataSourceMetadataRegistry.load_and_validate(data_source, "freq")
             )
             self.monthly_metadata_df_dict[data_source] = (
-                LOAD_DATA_SOURCE_METADATA_FUNCTIONS[
-                    data_source
-                ][
-                    "monthly"
-                ](self.get_path_to_data_source_metadata(data_source, "monthly"))
+                DataSourceMetadataRegistry.load_and_validate(data_source, "monthly")
             )
 
         # Intersect available data sources with index column names
