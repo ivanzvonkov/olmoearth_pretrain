@@ -9,7 +9,11 @@ import numpy as np
 from upath import UPath
 
 from helios.data.constants import ALL_DATA_SOURCES
-from helios.data.utils import DataSourceMetadataRegistry, FrequencyType, load_data_index
+from helios.helios.dataset.utils import (
+    DataSourceMetadataRegistry,
+    FrequencyType,
+    load_data_index,
+)
 
 
 class SampleInformation(NamedTuple):

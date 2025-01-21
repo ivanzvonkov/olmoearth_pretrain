@@ -61,6 +61,7 @@ def create_token_mask(
     )
     batch_flat_tokens = repeat(flat_tokens, "t -> b t", b=batch_size)
     # hopefully this will allow for reproducibility, since random is seeded
+    # TODO: We may want to creat this generator once and reuse globally
     rng = np.random.default_rng(random.randint(0, 100))
     batch_flat_tokens = rng.permuted(batch_flat_tokens, axis=1)
     return batch_flat_tokens

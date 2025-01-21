@@ -8,7 +8,7 @@ import pandas as pd
 import pandera as pa
 from pandera.typing import DataFrame
 
-from helios.data.schemas import (
+from helios.helios.dataset.schemas import (
     Sentinel2FrequencyMetadataDataModel,
     Sentinel2MonthlyMetadataDataModel,
     TrainingDataIndexDataModel,

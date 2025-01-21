@@ -10,7 +10,7 @@ from upath import UPath
 from helios.data.collator import variable_time_collate_fn
 from helios.data.dataloader import HeliosDataLoader
 from helios.data.dataset import HeliosDataset
-from helios.data.index import DatasetIndexParser
+from helios.helios.dataset.index import DatasetIndexParser
 
 logger = logging.getLogger(__name__)
 
