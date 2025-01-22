@@ -78,11 +78,11 @@ class Sentinel2Reader(TiffReader):
         )
         num_timesteps = int(num_timesteps)
 
-        space_time_x = rearrange(
+        data_array = rearrange(
             values, "(t c) h w -> h w t c", c=len(S2_BANDS), t=num_timesteps
         )
 
-        return space_time_x, num_timesteps
+        return data_array, num_timesteps
 
 
 class WorldCoverReader(TiffReader):
