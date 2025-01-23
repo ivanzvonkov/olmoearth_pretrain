@@ -149,34 +149,3 @@ class NAIPReader(TiffReader):
             raise ValueError(f"NAIP data must have 1 timestep, got {num_timesteps}")
 
         return values
-
-
-if __name__ == "__main__":
-    # all these except the 1 MB s2 file are very small
-    test_osm_file = UPath(
-        "gs://ai2-helios/data/20250115-sample-dataset-helios/openstreetmap/EPSG:32610_10_52606_-503872_2018-09-20T00:00:00+00:00.geojson"
-    )
-    test_sentinel2_file = UPath(
-        "gs://ai2-helios/data/20250115-sample-dataset-helios/sentinel2_freq/EPSG:32648_1_494421_-1282451_2016-12-09T00:00:00+00:00.tif"
-    )
-    test_worldcover_file = UPath(
-        "gs://ai2-helios/data/20250115-sample-dataset-helios/worldcover/EPSG:32610_10_54981_-417951_2020-11-15T00:00:00+00:00.tif"
-    )
-    test_naip_file = UPath(
-        "gs://ai2-helios/data/20250115-sample-dataset-helios/naip/EPSG:32610_1_423334_-5041313_2020-07-19T00:00:00+00:00.tif"
-    )
-
-    # Load and print info for each data source
-    # s2_data, s2_timesteps = Sentinel2Reader.load(test_sentinel2_file)
-    # print(f"Sentinel2 data shape: {s2_data.shape}, timesteps: {s2_timesteps}")
-
-    # wc_data, wc_timesteps = WorldCoverReader.load(test_worldcover_file)
-    # print(f"WorldCover data shape: {wc_data.shape}, timesteps: {wc_timesteps}")
-
-    osm_data = OpenStreetMapReader.load(test_osm_file)
-    print(f"OpenStreetMap data shape: {osm_data.keys()} {len(osm_data['features'])}")
-    print(osm_data["type"])
-    print(osm_data["crs"])
-
-    # naip_data, naip_timesteps = NAIPReader.load(test_naip_file)
-    # print(f"NAIP data shape: {naip_data.shape}, timesteps: {naip_timesteps}")
