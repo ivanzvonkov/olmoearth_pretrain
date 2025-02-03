@@ -101,7 +101,7 @@ if __name__ == "__main__":
             filter_samples_with_missing_inputs=True,
             dtype=np.dtype("float32"),
         ),
-        global_batch_size=8,
+        global_batch_size=GLOBAL_BATCH_SIZE,
         dp_world_size=get_world_size(dp_process_group),
         dp_rank=get_rank(dp_process_group),
         fs_local_rank=get_fs_local_rank(),
