@@ -29,7 +29,7 @@ class TokensAndMasks(NamedTuple):
         return self.s2.device
 
     @property
-    def data_fields(self):
+    def data_fields(self) -> list[str]:
         """Return all data fields."""
         return [x for x in self._fields if not x.endswith("mask")]
 

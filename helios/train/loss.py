@@ -66,7 +66,7 @@ class PatchDiscriminationLoss(Loss):
             return x
 
     @staticmethod
-    def _expand_and_reciprocate(t):
+    def _expand_and_reciprocate(t: Tensor) -> Tensor:
         """As described in the name.
 
         >>> _expand_and_reciprocate(torch.tensor([1, 2, 3]))
