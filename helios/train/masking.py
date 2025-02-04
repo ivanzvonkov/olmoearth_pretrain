@@ -20,9 +20,9 @@ class MaskValue(Enum):
     what they represent.
     """
 
-    ONLINE_ENCODER: 0
-    TARGET_ENCODER_ONLY: 1
-    DECODER_ONLY: 2
+    ONLINE_ENCODER = 0
+    TARGET_ENCODER_ONLY = 1
+    DECODER_ONLY = 2
 
 
 # SHould be return type of masking strategy

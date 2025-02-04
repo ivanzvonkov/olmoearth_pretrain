@@ -23,4 +23,7 @@ def test_patch_disc_loss():
         latlon_mask=torch.zeros((b, 1)),
     )
     loss = PatchDiscriminationLoss()
-    _ = loss.compute(preds, targets)
+    loss_value = loss.compute(preds, targets)
+    # not very good! since they are all the same
+    # predictions and values
+    assert loss_value > 1

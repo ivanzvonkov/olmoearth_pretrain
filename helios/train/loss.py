@@ -102,10 +102,8 @@ class PatchDiscriminationLoss(Loss):
         all_targets = torch.cat(
             [self._flatten(getattr(targets, d)) for d in predictions.data_fields], dim=1
         )
-
-        pred = all_preds[all_masks == MaskValue.DECODER_ONLY].unsqueeze(dim=0)
-        target = all_targets[all_masks == MaskValue.DECODER_ONLY].unsqueeze(dim=0)
-
+        pred = all_preds[all_masks == MaskValue.DECODER_ONLY.value].unsqueeze(dim=0)
+        target = all_targets[all_masks == MaskValue.DECODER_ONLY.value].unsqueeze(dim=0)
         bs, nt, _ = pred.shape
 
         if self.pred2unit:
