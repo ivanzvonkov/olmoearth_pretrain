@@ -15,7 +15,7 @@ def geobench_dir() -> Path:
     return Path("tests/fixtures/sample_geobench")
 
 
-def test_geobench_dataset(geobench_dir):
+def test_geobench_dataset(geobench_dir: Path):
     """Test forward pass from GeoBench data."""
     d = DataLoader(
         GeobenchDataset(
