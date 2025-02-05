@@ -1,6 +1,7 @@
 """Model code for the Helios model."""
 
-from typing import NamedTuple
+from collections import OrderedDict
+from typing import NamedTuple, Optional
 
 import torch
 import torch.nn.functional as F
@@ -9,13 +10,11 @@ from torch import Tensor, nn
 
 from helios.constants import BASE_GSD
 from helios.nn.attention import Block
-from helios.nn.encodings import (
-    get_1d_sincos_pos_encoding,
-    get_2d_sincos_pos_encoding_with_resolution,
-    get_month_encoding_table,
-)
+from helios.nn.encodings import (get_1d_sincos_pos_encoding,
+                                 get_2d_sincos_pos_encoding_with_resolution,
+                                 get_month_encoding_table)
 from helios.nn.flexi_patch_embed import FlexiPatchEmbed
-from helios.train.masking import MaskedHeliosSample
+from helios.train.masking import MaskedHeliosSample, MaskValue
 
 
 # THis  should be in a utility file
@@ -41,13 +40,20 @@ class TokensAndMasks(NamedTuple):
 
     s2: Tensor  # (B, C_G, T, P_H, P_W)
     s2_mask: Tensor
-    latlon: Tensor
-    latlon_mask: Tensor
+    # Not sure how these fit in yet will be needed when there is a missing timestamp missing timestamp and latlon are the same thing
+    latlon: Tensor | None = None
+    latlon_mask: Tensor | None = None
 
     @property
     def device(self) -> torch.device:
         """Get the device of the tokens and masks."""
         return self.s2.device
+
+    # TODO: It seems like we want a lot of our named tuples to have this functionality so we should probably create a utility base class for the named tuples and double subclass
+    @classmethod
+    def get_masked_modality_name(cls, modality: str) -> str:
+        """Get the masked modality name."""
+        return f"{modality}_mask"
 
 
 class FlexiHeliosPatchEmbeddings(nn.Module):
@@ -79,10 +85,6 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
                     for channel_group, channel_band_idxs in channel_groups_dict.items()
                 }
             )
-
-    def get_masked_modality_name(self, modality: str) -> str:
-        """Get the masked modality name."""
-        return MaskedHeliosSample.get_masked_modality_name(modality)
 
     @staticmethod
     def is_any_data_seen_by_encoder(modality_mask: Tensor) -> bool:
@@ -117,7 +119,7 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
             modality,
             channel_groups_dict,
         ) in self.modalities_to_channel_groups_dict.items():
-            masked_modality_name = self.get_masked_modality_name(modality)
+            masked_modality_name = input_data.get_masked_modality_name(modality)
             modality_mask = getattr(input_data, masked_modality_name)
             # patchify masked data
             # TODO: Factor this out into a more readable function
@@ -283,22 +285,15 @@ class FlexiHeliosCompositeEncodings(nn.Module):
                 encoding_dim=self.embedding_dim_per_embedding_type,
                 device=current_device,
             )
-            print(f"spatial_embed pre rearrange: {spatial_embed.shape}")
             spatial_embed = rearrange(
                 spatial_embed,
                 "b (h w) d -> b h w d",
                 h=h,
                 w=w,
             )
-            print(f"spatial_embed post rearrange: {spatial_embed.shape}")
             spatial_embed = repeat(
                 spatial_embed, "b h w  d -> b h w t c_g d", c_g=c_g, t=t
             )
-            print(f"spatial_embed: {spatial_embed.shape}")
-            print(f"modality_channel_embed: {modality_channel_embed.shape}")
-            print(f"modality_pos_embed: {modality_pos_embed.shape}")
-            print(f"modality_month_embed: {modality_month_embed.shape}")
-            print(f"modality_tokens: {modality_tokens.shape}")
             modality_embed = torch.cat(
                 [
                     modality_channel_embed,
@@ -328,27 +323,27 @@ class Encoder(nn.Module):
         mlp_ratio: float,
         depth: int,
         drop_path: float,
-        modalities_to_bands_dict: dict[str, list[int]],
+        modalities_to_channel_groups_dict: dict[str, dict[str, list[int]]],
         max_sequence_length: int,
         base_patch_size: int,
         use_channel_embs: bool = True,
     ):
         super().__init__()
         self.embedding_size = embedding_size
-        self.modalities_to_bands_dict = modalities_to_bands_dict
+        self.modalities_to_channel_groups_dict = modalities_to_channel_groups_dict
         self.max_sequence_length = max_sequence_length
         self.base_patch_size = base_patch_size
         self.use_channel_embs = use_channel_embs
 
         self.composite_encodings = FlexiHeliosCompositeEncodings(
             embedding_size,
-            modalities_to_bands_dict,
+            modalities_to_channel_groups_dict,
             max_sequence_length,
             base_patch_size,
             use_channel_embs,
         )
         self.patch_embeddings = FlexiHeliosPatchEmbeddings(
-            modalities_to_bands_dict,
+            modalities_to_channel_groups_dict,
             max_patch_size,
             embedding_size,
         )
@@ -369,46 +364,314 @@ class Encoder(nn.Module):
             ]
         )
 
-    # apply linear input projection
-    # apply Encodings
-    # Apply attention
-    # apply Norm
+    # TODO: Should this work for TokensOnly too?
+    def collapse_and_combine_hwtc(self, x: TokensAndMasks) -> tuple[Tensor, Tensor]:
+        """Collapse the tokens and masks, respectively, into two tensors"""
+        tokens, masks = [], []
+        for modality in self.modalities_to_channel_groups_dict.keys():
+            masked_modality_name = x.get_masked_modality_name(modality)
+            x_modality = getattr(x, modality)
+            x_modality_mask = getattr(x, masked_modality_name)
+            if len(x_modality.shape) == 6:
+                x_modality = rearrange(x_modality, "b h w t c_g d -> b (h w t c_g) d")
+                x_modality_mask = rearrange(
+                    x_modality_mask, "b h w t c_g -> b (h w t c_g)"
+                )
+            elif len(x_modality.shape) == 5:
+                x_modality = rearrange(x_modality, "b h w t c_g d -> b (h w t c_g) d")
+                x_modality_mask = rearrange(
+                    x_modality_mask, "b h w t c_g -> b (h w t c_g)"
+                )
+            else:
+                raise ValueError(
+                    f"Unexpected shape for modality {modality}: {x_modality.shape}"
+                )
+            tokens.append(x_modality)
+            masks.append(x_modality_mask)
+        tokens = torch.cat(tokens, dim=1)
+        masks = torch.cat(masks, dim=1)
+        return tokens, masks
+
+    @staticmethod
+    def remove_masked_tokens(x: Tensor, mask: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+        """Remove masked tokens from the tokens and masks.
+
+        Implementation from https://stackoverflow.com/a/68621610/2332296
+
+        Args:
+            x: Tokens to remove masked tokens from
+            mask: Mask to remove masked tokens from
+
+        Returns:
+            tokens: Tokens with masked tokens removed
+            indices: Original indices of the masked tokens
+            updated_mask: Mask with masked tokens removed
+        """
+        org_mask_dtype = mask.dtype
+        mask = mask.bool()
+        sorted_mask, indices = torch.sort(
+            (~mask).int(), dim=1, descending=True, stable=True
+        )
+        x = x.gather(1, indices[:, :, None].expand_as(x))
+        # set masked values to 0 (not really necessary since we'll ignore them anyway)
+        x = x * sorted_mask.unsqueeze(-1)
+
+        # cut off to the length of the longest sequence
+        max_length = sorted_mask.sum(-1).max()
+        x = x[:, :max_length]
+        updated_mask = 1 - sorted_mask[:, :max_length]
+
+        return x, indices, updated_mask.to(dtype=org_mask_dtype)
+
+    def create_token_exit_ids(
+        self, x: TokensOnly, token_exit_cfg: dict[str, int]
+    ) -> TokensOnly:
+        """Create the token exit ids for # of layers of attention for each band group"""
+
+        exit_ids_per_modality_dict = {}
+        for (
+            modality,
+            band_groups_dict,
+        ) in self.modalities_to_channel_groups_dict.items():
+            exit_seq_modality = torch.zeros_like(getattr(x, modality))
+            for idx, (band_group, _) in enumerate(band_groups_dict.items()):
+                num_exit_layers = token_exit_cfg[band_group]
+                exit_seq_modality[:, :, :, idx, :] = num_exit_layers
+            exit_ids_per_modality_dict[modality] = exit_seq_modality
+        return TokensOnly(**exit_ids_per_modality_dict)
+
+    @staticmethod
+    def should_exit(i_blk: int, exit_after_n_layers: Optional[int]) -> bool:
+        """Determine if the current block should exit the attention layers"""
+        if exit_after_n_layers is None:
+            return False
+        return i_blk >= exit_after_n_layers
+
+    @staticmethod
+    def add_removed_tokens(
+        x: Tensor, indices: Tensor, mask: Tensor
+    ) -> tuple[Tensor, Tensor]:
+        """Add removed tokens to the tokens and masks.
+
+        Args:
+            x: Tokens to add removed tokens to
+            indices: Original indices of the masked tokens
+            mask: Mask to add removed tokens to
+
+        Returns:
+            tokens: Tokens with removed tokens added
+            mask: Mask with removed tokens added
+        """
+        masked_tokens = repeat(
+            torch.zeros_like(x[0, 0, :]), "d -> b t d", b=x.shape[0], t=indices.shape[1]
+        )
+        full_mask = torch.cat(
+            (
+                mask,
+                torch.ones(
+                    (x.shape[0], indices.shape[1] - x.shape[1]),
+                    device=x.device,
+                    dtype=mask.dtype,
+                ),
+            ),
+            dim=-1,
+        )
+        # can't set value on leaf variable
+        out = masked_tokens.clone()
+        # put tokens in full masked tensor (at the first N positions in every row)
+        out[~full_mask.bool()] = x[~mask.bool()]
+        # then move them to their original positions
+        out = out.scatter(1, indices[:, :, None].expand_as(out), out)
+        full_mask = full_mask.scatter(1, indices.expand_as(full_mask), full_mask)
+        return out, full_mask
+
+    # All the dicts need to be ordered so that we can recover
+    @staticmethod
+    def split_and_expand_per_modality(
+        x: Tensor, modalities_to_dims_dict: OrderedDict[str, tuple]
+    ) -> TokensOnly:
+        """Split and expand the tokens per modality
+
+        Args:
+            x: Tokens to split and expand
+            modalities_to_dims_dict: Dictionary mapping modalities to their dimensions
+        Returns:
+            tokens: Tokens split per modality and expanded to original hwtc shape
+        """
+        tokens_only_dict = {}
+        tokens_reshaped = 0
+        for modality, dims in modalities_to_dims_dict.items():
+            if len(dims) == 6:
+                _, h, w, t, c_g, _ = dims
+                num_tokens_for_modality = h * w * t * c_g
+                x_modality = rearrange(
+                    x[:, tokens_reshaped : tokens_reshaped + num_tokens_for_modality],
+                    "b (h w t c_g) d -> b h w t c_g d",
+                    h=h,
+                    w=w,
+                    t=t,
+                    c_g=c_g,
+                )
+            else:
+                raise NotImplementedError(
+                    f"Unexpected dimensions for modality {modality}: {dims}"
+                )
+            tokens_reshaped += num_tokens_for_modality
+            tokens_only_dict[modality] = x_modality
+        return TokensOnly(**tokens_only_dict)
+
     def apply_attn(
-        self, x: TokensAndMasks, timestamps: Tensor, patch_size: int, input_res: int
+        self,
+        x: TokensAndMasks,
+        timestamps: Tensor,
+        patch_size: int,
+        input_res: int,
+        token_exit_cfg: Optional[dict[str, int]] = None,
+        exit_after_n_layers: Optional[int] = None,
     ) -> TokensAndMasks:
         """Apply the attention to the tokens and masks."""
+        # TODO: this part should be cleaner many unneded packaging and unpackaging of data
         tokens_only_dict = {}
-        for modalities in self.modalities_to_bands_dict.keys():
-            x_modality = getattr(x, modalities)
-            x_modality = self.blocks[0](x_modality, x_modality, x_modality)
-            tokens_only_dict[modalities] = x_modality
+        original_masks_dict = {}
+        modalities_to_dims_dict = OrderedDict()
+        # TODO: add a class method for the named tuple here
+        for modality in self.modalities_to_channel_groups_dict.keys():
+            x_modality = getattr(x, modality)
+            tokens_only_dict[modality] = x_modality
+            modalities_to_dims_dict[modality] = x_modality.shape
+            masked_modality_name = x.get_masked_modality_name(modality)
+            original_masks_dict[masked_modality_name] = getattr(x, masked_modality_name)
         tokens_only = TokensOnly(**tokens_only_dict)
-        # We will need input resolution and patch size at this point
+
+        # TODO: wrap all this complicated exit token stuff into a seperate method
+        if token_exit_cfg:
+            exit_ids_per_modality = self.create_token_exit_ids(
+                tokens_only, token_exit_cfg
+            )
+            exited_tokens_and_masks = x._asdict().update(
+                exit_ids_per_modality._asdict()
+            )
+            # Exit ids seqs tells us which layer to exit each token
+            exit_ids_seq, _ = self.collapse_and_combine_hwtc(exit_ids_per_modality)
+            exited_tokens_and_masks = TokensAndMasks(**exited_tokens_and_masks)
+            # The exit tokens are the tensor that store tokens that exit early from the encoder
+            exited_tokens, _ = self.collapse_and_combine_hwtc(exited_tokens_and_masks)
+        else:
+            exit_ids_seq = None
+            exited_tokens = None
+
         tokens_only = self.composite_encodings.forward(
             tokens_only,
             timestamps,
             patch_size,
             input_res,
         )
+        # Prepare data for collapsing and combining
+        tokens_dict = tokens_only._asdict()
+        tokens_and_masks_dict = x._asdict()
+        tokens_and_masks_dict.update(tokens_dict)
+        tokens_and_masks = TokensAndMasks(**tokens_and_masks_dict)
+        x, mask = self.collapse_and_combine_hwtc(tokens_and_masks)
 
-        # Step to  do the collapsing and combining of the tokens so that we get all the non masked tokens left only
+        # we only care about the values >= 1 for this mask, since 2 just tells the decoder
+        # to decode those tokens. From the perspective of the encoder, 1 and 2 are equivalent
+        # since they both represent masked values
+        new_mask = mask >= MaskValue.TARGET_ENCODER_ONLY.value
+        x, indices, new_mask = self.remove_masked_tokens(x, new_mask)
+        if exit_ids_seq is not None:
+            exit_ids_seq, _, _ = self.remove_masked_tokens(exit_ids_seq, new_mask)
+            # still linear projections
+            exited_tokens, _, _ = self.remove_masked_tokens(exited_tokens, new_mask)
 
-        # actually do the attention
+        # Apply attn with varying encoder depths
+        for i_blk, blk in enumerate(self.blocks):
+            if self.should_exit(i_blk, exit_after_n_layers):
+                # if exit_after is N, then we exit after the Nth layer
+                # if exit_after is 0, then all layers are skipped
+                break
 
-        # TODO: Add exit token support and configuration for the exit token
-        return tokens_only
+            # skip the 0th block since this is just the linear
+            # projection
+            if (exit_ids_seq is not None) and (i_blk > 0):
+                assert exited_tokens is not None
+                # If a token should exit, then we update the exit token with the current token at the same position
+                exited_tokens = torch.where(
+                    condition=(exit_ids_seq == i_blk),
+                    input=x.detach(),
+                    other=exited_tokens.detach(),
+                )
+            # we take the inverse of the mask because a value
+            # of True indicates the value *should* take part in
+            # attention
+            # WARNING: THIS MAY CHANGE DEPENDING ON THE ATTENTION IMPLEMENTATION
+            x = blk(x=x, y=None, attn_mask=~new_mask.bool())
 
-    def forward(self, x: MaskedHeliosSample, patch_size: int) -> TokensAndMasks:
+        if exit_ids_seq is not None:
+            assert exited_tokens is not None
+            # full depth
+            # IMPORTANT: write this to x
+            x = torch.where(
+                condition=(exit_ids_seq == (i_blk + 1)),  # 2 for full depth
+                input=x.detach(),
+                other=exited_tokens.detach(),
+            )
+
+        # we don't care about the mask returned by add_removed_tokens, since we will
+        # just use the original, unclipped mask here
+        x, _ = self.add_removed_tokens(x, indices, new_mask)
+        tokens_only = self.split_and_expand_per_modality(x, modalities_to_dims_dict)
+        # I want to split and expand back all the original data
+        tokens_only_dict = tokens_only._asdict()
+        print(f"tokens_only_dict keys: {tokens_only_dict.keys()}")
+        print(f"original_masks_dict keys: {original_masks_dict.keys()}")
+        tokens_and_masks_dict = {}
+        tokens_and_masks_dict.update(original_masks_dict)  # Add masks first
+        tokens_and_masks_dict.update(tokens_only_dict)  # Add tokens second
+        return TokensAndMasks(**tokens_and_masks_dict)
+
+    def forward(
+        self,
+        x: MaskedHeliosSample,
+        patch_size: int,
+        input_res: Optional[int] = BASE_GSD,
+        exit_after: Optional[int] = None,
+        token_exit_cfg: Optional[dict] = None,
+    ) -> TokensAndMasks:
         """Process masked input samples into token representations.
 
         Args:
             x: Masked input sample containing the data to be encoded
             patch_size: Size of patches to divide the input into
+            input_res: Resolution of the input data
+            exit_after: Layer to exit after
+            token_exit_cfg: Configuration for token exit
 
         Returns:
             TokensAndMasks containing the encoded representations and their masks
         """
-        patchified_tokens = self.patch_embeddings.forward(x, patch_size)
+        patchified_tokens_and_masks = self.patch_embeddings.forward(x, patch_size)
+        if (exit_after is None) or (exit_after > 0):
+            patchified_tokens_and_masks = self.apply_attn(
+                patchified_tokens_and_masks,
+                x.timestamps,
+                patch_size,
+                input_res,
+                exit_after,
+                token_exit_cfg,
+            )
+
+        # Apply normalization per modality and then wrap it back up
+        output_dict = {}
+        for modality in self.modalities_to_channel_groups_dict.keys():
+            x_modality = getattr(patchified_tokens_and_masks, modality)
+            masked_modality_name = patchified_tokens_and_masks.get_masked_modality_name(
+                modality
+            )
+            output_dict[modality] = self.norm(x_modality)
+            output_dict[masked_modality_name] = getattr(
+                patchified_tokens_and_masks, masked_modality_name
+            )
+        return TokensAndMasks(**output_dict)
 
 
 class Predictor(nn.Module):
@@ -469,15 +732,20 @@ if __name__ == "__main__":
     s2_array = rearrange(
         s2_array, "(t c) h w -> h w t c", c=num_bands, t=num_timesteps
     ).unsqueeze(0)
-    modalities_to_channel_groups_dict = {
-        "s2": {
-            "S2_RGB": [S2_BANDS.index(b) for b in ["B02", "B03", "B04"]],
-            "S2_Red_Edge": [S2_BANDS.index(b) for b in ["B05", "B06", "B07"]],
-            "S2_NIR_10m": [S2_BANDS.index(b) for b in ["B08"]],
-            "S2_NIR_20m": [S2_BANDS.index(b) for b in ["B8A"]],
-            "S2_SWIR": [S2_BANDS.index(b) for b in ["B11", "B12"]],
+    modalities_to_channel_groups_dict = OrderedDict(
+        {
+            "s2": OrderedDict(
+                {
+                    "S2_RGB": [S2_BANDS.index(b) for b in ["B02", "B03", "B04"]],
+                    "S2_Red_Edge": [S2_BANDS.index(b) for b in ["B05", "B06", "B07"]],
+                    "S2_NIR_10m": [S2_BANDS.index(b) for b in ["B08"]],
+                    "S2_NIR_20m": [S2_BANDS.index(b) for b in ["B8A"]],
+                    "S2_SWIR": [S2_BANDS.index(b) for b in ["B11", "B12"]],
+                }
+            )
         }
-    }
+    )
+
     s2_mask = torch.randint_like(s2_array, 0, 3).float()
     latlon = torch.randn(1, 2).float()
     latlon_mask = torch.ones_like(latlon).float()
@@ -523,29 +791,33 @@ if __name__ == "__main__":
     )
     max_patch_size = 8
     embedding_size = 16
-    patch_embeddings = FlexiHeliosPatchEmbeddings(
-        modalities_to_channel_groups_dict,
-        max_patch_size,
-        embedding_size,
-    )
-    patch_size = 4
-    patchified_tokens = patch_embeddings.forward(x, patch_size)
-    tokens_only = TokensOnly(
-        s2=patchified_tokens.s2,
-    )
-
     max_sequence_length = 12  # For now we are not supporting variable time series
     base_patch_size = 4
+    patch_size = 4
     use_channel_embs = True
-    composite_encodings = FlexiHeliosCompositeEncodings(
-        embedding_size,
-        modalities_to_channel_groups_dict,
-        max_sequence_length,
-        base_patch_size,
-        use_channel_embs,
-    )
     input_res = BASE_GSD
-    encoded_tokens = composite_encodings.forward(
-        tokens_only, x.timestamps, patch_size, input_res
+    patch_size = 4
+    exit_after = None
+    token_exit_cfg = None
+    encoder = Encoder(
+        embedding_size=embedding_size,
+        max_patch_size=max_patch_size,
+        num_heads=2,
+        mlp_ratio=4.0,
+        depth=2,
+        drop_path=0.1,
+        modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
+        max_sequence_length=max_sequence_length,
+        base_patch_size=base_patch_size,
+        use_channel_embs=use_channel_embs,
+    )
+    encoded_tokens = encoder.forward(
+        x, patch_size, input_res, exit_after, token_exit_cfg
     )
     print(encoded_tokens)
+
+    # Next steps get this to work
+    # Write unit tests for all the components of the encoder
+    # write the decoder and all unit tests for the decoder
+    # Add S1 data into the test
+    # clean up Refactor and SUbmit the PR

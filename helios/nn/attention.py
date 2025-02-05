@@ -62,6 +62,7 @@ class Attention(nn.Module):
         q: torch.Tensor,
         k: torch.Tensor,
         v: torch.Tensor,
+        n: int,
         attn_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Compute scaled dot product attention.
@@ -77,7 +78,7 @@ class Attention(nn.Module):
         """
         if self.fast_attn:
             if attn_mask is not None:
-                attn_mask = attn_mask[:, None, None].repeat((1, self.num_heads, N, 1))
+                attn_mask = attn_mask[:, None, None].repeat((1, self.num_heads, n, 1))
             x = F.scaled_dot_product_attention(
                 q,
                 k,
@@ -133,7 +134,7 @@ class Attention(nn.Module):
 
         q, k = self.q_norm(q), self.k_norm(k)
 
-        x = self.sdpa(q, k, v, attn_mask)
+        x = self.sdpa(q, k, v, N, attn_mask)
 
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)

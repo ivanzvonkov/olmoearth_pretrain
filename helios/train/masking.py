@@ -15,8 +15,9 @@ from helios.types import ArrayTensor
 class MaskValue(Enum):
     """Masks can take 3 possible values.
 
-    This enum records those values and describes
-    what they represent.
+    ONLINE_ENCODER: The token is seen by the online encoder
+    TARGET_ENCODER_ONLY: The token is seen by the target encoder only
+    DECODER_ONLY: The token is seen by the decoder only
     """
 
     ONLINE_ENCODER = 0
