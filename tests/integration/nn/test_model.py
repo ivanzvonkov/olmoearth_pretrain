@@ -7,10 +7,9 @@ import pytest
 import torch
 
 from helios.nn.model import Encoder, Predictor, TokensAndMasks
-from helios.train.masking import MaskValue
+from helios.train.masking import MaskedHeliosSample, MaskValue
 
 
-# TODO: We should have a loaded Test batch with real data for this one
 class TestEncoder:
     """Integration tests for the Encoder class."""
 
@@ -21,7 +20,7 @@ class TestEncoder:
         Returns:
             Encoder: Test encoder instance with small test config
         """
-        modalities_dict = dict({"s2": dict({"rgb": [0, 1, 2], "nir": [3]})})
+        modalities_dict = {"s2": {"rgb": [0, 1, 2], "nir": [3]}}
         return Encoder(
             embedding_size=16,
             max_patch_size=8,
@@ -80,29 +79,129 @@ class TestEncoder:
             output.s2[s2_mask >= MaskValue.TARGET_ENCODER_ONLY.value] == 0
         ).all(), "Masked tokens should be 0 in output"
 
-    def test_forward(self, encoder: Encoder) -> None:
-        """Test full forward pass.
+    def test_forward_exit_config_none(self, encoder: Encoder) -> None:
+        """Test full forward pass without exit configuration.
+
+        In this scenario we do not provide a token exit configuration so that all transformer
+        layers are executed normally.
 
         Args:
             encoder: Test encoder instance
         """
-        pass
+        B, H, W, T, C = 1, 8, 8, 4, 4  # 4 channels: first 3 for 'rgb', last for 'nir'
+        num_channel_groups = 2  # "rgb" and "nir"
+        s2 = torch.randn(B, H, W, T, C)
+        s2_mask = torch.zeros(B, H, W, T, num_channel_groups, dtype=torch.long)
+        latlon = torch.randn(B, 2)
+        latlon_mask = torch.ones(B, 2, dtype=torch.float32)
+        days = torch.randint(1, 31, (B, 1, T), dtype=torch.long)
+        months = torch.randint(1, 13, (B, 1, T), dtype=torch.long)
+        years = torch.randint(2018, 2020, (B, 1, T), dtype=torch.long)
+        timestamps = torch.cat([days, months, years], dim=1)  # Shape: (B, 3, T)
+
+        x = MaskedHeliosSample(s2, s2_mask, latlon, latlon_mask, timestamps)
+
+        patch_size = 4
+        input_res = 1
+
+        # No early exit configuration is provided.
+        output = encoder.forward(
+            x, patch_size, input_res, exit_after_n_layers=None, token_exit_cfg=None
+        )
+
+        # After patchification the spatial dimensions reduce.
+        expected_H = H // patch_size
+        expected_W = W // patch_size
+        expected_embedding_size = encoder.embedding_size
+        # Expected output shape [B, new_H, new_W, T, num_channel_groups, embedding_size]
+        expected_shape = (
+            B,
+            expected_H,
+            expected_W,
+            T,
+            num_channel_groups,
+            expected_embedding_size,
+        )
+        assert (
+            output.s2.shape == expected_shape
+        ), f"Expected output s2 shape {expected_shape}, got {output.s2.shape}"
+
+        expected_mask_shape = (B, expected_H, expected_W, T, num_channel_groups)
+        assert (
+            output.s2_mask.shape == expected_mask_shape
+        ), f"Expected output s2_mask shape {expected_mask_shape}, got {output.s2_mask.shape}"
+
+    def test_forward_exit_config_exists(self, encoder: Encoder) -> None:
+        """Test full forward pass with a token exit configuration.
+
+        In this scenario (with an exit configuration) we set tokens in each band group to exit early,
+        here we set both "rgb" and "nir" to exit at a given transformer layer.
+
+        Args:
+            encoder: Test encoder instance
+        """
+        B, H, W, T, C = 1, 8, 8, 4, 4  # 4 channels: first 3 for 'rgb', last for 'nir'
+        num_channel_groups = 2  # two channel groups
+        s2 = torch.randn(B, H, W, T, C)
+        s2_mask = torch.zeros(B, H, W, T, num_channel_groups, dtype=torch.long)
+        latlon = torch.randn(B, 2)
+        latlon_mask = torch.ones(B, 2, dtype=torch.float32)
+        # Generate valid timestamps with month in [1, 12]
+        days = torch.randint(1, 31, (B, 1, T), dtype=torch.long)
+        months = torch.randint(1, 13, (B, 1, T), dtype=torch.long)
+        years = torch.randint(2018, 2020, (B, 1, T), dtype=torch.long)
+        timestamps = torch.cat([days, months, years], dim=1)
+
+        x = MaskedHeliosSample(s2, s2_mask, latlon, latlon_mask, timestamps)
+
+        patch_size = 4
+        input_res = 1
+
+        # Token exit configuration: for our modality "s2" with two channel groups "rgb" and "nir",
+        # we set "rgb" tokens to exit after block 1 and "nir" tokens to exit at block 0.
+        token_exit_cfg = {"rgb": 1, "nir": 0}
+        exit_after_n_layers = 1
+
+        output = encoder.forward(
+            x,
+            patch_size,
+            input_res,
+            exit_after_n_layers=exit_after_n_layers,
+            token_exit_cfg=token_exit_cfg,
+        )
+
+        expected_H = H // patch_size
+        expected_W = W // patch_size
+        expected_embedding_size = encoder.embedding_size
+        expected_shape = (
+            B,
+            expected_H,
+            expected_W,
+            T,
+            num_channel_groups,
+            expected_embedding_size,
+        )
+        assert (
+            output.s2.shape == expected_shape
+        ), f"Expected output s2 shape {expected_shape}, got {output.s2.shape}"
+
+        expected_mask_shape = (B, expected_H, expected_W, T, num_channel_groups)
+        assert (
+            output.s2_mask.shape == expected_mask_shape
+        ), f"Expected output s2_mask shape {expected_mask_shape}, got {output.s2_mask.shape}"
 
 
 class TestPredictor:
     """Integration tests for the Predictor class."""
 
-    @pytest.fixture
+    @pytest.fixture(scope="class")
     def predictor(self) -> Predictor:
         """Create predictor fixture for testing.
 
         Returns:
             Predictor: Test predictor instance with small test config
         """
-        """Create predictor fixture for testing."""
-        modalities_to_channel_groups_dict = dict(
-            {"s2": dict({"rgb": [0, 1, 2], "nir": [3]})}
-        )
+        modalities_to_channel_groups_dict = {"s2": {"rgb": [0, 1, 2], "nir": [3]}}
         return Predictor(
             modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
             encoder_embedding_size=8,
@@ -161,3 +260,83 @@ class TestPredictor:
         assert (
             output.s2_mask.shape == expected_mask_shape
         ), f"Expected mask shape {expected_mask_shape}, got {output.s2_mask.shape}"
+
+
+def test_end_to_end_with_exit_config() -> None:
+    """Test the full end to end forward pass of the model with an exit configuration."""
+    B, H, W, T, C = 1, 8, 8, 4, 4  # 4 channels: first 3 for 'rgb', last for 'nir'
+    num_channel_groups = 2  # "rgb" and "nir"
+    # Create dummy s2 data: shape (B, H, W, T, C)
+    s2 = torch.randn(B, H, W, T, C)
+    # Create a dummy mask for s2 with shape (B, H, W, T, num_channel_groups)
+    # Here we assume 0 (ONLINE_ENCODER) means the token is visible.
+    s2_mask = torch.zeros(B, H, W, T, num_channel_groups, dtype=torch.long)
+    # Dummy latitude-longitude data.
+    latlon = torch.randn(B, 2)
+    latlon_mask = torch.ones(B, 2, dtype=torch.float32)
+    # Generate valid timestamps:
+    # - days: range 1..31,
+    # - months: range 1..13,
+    # - years: e.g. 2018-2019.
+    days = torch.randint(1, 31, (B, 1, T), dtype=torch.long)
+    months = torch.randint(1, 13, (B, 1, T), dtype=torch.long)
+    years = torch.randint(2018, 2020, (B, 1, T), dtype=torch.long)
+    timestamps = torch.cat([days, months, years], dim=1)  # Shape: (B, 3, T)
+
+    x = MaskedHeliosSample(s2, s2_mask, latlon, latlon_mask, timestamps)
+
+    patch_size = 4
+    input_res = 1
+
+    modalities_to_channel_groups_dict = {"s2": {"rgb": [0, 1, 2], "nir": [3]}}
+    # Shared constants for encoder and predictor
+    MAX_PATCH_SIZE = 8
+    NUM_HEADS = 2
+    MLP_RATIO = 4.0
+    MAX_SEQ_LENGTH = 12
+    DEPTH = 2
+    DROP_PATH = 0.1
+    ENCODER_EMBEDDING_SIZE = 16
+    DECODER_EMBEDDING_SIZE = 16
+    encoder = Encoder(
+        modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
+        embedding_size=ENCODER_EMBEDDING_SIZE,
+        max_patch_size=MAX_PATCH_SIZE,
+        num_heads=NUM_HEADS,
+        mlp_ratio=MLP_RATIO,
+        max_sequence_length=MAX_SEQ_LENGTH,
+        base_patch_size=4,
+        use_channel_embs=True,
+        depth=DEPTH,
+        drop_path=DROP_PATH,
+    )
+    predictor = Predictor(
+        modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
+        encoder_embedding_size=ENCODER_EMBEDDING_SIZE,
+        decoder_embedding_size=DECODER_EMBEDDING_SIZE,
+        depth=DEPTH,
+        mlp_ratio=MLP_RATIO,
+        num_heads=NUM_HEADS,
+        max_sequence_length=MAX_SEQ_LENGTH,
+        max_patch_size=MAX_PATCH_SIZE,
+        drop_path=DROP_PATH,
+    )
+    output = encoder.forward(
+        x,
+        patch_size,
+        input_res,
+        exit_after_n_layers=1,
+        token_exit_cfg={"rgb": 1, "nir": 0},
+    )
+    output = predictor.forward(output, timestamps, patch_size, input_res)
+    patched_H = H // patch_size
+    patched_W = W // patch_size
+    assert output.s2.shape == (
+        B,
+        patched_H,
+        patched_W,
+        T,
+        num_channel_groups,
+        predictor.output_embedding_size,
+    )
+    assert output.s2_mask.shape == (B, patched_H, patched_W, T, num_channel_groups)

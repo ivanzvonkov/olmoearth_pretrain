@@ -633,7 +633,6 @@ class Encoder(FlexiHeliosBase):
                 tokens_only, token_exit_cfg
             )
             x_dict = x._asdict()
-            assert exit_ids_per_modality.keys() in x_dict.keys()
             x_dict.update(exit_ids_per_modality)
             tokens_and_masks_exit_ids_per_modality = TokensAndMasks(**x_dict)
             # Exit ids seqs tells us which layer to exit each token
@@ -1201,5 +1200,8 @@ if __name__ == "__main__":
     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
 
     # add Integration tests for the encoder decoder full process seperate and together
+    # Seperate out into additional files for ease and clarity
+    # Remove the unneeded tokens only class
+
     # Add S1 data into the test
-    # clean up Refactor and SUbmit the PR
+    # SUbmit the PR
