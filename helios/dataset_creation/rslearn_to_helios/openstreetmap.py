@@ -1,4 +1,13 @@
-"""Post-process ingested OpenStreetMap data into the Helios dataset."""
+"""Post-process ingested OpenStreetMap data into the Helios dataset.
+
+OpenStreetMap is vector data, so we want to keep the precision of the data as high as
+possible, but the data size (i.e. bytes) is also small enough that we can store it
+under the 10 m/pixel tiles without needing too much storage space.
+
+So, we use the 10 m/pixel grid, but store it with 16x zoomed in coordinates (meaning
+the coordinates actually match those of the 0.625 m/pixel tiles). This way we can use
+the data for training even at coarser resolution.
+"""
 
 import argparse
 import csv
@@ -44,6 +53,9 @@ def convert_openstreetmap(window_path: UPath, helios_path: UPath) -> None:
     if not window.is_layer_completed(LAYER_NAME):
         return
 
+    # Load the vector data.
+    # decode_vector requires bounds to be passed, but the window bounds need to be
+    # adjusted by the zoom offset to match that of the stored data.
     layer_dir = window.get_layer_dir(LAYER_NAME)
     adjusted_bounds = (
         window.bounds[0] * FACTOR,
@@ -52,6 +64,8 @@ def convert_openstreetmap(window_path: UPath, helios_path: UPath) -> None:
         window.bounds[3] * FACTOR,
     )
     features = vector_format.decode_vector(layer_dir, adjusted_bounds)
+
+    # Upload the data.
     dst_fname = get_modality_fname(
         helios_path, MODALITY, window_metadata, RESOLUTION, "geojson"
     )
@@ -61,6 +75,8 @@ def convert_openstreetmap(window_path: UPath, helios_path: UPath) -> None:
         projection=Projection(window.projection.crs, RESOLUTION, -RESOLUTION),
         features=features,
     )
+
+    # Create the metadata file for this data.
     metadata_fname = get_modality_temp_meta_fname(helios_path, MODALITY, window.name)
     metadata_fname.parent.mkdir(parents=True, exist_ok=True)
     with metadata_fname.open("w") as f:

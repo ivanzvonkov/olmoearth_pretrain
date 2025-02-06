@@ -163,10 +163,13 @@ def rasterize_openstreetmap(in_fname: UPath) -> None:
     array = np.zeros((len(CATEGORIES), OUTPUT_SIZE, OUTPUT_SIZE), dtype=np.uint8)
 
     for feat in fc["features"]:
+        # Get the category ID, which indicates the channel to rasterize on.
         category = feat["properties"]["category"]
         if category not in CATEGORIES:
             continue
         category_id = CATEGORIES.index(category)
+
+        # Now rasterize based on the geometry type.
         geometry = feat["geometry"]
         if geometry["type"] == "Polygon":
             draw_polygon(array, geometry["coordinates"], category_id, transform)
@@ -182,6 +185,7 @@ def rasterize_openstreetmap(in_fname: UPath) -> None:
         else:
             raise ValueError(f"cannot handle geometry type {geometry['type']}")
 
+    # Upload the rasterized data as GeoTIFF.
     out_fname = (
         in_fname.parent.parent
         / OUTPUT_MODALITY

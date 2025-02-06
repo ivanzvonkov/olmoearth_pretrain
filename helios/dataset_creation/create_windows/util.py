@@ -34,10 +34,12 @@ def create_window(ds_path: UPath, metadata: WindowMetadata) -> list[Window]:
     """
     windows = []
     for resolution in WINDOW_RESOLUTIONS:
+        # Only create windows at resolutions equal to or coarser than the provided one.
         if resolution < metadata.resolution:
             continue
 
-        # Adjust the metadata for this resolution.
+        # Adjust the metadata for this resolution (i.e., compute the window that is
+        # aligned with the grid in case the resolution is coarser).
         factor = round(resolution / metadata.resolution)
         cur_metadata = WindowMetadata(
             metadata.crs,
@@ -46,6 +48,8 @@ def create_window(ds_path: UPath, metadata: WindowMetadata) -> list[Window]:
             metadata.row // factor,
             metadata.time,
         )
+
+        # Compute the window attributes based on the WindowMetadata.
         group = f"res_{resolution}"
         window_name = cur_metadata.get_window_name()
         bounds = (
@@ -61,6 +65,8 @@ def create_window(ds_path: UPath, metadata: WindowMetadata) -> list[Window]:
         projection = Projection(
             CRS.from_string(cur_metadata.crs), resolution, -resolution
         )
+
+        # Create the window.
         window = Window(
             path=Window.get_window_root(ds_path, group, window_name),
             group=group,
