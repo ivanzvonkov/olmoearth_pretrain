@@ -17,7 +17,7 @@ from olmo_core.utils import get_default_device
 from upath import UPath
 
 from helios.data.dataloader import HeliosDataLoader
-from helios.data.dataset import HeliosDataset
+from helios.data.dataset import HeliosDataset, collate_helios
 from helios.dataset.parse import parse_helios_dataset
 from helios.dataset.sample import image_tiles_to_samples
 from helios.latent_predictor import LatentMIMStyle
@@ -151,6 +151,7 @@ if __name__ == "__main__":
             path=tile_path,
             dtype=np.dtype("float32"),
         ),
+        collator=collate_helios,
         global_batch_size=GLOBAL_BATCH_SIZE,
         dp_world_size=get_world_size(dp_process_group),
         dp_rank=get_rank(dp_process_group),
