@@ -179,6 +179,14 @@ class RandomMaskingStrategy(MaskingStrategy):
     def apply_mask(self, batch: HeliosSample, **kwargs: Any) -> MaskedHeliosSample:
         """Apply random masking to the input data.
 
+        The mask created for the space-time varying modality will be different than
+        for the static modality.
+
+        For space-time varying data, we will mask out the same ratio of values for
+        all the instances in the batch. However, since a static modality might have
+        very few tokens in a batch (e.g. 1 for latlons) instead we mask out a certain
+        ratios of values across the entire batch.
+
         Args:
             batch: Input data of type HeliosSample
             **kwargs: Additional arguments for maskings
