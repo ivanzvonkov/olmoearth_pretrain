@@ -18,7 +18,6 @@ S2_BANDS = [
     "B10",
     "B11",
     "B12",
-    "B8A",
 ]
 
 LATLON_BANDS = ["lat", "lon"]
