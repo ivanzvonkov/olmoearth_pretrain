@@ -174,9 +174,14 @@ class Modality:
         is_multitemporal=False,
     )
 
+    @classmethod
+    def get_all_modalities(cls) -> list[ModalitySpec]:
+        """Get all modalities."""
+        return [
+            cls.S1,
+            cls.S2,
+            cls.NAIP,
+        ]
 
-ALL_MODALITIES = [
-    Modality.S1,
-    Modality.S2,
-    Modality.NAIP,
-]
+
+ALL_MODALITIES = Modality.get_all_modalities()
