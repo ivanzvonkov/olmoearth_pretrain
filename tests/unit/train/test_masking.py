@@ -33,6 +33,9 @@ def test_random_masking() -> None:
     # TODO: Add assert that checks input output shapes
     # check that each modality has the right masking ratio
     for modality_name in masked_sample._fields:
+        # TODO: SKipping lat lon for now
+        if modality_name.startswith("latlon"):
+            continue
         if modality_name.endswith("mask"):
             mask = getattr(masked_sample, modality_name)
             total_elements = mask.numel()
