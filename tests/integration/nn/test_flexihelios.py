@@ -15,22 +15,29 @@ from helios.nn.flexihelios import (
 from helios.train.masking import MaskedHeliosSample, MaskValue
 
 
+@pytest.fixture
+def modalities_to_channel_groups_dict() -> dict[str, dict[str, list[int]]]:
+    """Create a modalities to channel groups dict fixture for testing."""
+    return {
+        "s2": {"rgb": [0, 1, 2], "nir": [3]},
+        "latlon": {"pos": [0, 1]},
+    }
+
+
 class TestFlexiHeliosPatchEmbeddings:
     """Integration tests for the FlexiHeliosPatchEmbeddings class."""
 
     @pytest.fixture
-    def patch_embeddings(self) -> FlexiHeliosPatchEmbeddings:
+    def patch_embeddings(
+        self, modalities_to_channel_groups_dict: dict[str, dict[str, list[int]]]
+    ) -> FlexiHeliosPatchEmbeddings:
         """Create patch embeddings fixture for testing.
 
         Returns:
             FlexiHeliosPatchEmbeddings: Test patch embeddings instance with small test config
         """
-        modalities_dict = {
-            "s2": {"rgb": [0, 1, 2], "nir": [3]},
-            "latlon": {"pos": [0, 1]},
-        }
         return FlexiHeliosPatchEmbeddings(
-            modalities_to_channel_groups_dict=modalities_dict,
+            modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
             embedding_size=16,
             max_patch_size=8,
         )
@@ -75,16 +82,14 @@ class TestEncoder:
     """Integration tests for the Encoder class."""
 
     @pytest.fixture
-    def encoder(self) -> Encoder:
+    def encoder(
+        self, modalities_to_channel_groups_dict: dict[str, dict[str, list[int]]]
+    ) -> Encoder:
         """Create encoder fixture for testing.
 
         Returns:
             Encoder: Test encoder instance with small test config
         """
-        modalities_dict = {
-            "s2": {"rgb": [0, 1, 2], "nir": [3]},
-            "latlon": {"pos": [0, 1]},
-        }
         return Encoder(
             embedding_size=16,
             max_patch_size=8,
@@ -92,7 +97,7 @@ class TestEncoder:
             mlp_ratio=4.0,
             depth=2,
             drop_path=0.1,
-            modalities_to_channel_groups_dict=modalities_dict,
+            modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
             max_sequence_length=12,
             base_patch_size=4,
             use_channel_embs=True,
@@ -336,14 +341,15 @@ class TestEncoder:
 class TestPredictor:
     """Integration tests for the Predictor class."""
 
-    @pytest.fixture(scope="class")
-    def predictor(self) -> Predictor:
+    @pytest.fixture
+    def predictor(
+        self, modalities_to_channel_groups_dict: dict[str, dict[str, list[int]]]
+    ) -> Predictor:
         """Create predictor fixture for testing.
 
         Returns:
             Predictor: Test predictor instance with small test config
         """
-        modalities_to_channel_groups_dict = {"s2": {"rgb": [0, 1, 2], "nir": [3]}}
         return Predictor(
             modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
             encoder_embedding_size=8,
@@ -378,7 +384,7 @@ class TestPredictor:
 
         # Create dummy latitude and longitude data (and its mask)
         latlon = torch.randn(B, 2)
-        latlon_mask = torch.ones(B, 2, dtype=torch.float32)
+        latlon_mask = torch.zeros(B, 2, dtype=torch.float32)
 
         encoded_tokens = TokensAndMasks(
             s2=s2_tokens, s2_mask=s2_mask, latlon=latlon, latlon_mask=latlon_mask
