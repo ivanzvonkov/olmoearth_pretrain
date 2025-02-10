@@ -12,7 +12,6 @@ def geobench_dir() -> Path:
 
 
 # TODO: Fix test
-@pytest.skip("Skipping test to use the new integrated encoder")
 def test_geobench_dataset(geobench_dir: Path) -> None:
     """Test forward pass from GeoBench data."""
     # d = DataLoader(
