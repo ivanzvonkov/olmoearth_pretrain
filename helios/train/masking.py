@@ -1,5 +1,6 @@
 """Masking module."""
 
+import logging
 import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -14,6 +15,8 @@ from olmo_core.config import Config
 
 from helios.data.dataset import HeliosSample
 from helios.types import ArrayTensor
+
+logger = logging.getLogger(__name__)
 
 
 class MaskValue(Enum):
@@ -40,14 +43,14 @@ class MaskedHeliosSample(NamedTuple):
     we also have a mask for the latlon called latlon_mask
 
     Args:
-        s2: ArrayTensor  # [B, len(S2_bands), T H, W]
-        s2_mask: ArrayTensor  # [B, len(S2_band_groups), T H, W]
+        s2: ArrayTensor  # [B, H, W, T, len(S2_bands)]
+        s2_mask: ArrayTensor  # [B, H, W, T, len(S2_bands)]
         latlon: ArrayTensor  # [B, 2]
         latlon_mask: ArrayTensor  # [B, len(latlon_band_groups)]
         timestamps: ArrayTensor  # [B, D=3, T], where D=[day, month, year]
     """
 
-    s2: ArrayTensor  # [B, len(S2_bands), T H, W]
+    s2: ArrayTensor
     s2_mask: ArrayTensor
     latlon: ArrayTensor  # [B, 2]
     latlon_mask: ArrayTensor
@@ -70,12 +73,12 @@ class MaskedHeliosSample(NamedTuple):
     @property
     def height(self) -> int:
         """Get the height of the data."""
-        return self.s2.shape[2]
+        return self.s2.shape[1]
 
     @property
     def width(self) -> int:
         """Get the width of the data."""
-        return self.s2.shape[3]
+        return self.s2.shape[2]
 
     @staticmethod
     def get_masked_modality_name(modality: str) -> str:
@@ -215,6 +218,7 @@ class RandomMaskingStrategy(MaskingStrategy):
         # should these not be kwargs but instead be explicitly
         # in the function signature?
         patch_size: int = kwargs["patch_size"]
+        # TODO: this should be shared across train module
         modalities_to_channel_groups_dict: dict[str, dict[str, list[int]]] = kwargs[
             "modalities_to_channel_groups_dict"
         ]
@@ -228,6 +232,8 @@ class RandomMaskingStrategy(MaskingStrategy):
 
         output_dict = {}
         for modality_name in batch._fields:
+            if modality_name == "latlon":
+                continue
             modality = getattr(batch, modality_name)
             if modality_name == "timestamps":
                 output_dict[modality_name] = modality
@@ -262,10 +268,17 @@ class RandomMaskingStrategy(MaskingStrategy):
                 )
             else:
                 raise ValueError(f"Unsupported modality shape {modality.shape}")
-
+            modality = rearrange(modality, "b c t h w -> b h w t c")
             output_dict[modality_name] = modality
+            # TODO:Channels for mask are already in channel groups but not for tokens
             output_dict[f"{modality_name}_mask"] = mask
+            logger.info(
+                f" After maskingModality: {modality_name} shape: {modality.shape} mask shape: {mask.shape}"
+            )
 
+        # TODO: Temporary internal hack for not dealing with lat lons yet
+        output_dict["latlon"] = None
+        output_dict["latlon_mask"] = None
         return MaskedHeliosSample(**output_dict)
 
 
@@ -283,8 +296,9 @@ class MaskingConfig(Config):
 
     strategy_config: dict[str, Any]
 
-    def build(self) -> type[MaskingStrategy]:
+    def build(self) -> MaskingStrategy:
         """Build a MaskingStrategy from the config."""
-        return MASKING_STRATEGY_REGISTRY[self.strategy_config["type"]](
+        mask_strategy_key = self.strategy_config.pop("type")
+        return MASKING_STRATEGY_REGISTRY.get_class(mask_strategy_key)(
             **self.strategy_config
         )

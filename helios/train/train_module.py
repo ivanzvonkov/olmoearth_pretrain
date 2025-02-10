@@ -2,7 +2,7 @@
 
 import contextlib
 import math
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, cast
@@ -11,7 +11,6 @@ import torch
 import torch.distributed as dist
 import torch.distributed.checkpoint.state_dict as dist_cp_sd
 import torch.nn as nn
-from einops import rearrange
 from olmo_core.config import Config, DType
 from olmo_core.distributed.parallel import (
     DataParallelConfig,
@@ -30,11 +29,15 @@ from olmo_core.train.train_module import EvalBatchSizeUnit, EvalBatchSpec, Train
 from olmo_core.train.train_module.transformer import (
     TransformerActivationCheckpointingConfig,
 )
-from olmo_core.utils import gc_cuda, get_default_device, move_to_device
+from olmo_core.utils import gc_cuda, get_default_device
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.tensor import DTensor
 from torch.optim import Optimizer
+
+from helios.data.dataset import HeliosSample
+from helios.train.loss import LossConfig
+from helios.train.masking import MaskedHeliosSample, MaskingConfig
 
 logger = getLogger(__name__)
 
@@ -63,6 +66,8 @@ class HeliosTrainModuleConfig(Config):
 
     rank_batch_size: int
     optim: OptimConfig
+    masking_config: MaskingConfig
+    loss_config: LossConfig
 
     # Model settings
     compile_model: bool = False
@@ -74,7 +79,6 @@ class HeliosTrainModuleConfig(Config):
 
     # Loss function settings
     compile_loss: bool = False
-    loss_fn: Callable | None = None
 
     # Training settings
     autocast_precision: DType | None = None  # UNTESTED for helios
@@ -114,9 +118,6 @@ class HeliosTrainModuleConfig(Config):
             kwargs["state_dict_load_opts"] = dist_cp_sd.StateDictOptions(
                 **state_dict_load_opts
             )
-        if (loss_fn := kwargs.pop("loss_fn", None)) is None:
-            raise ValueError("loss_fn must be provided")
-        kwargs["loss_fn"] = loss_fn
         return HeliosTrainModule(
             model=model,
             device=device,
@@ -151,12 +152,13 @@ class HeliosTrainModule(TrainModule):
         self,
         model: Any,
         optim: OptimConfig,
+        masking_config: MaskingConfig,
+        loss_config: LossConfig,
         rank_batch_size: int,
         compile_model: bool = False,
         float8_config: Float8Config | None = None,
         dp_config: DataParallelConfig | None = None,
         ac_config: TransformerActivationCheckpointingConfig | None = None,
-        loss_fn: Callable | None = None,
         compile_loss: bool = False,
         autocast_precision: torch.dtype | None = None,
         max_grad_norm: float | None = None,
@@ -171,6 +173,8 @@ class HeliosTrainModule(TrainModule):
         Args:
             model: The transformer model to train.
             optim: The corresponding optimizer config.
+            masking_config: The masking configuration for the model.
+            loss_config: The loss configuration for the model.
             rank_batch_size: The rank batch size in instances.
             compile_model: Whether to compile to the model.
             float8_config: Float8 configuration for the model.
@@ -189,14 +193,19 @@ class HeliosTrainModule(TrainModule):
         super().__init__()
         self.ema_decay = ema_decay
         self.model = model
+        self.modalities_to_channel_groups_dict = (
+            self.model.encoder.modalities_to_channel_groups_dict
+        )
         self.device = device or get_default_device()
         self.world_mesh = build_device_mesh(dp=dp_config, device_type=self.device.type)
         logger.info(
             f"Data parallel world size = {get_world_size(self.dp_process_group):,d}"
         )
-        self.base_loss_fn = loss_fn
-        if compile_loss:
-            self.base_loss_fn = torch.compile(self.base_loss_fn)
+        self.base_loss = loss_config.build()
+        self.masking_strategy = masking_config.build()
+
+        # if compile_loss:
+        #     self.base_loss_fn = torch.compile(self.base_loss_fn)
 
         self.float8_handler: Float8Handler | None = None
         # float8_enabled = False
@@ -302,12 +311,10 @@ class HeliosTrainModule(TrainModule):
                 return param.dtype
         raise RuntimeError("Should not get here")
 
-    def loss_fn(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    # TODO: Do we always want tokens and masks?
+    def loss_fn(self, pred: Any, targets: Any) -> torch.Tensor:
         """Compute the loss between the predicted and target tensors."""
-        # TODO: add more generic and configurable loss function support
-        if self.base_loss_fn is None:
-            raise ValueError("base loss fn is not set")
-        return self.base_loss_fn(pred, target)
+        return self.base_loss.compute(pred, targets)
 
     def eval_loss_fn(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         """Compute the loss between the predicted and target tensors."""
@@ -329,7 +336,6 @@ class HeliosTrainModule(TrainModule):
 
     def state_dict_to_load(self, metadata: Metadata) -> dict[str, Any]:
         """Get the state dict to load."""
-        # TODO: Unclear how we want to use this metadata
         load_opts = self.state_dict_load_opts
         return self._get_state_dict(load_opts)
 
@@ -357,7 +363,7 @@ class HeliosTrainModule(TrainModule):
         """Zero the gradients."""
         self.optimizer.zero_grad(set_to_none=True)
 
-    def train_batch(self, batch: dict[str, Any], dry_run: bool = False) -> None:
+    def train_batch(self, batch: HeliosSample, dry_run: bool = False) -> None:
         """Train a batch."""
         # Record how many instances are going to be skipped (masked out).
         # if (instance_mask := batch.get("instance_mask")) is not None and not dry_run:
@@ -365,10 +371,17 @@ class HeliosTrainModule(TrainModule):
 
         # Move tensors to the right device.
         # we may want to modify this
-        batch = move_to_device(batch, self.device)
+        batch = batch.to_device(self.device)
+        # TODO: Make ordering of channels consistent in dataset and arhcitecture
+        # TODO: THis isn't integrated well
+        kwargs = {"patch_size": 8, "encode_ratio": 0.5, "decode_ratio": 0.5}
+        kwargs["modalities_to_channel_groups_dict"] = (
+            self.modalities_to_channel_groups_dict
+        )
+        masked_batch = self.masking_strategy.apply_mask(batch, **kwargs)
 
         # Run Encoder and decoder on the augmented input
-        decoded, loss = self.model_forward(batch)
+        decoded, loss = self.model_forward(masked_batch)
 
         self.trainer.record_metric(
             TRAIN_PATCH_DISC_LOSS_METRIC,
@@ -395,10 +408,6 @@ class HeliosTrainModule(TrainModule):
             self._clear_loss_buffers()
             return
 
-        # TODO: Record loss metrics.
-        # NOTE: losses could be none for pipeline parallelism if rank doesn't have the final stage.
-
-        # Lastly, clear internal loss buffers.
         self._clear_loss_buffers()
 
     def eval_batch(
@@ -477,17 +486,19 @@ class HeliosTrainModule(TrainModule):
 
     def model_forward(
         self,
-        batch: dict[str, Any],
+        batch: MaskedHeliosSample,
     ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
         """Run a forward pass."""
+        patch_size = 8
         with self._model_forward_context():
             with torch.no_grad():
-                s2_data = batch["sentinel2"]
-                input = rearrange(s2_data, "b h w t c -> b c t h w")
-                target_output = self.model.target_encoder.forward(input)
+                target_output = self.model.target_encoder.forward(
+                    batch, patch_size=patch_size
+                )
 
             # Run Encoder and decoder on the augmented input
-            decoded = self.model.forward(input)
+            # TODO: Needs to be cleaned up so patch size is gen randomly different datasets should be able to have different patch sizes
+            decoded = self.model.forward(batch, patch_size=patch_size)
             loss = self.loss_fn(decoded, target_output)
             return decoded, loss
 
@@ -563,6 +574,11 @@ class HeliosTrainModule(TrainModule):
                     total_norm, op=dist.ReduceOp.SUM, group=pp_mesh.get_group()
                 )
                 total_norm **= 1.0 / norm_type
+
+        torch.nn.utils.clip_grads_with_norm_(
+            parameters, max_grad_norm, total_norm, foreach=foreach
+        )
+        return total_norm
 
         torch.nn.utils.clip_grads_with_norm_(
             parameters, max_grad_norm, total_norm, foreach=foreach

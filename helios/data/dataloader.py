@@ -243,13 +243,17 @@ class HeliosDataLoader(DataLoaderBase):
 
     def get_mock_batch(self) -> HeliosSample:
         """Get a mock batch, for dry-run of forward and backward pass."""
-        mock_s2 = np.random.rand(1, 13, 12, 256, 256)
-        mock_latlon = np.random.rand(1, 2)
-        mock_timestamps = np.random.randint(1, 31, size=(1, 3, 12))
+        logger.info("Getting mock batch NOT FROM DATASET")
+        mock_s2 = torch.rand(1, 13, 12, 256, 256)
+        mock_latlon = torch.rand(1, 2)
+        days = torch.randint(0, 25, (1, 1, 12), dtype=torch.long)
+        months = torch.randint(0, 12, (1, 1, 12), dtype=torch.long)
+        years = torch.randint(2018, 2020, (1, 1, 12), dtype=torch.long)
+        timestamps = torch.cat([days, months, years], dim=1)  # Shape: (B, 3, T)
         return HeliosSample(
             s2=mock_s2,
             latlon=mock_latlon,
-            timestamps=mock_timestamps,
+            timestamps=timestamps,
         )
 
 

@@ -25,7 +25,6 @@ from helios.types import ArrayTensor
 logger = logging.getLogger(__name__)
 
 
-# TODO: THIS SHOULD BE THE OUTPUT OF THE DATASET GET ITEM
 class HeliosSample(NamedTuple):
     """A sample of the data from the Helios dataset.
 
@@ -64,6 +63,23 @@ class HeliosSample(NamedTuple):
             else:
                 return_dict[field] = val
         return return_dict
+
+    def to_device(self, device: torch.device) -> "HeliosSample":
+        """Move all tensors to the specified device.
+
+        Args:
+            device: The device to move the tensors to.
+
+        Returns:
+            A new HeliosSample with all tensors moved to the specified device.
+        """
+        return HeliosSample(
+            s2=self.s2.to(device) if self.s2 is not None else None,
+            latlon=self.latlon.to(device) if self.latlon is not None else None,
+            timestamps=(
+                self.timestamps.to(device) if self.timestamps is not None else None
+            ),
+        )
 
     @staticmethod
     def attribute_to_bands() -> dict[str, list[str]]:
@@ -130,7 +146,9 @@ def collate_helios(batch: list[HeliosSample]) -> HeliosSample:
         """Stack the tensors while handling None values."""
         if batch[0].__getattribute__(attr) is None:
             return None
-        return torch.stack([getattr(sample, attr) for sample in batch], dim=0)
+        return torch.stack(
+            [torch.from_numpy(getattr(sample, attr)) for sample in batch], dim=0
+        )
 
     return HeliosSample(
         s2=stack_or_none("s2"),
@@ -243,7 +261,8 @@ class HeliosDataset(Dataset):
         image = load_image_for_sample(sample_s2, sample)
         s2_data = rearrange(image, "t c h w -> c t h w")
         dt = pd.to_datetime(timestamps)
-        time_data = np.array([dt.day, dt.month, dt.year])  # [3, T]
+        # Month is 0 indexed
+        time_data = np.array([dt.day, dt.month - 1, dt.year])  # [3, T]
         # Get coordinates at projection units, and then transform to latlon
         grid_resolution = sample.grid_tile.resolution_factor * BASE_RESOLUTION
         x, y = (
@@ -255,8 +274,9 @@ class HeliosDataset(Dataset):
         )
         lon, lat = transformer.transform(x, y)
         latlon_data = np.array([lat, lon])
+        # TODO: Add normalization and better way of doing dtype
         return HeliosSample(
-            s2=s2_data,
+            s2=(s2_data / 10000).astype(np.float32),  # make it a float
             latlon=latlon_data,
             timestamps=time_data,
         )
