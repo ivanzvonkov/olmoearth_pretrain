@@ -15,15 +15,6 @@ from helios.nn.flexihelios import (
 from helios.train.masking import MaskedHeliosSample, MaskValue
 
 
-@pytest.fixture
-def modalities_to_channel_groups_dict() -> dict[str, dict[str, list[int]]]:
-    """Create a modalities to channel groups dict fixture for testing."""
-    return {
-        "s2": {"rgb": [0, 1, 2], "nir": [3]},
-        "latlon": {"pos": [0, 1]},
-    }
-
-
 class TestFlexiHeliosPatchEmbeddings:
     """Integration tests for the FlexiHeliosPatchEmbeddings class."""
 
@@ -169,7 +160,7 @@ class TestEncoder:
         B, H, W, T, C = 1, 8, 8, 4, 4  # 4 channels: first 3 for 'rgb', last for 'nir'
         num_channel_groups = 2  # "rgb" and "nir"
         s2 = torch.randn(B, H, W, T, C)
-        s2_mask = torch.zeros(B, H, W, T, num_channel_groups, dtype=torch.long)
+        s2_mask = torch.zeros(B, H, W, T, C, dtype=torch.long)
         latlon = torch.randn(B, 2)
         latlon_mask = torch.randint(0, 2, (B, 2), dtype=torch.float32)
         days = torch.randint(0, 25, (B, 1, T), dtype=torch.long)
@@ -233,7 +224,7 @@ class TestEncoder:
         B, H, W, T, C = 1, 8, 8, 4, 4  # 4 channels: first 3 for 'rgb', last for 'nir'
         num_channel_groups = 2  # two channel groups
         s2 = torch.randn(B, H, W, T, C)
-        s2_mask = torch.zeros(B, H, W, T, num_channel_groups, dtype=torch.long)
+        s2_mask = torch.zeros(B, H, W, T, C, dtype=torch.long)
         latlon = torch.randn(B, 2)
         latlon_mask = torch.zeros((B, 2), dtype=torch.float32)
         # Generate valid timestamps with month in [1, 12]
@@ -285,7 +276,7 @@ class TestEncoder:
         s2 = torch.randn(B, H, W, T, C)
         latlon = torch.randn(B, 2)
         # Mask the entirety of each modality
-        s2_mask = torch.ones(B, H, W, T, num_channel_groups, dtype=torch.long)
+        s2_mask = torch.ones(B, H, W, T, C, dtype=torch.long)
         # Make 1 token in 1 channel group in S2 visible
         s2_mask[0, 0, 0, 0, 0] = 0
         latlon_mask = torch.ones(B, 2, dtype=torch.float32)
@@ -445,7 +436,11 @@ class TestPredictor:
         )
         # Create dummy latitude and longitude data (and its mask)
         latlon = torch.randn(B, num_groups_latlon, embedding_dim)
-        latlon_mask = torch.zeros(B, num_groups_latlon, dtype=torch.float32)
+        latlon_mask = torch.full(
+            (B, num_groups_latlon),
+            fill_value=MaskValue.DECODER_ONLY.value,
+            dtype=torch.float32,
+        )
 
         encoded_tokens = TokensAndMasks(
             s2=s2_tokens, s2_mask=s2_mask, latlon=latlon, latlon_mask=latlon_mask
@@ -484,7 +479,9 @@ class TestPredictor:
         assert output.latlon_mask.shape == (B, num_groups_latlon)
 
 
-def test_end_to_end_with_exit_config() -> None:
+def test_end_to_end_with_exit_config(
+    modalities_to_channel_groups_dict: dict[str, dict[str, list[int]]],
+) -> None:
     """Test the full end to end forward pass of the model with an exit configuration."""
     B, H, W, T, C = 1, 8, 8, 4, 4  # 4 channels: first 3 for 'rgb', last for 'nir'
     num_channel_groups = 2  # "rgb" and "nir"
@@ -492,7 +489,7 @@ def test_end_to_end_with_exit_config() -> None:
     s2 = torch.randn(B, H, W, T, C)
     # Create a dummy mask for s2 with shape (B, H, W, T, num_channel_groups)
     # Here we assume 0 (ONLINE_ENCODER) means the token is visible.
-    s2_mask = torch.zeros(B, H, W, T, num_channel_groups, dtype=torch.long)
+    s2_mask = torch.zeros(B, H, W, T, 4, dtype=torch.long)
     # Dummy latitude-longitude data.
     latlon = torch.randn(B, 2)
     latlon_mask = torch.ones(B, 2, dtype=torch.float32)
@@ -509,8 +506,6 @@ def test_end_to_end_with_exit_config() -> None:
 
     patch_size = 4
     input_res = 1
-
-    modalities_to_channel_groups_dict = {"s2": {"rgb": [0, 1, 2], "nir": [3]}}
     # Shared constants for encoder and predictor
     MAX_PATCH_SIZE = 8
     NUM_HEADS = 2
@@ -548,7 +543,7 @@ def test_end_to_end_with_exit_config() -> None:
         patch_size,
         input_res,
         exit_after_n_layers=1,
-        token_exit_cfg={"rgb": 1, "nir": 0},
+        token_exit_cfg={"rgb": 1, "nir": 0, "pos": 1},
     )
     output = predictor.forward(output, timestamps, patch_size, input_res)
     patched_H = H // patch_size

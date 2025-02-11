@@ -55,6 +55,10 @@ class TokensAndMasks(NamedTuple):
         """Return all data fields."""
         return [x for x in self._fields if not x.endswith("mask")]
 
+    def get_shape_dict(self) -> dict[str, tuple]:
+        """Return a dictionary of the shapes of the fields."""
+        return {x: getattr(self, x).shape for x in self._fields}
+
 
 class FlexiHeliosPatchEmbeddings(nn.Module):
     """Module that patchifies and encodes the input data."""
@@ -131,9 +135,6 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
                 modality_masks.append(modality_mask[:, idx])
                 if self.is_any_data_seen_by_encoder(modality_mask):
                     modality_data = input_data.latlon[:, channel_band_idxs]
-                    logger.info(
-                        f"latlon data shape: {modality_data.shape} {channel_band_idxs}"
-                    )
                     embedded_data = self.per_modality_embeddings[modality][
                         channel_group
                     ](modality_data)
@@ -155,10 +156,6 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
                 new_height, new_width = (
                     height // patch_size,
                     width // patch_size,
-                )
-                logger.info(
-                    f"Patchifying input data with patch size: {patch_size} height: {height} \
-                    width: {width} new height: {new_height} new width: {new_width}"
                 )
                 patchified_mask = modality_mask[:, 0::patch_size, 0::patch_size, :, idx]
                 modality_masks.append(patchified_mask)
@@ -206,14 +203,9 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
         """
         output_dict = {}
         for modality in self.modalities_to_channel_groups_dict.keys():
-            logger.info(f"Applying embedding to modality: {modality}")
             modality_tokens, modality_masks = self.apply_embedding_to_modality(
                 modality, input_data, patch_size
             )
-            logger.info(
-                f"for {modality} modality tokens shape: {modality_tokens.shape}"
-            )
-            logger.info(f"for {modality} modality masks shape: {modality_masks.shape}")
             output_dict[modality] = modality_tokens
             modality_mask_name = input_data.get_masked_modality_name(modality)
             output_dict[modality_mask_name] = modality_masks
@@ -318,8 +310,6 @@ class FlexiHeliosCompositeEncodings(nn.Module):
         """
         # TODO: Improve this implementation
         if modality == "latlon":
-            logger.info("Applying encodings to latlon modality")
-            logger.info(f"modality tokens shape: {modality_tokens.shape}")
             b, c_g, _ = modality_tokens.shape
             # Static modality only needs channel embeddings
             modality_channel_embed = self.per_modality_channel_embeddings[modality]
@@ -530,8 +520,8 @@ class FlexiHeliosBase(nn.Module):
         tokens_reshaped = 0
         for modality, dims in modalities_to_dims_dict.items():
             # Skip batch (first) and embedding (last) dimensions
-            spatial_dims = dims[1:-1]
-            num_tokens_for_modality = math.prod(spatial_dims)
+            middle_dims = dims[1:-1]
+            num_tokens_for_modality = math.prod(middle_dims)
 
             # Extract tokens for this modality (b n d)
             modality_tokens = x[
@@ -540,7 +530,7 @@ class FlexiHeliosBase(nn.Module):
 
             # TODO: see if there  is a general and clean einops way to do this
             # Reshape to original dimensions (e.g., for 4D spatial dims: b d1 d2 d3 d4 e)
-            x_modality = modality_tokens.view(x.shape[0], *spatial_dims, x.shape[-1])
+            x_modality = modality_tokens.view(x.shape[0], *middle_dims, x.shape[-1])
 
             tokens_reshaped += num_tokens_for_modality
             tokens_only_dict[modality] = x_modality
@@ -765,11 +755,12 @@ class Encoder(FlexiHeliosBase):
         # to decode those tokens. From the perspective of the encoder, 1 and 2 are equivalent
         # since they both represent masked values
         new_mask = mask >= MaskValue.TARGET_ENCODER_ONLY.value
+
         tokens, indices, new_mask = self.remove_masked_tokens(x, new_mask)
         if exit_ids_seq is not None:
-            exit_ids_seq, _, _ = self.remove_masked_tokens(exit_ids_seq, new_mask)
+            exit_ids_seq, _, _ = self.remove_masked_tokens(exit_ids_seq, mask)
             # still linear projections
-            exited_tokens, _, _ = self.remove_masked_tokens(exited_tokens, new_mask)
+            exited_tokens, _, _ = self.remove_masked_tokens(exited_tokens, mask)
 
         # Apply attn with varying encoder depths
         for i_blk, blk in enumerate(self.blocks):
@@ -1110,8 +1101,6 @@ class Predictor(FlexiHeliosBase):
         decoder_emedded_dict = {}
         for modality in self.modalities_to_channel_groups_dict.keys():
             x_modality = getattr(x, modality)
-            logger.info(f"Applying input norms to modality {modality}")
-            logger.info(f"x_modality.shape: {x_modality.shape}")
             x_modality = self.input_norm(x_modality)
             x_modality = self.encoder_to_decoder_embed(x_modality)
             masked_modality_name = x.get_masked_modality_name(modality)
@@ -1140,9 +1129,6 @@ class Predictor(FlexiHeliosBase):
             middle_dims = modality_data.shape[1:-2] if modality_data.ndim > 3 else ()
             for idx in range(len(channel_groups_dict)):
                 if self.is_any_data_to_be_decoded(modality_mask):
-                    logger.info(
-                        f"for modality {modality}, idx: {idx}, modality_data.shape: {modality_data.shape}"
-                    )
                     per_channel_modality_data = modality_data[..., idx, :]
                     output_data = self.to_output_embed(
                         self.norm(per_channel_modality_data)
