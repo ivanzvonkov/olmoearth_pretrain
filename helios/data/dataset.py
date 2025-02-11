@@ -65,7 +65,7 @@ class HeliosSample(NamedTuple):
                 self.h,
                 self.w,
             ],
-            "latlon": b + [len(self.attribute_to_bands()["laton"])],
+            "latlon": b + [len(self.attribute_to_bands()["latlon"])],
             "timestamps": b + [len(self.attribute_to_bands()["timestamps"])],
         }
 
