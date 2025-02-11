@@ -68,6 +68,8 @@ DATASET_TO_CONFIG = {
 class GeobenchDataset(Dataset):
     """GeoBench dataset, returning data in the Helios format."""
 
+    default_day_month_year = [1, 6, 2020]
+
     def __init__(
         self,
         geobench_dir: Path,
@@ -249,7 +251,8 @@ class GeobenchDataset(Dataset):
 
         target = torch.tensor(label, dtype=torch.long)
         s2 = repeat(x, "h w c -> c t h w", t=1)[GEOBENCH_TO_HELIOS_S2_BANDS, :, :, :]
-        return HeliosSample(s2=s2), target
+        timestamp = repeat(torch.tensor(self.default_day_month_year), "b -> t b", t=1)
+        return HeliosSample(s2=s2, timestamps=timestamp), target
 
     def __len__(self) -> int:
         """Length of dataset."""

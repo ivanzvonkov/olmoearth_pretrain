@@ -97,7 +97,7 @@ class MaskedHeliosSample(NamedTuple):
         """
         masked_sample_dict = {}
         for key, t in sample.as_dict(ignore_nones=False).items():
-            # Todo how do we handle timestamps
+            # Todo how do we handle timestamps. Maybe assume never None?
             if t is None:
                 masked_sample_dict[key] = torch.empty(sample.shape(key))
                 masked_sample_dict[f"{key}_mask"] = (
