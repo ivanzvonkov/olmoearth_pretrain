@@ -47,7 +47,7 @@ class MaskedHeliosSample(NamedTuple):
         s2_mask: ArrayTensor  # [B, H, W, T, len(S2_band_groups)]
         latlon: ArrayTensor  # [B, 2]
         latlon_mask: ArrayTensor  # [B, len(latlon_band_groups)]
-        timestamps: ArrayTensor  # [B, D=3, T], where D=[day, month, year]
+        timestamps: ArrayTensor  # [B, T, D=3], where D=[day, month, year]
     """
 
     s2: ArrayTensor
@@ -55,7 +55,7 @@ class MaskedHeliosSample(NamedTuple):
     latlon: ArrayTensor  # [B, 2]
     latlon_mask: ArrayTensor
     timestamps: (
-        ArrayTensor  # [B, D=3, T], where D=[day, month, year] (months are zero indexed)
+        ArrayTensor  # [B, T, D=3], where D=[day, month, year] (months are zero indexed)
     )
 
     def as_dict(self) -> dict[str, Any]:

@@ -257,7 +257,7 @@ class GeobenchDataset(Dataset):
             GEOBENCH_TO_HELIOS_S2_BANDS,
         ]
         timestamp = repeat(torch.tensor(self.default_day_month_year), "d -> t d", t=1)
-        return HeliosSample(s2=s2.float(), timestamps=timestamp.float()), target
+        return HeliosSample(s2=s2.float(), timestamps=timestamp.long()), target
 
     def __len__(self) -> int:
         """Length of dataset."""
