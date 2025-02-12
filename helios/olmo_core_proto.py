@@ -1,156 +1,214 @@
-"""Trying to prototype fitting everything into olmo core.
-
-TO run this script please clone the olmo-core repo and pip install the latest version of olmo-core.
-
-The released version on pypi is behind what is used here.
-
-"""
+"""Trying to prototype fitting everything into olmo core."""
 
 import logging
+import uuid
 
 import numpy as np
-import torch
-from olmo_core.utils import setup_logging
+from olmo_core.distributed.parallel import DataParallelConfig, DataParallelType
+from olmo_core.distributed.utils import get_fs_local_rank, get_rank, get_world_size
+from olmo_core.optim import AdamWConfig
+from olmo_core.train import prepare_training_environment, teardown_training_environment
+from olmo_core.train.callbacks.wandb import WandBCallback
+from olmo_core.train.checkpoint import CheckpointerConfig
+from olmo_core.train.common import Duration, LoadStrategy
+from olmo_core.train.config import TrainerConfig
+from olmo_core.utils import get_default_device
 from upath import UPath
 
-from helios.data.collator import per_modality_collate_fn
 from helios.data.dataloader import HeliosDataLoader
-from helios.data.dataset import HeliosDataset
-from helios.dataset.index import DatasetIndexParser
-from helios.train.decoder import SimpleLatentDecoder
+from helios.data.dataset import HeliosDataset, collate_helios
+from helios.dataset.parse import parse_helios_dataset
+from helios.dataset.sample import image_tiles_to_samples
+from helios.latent_predictor import LatentMIMStyle
+from helios.nn.flexihelios import Encoder, Predictor
+from helios.train.callbacks.speed_monitor import HeliosSpeedMonitorCallback
+from helios.train.loss import LossConfig
+from helios.train.masking import MaskingConfig
+from helios.train.train_module import HeliosTrainModuleConfig
 
 logger = logging.getLogger(__name__)
 
-
-## Config does not yet support our new dataset type so we will construct manually for now
+# THings that need a config
+# Data Loader
+# Model
+## OLD LOSS FUNCTION Keeping so pipeline runs until we have new integration
 
 
 if __name__ == "__main__":
-    setup_logging()
+    # Variables to be changed per user
+    workdir = UPath("/temp/helios/workdir")  # nosec
+    WANDB_USERNAME = "henryhzog"  # nosec
+    WANDB_PROJECT = "helios-test"
+    # PER EXPERIMENT Variables
+    GLOBAL_BATCH_SIZE = 8
+    RANK_BATCH_SIZE = 4
+    MAX_DURATION = Duration.epochs(10)
+    NUM_WORKERS = 0
+    NUM_THREADS = 0
+    METRICS_COLLECT_INTERVAL = 1
+    CANCEL_CHECK_INTERVAL = 1
+    SAVE_FOLDER = workdir / "save_folder"
+    LOAD_STRATEGY = LoadStrategy.if_available
+
+    dp_config = None
+    # for distributed training use torchrun
+    # Uncomment this line to use distributed training
+    dp_config = DataParallelConfig(name=DataParallelType.ddp)
+
+    # for distributed training use torchrun
+    if dp_config is not None:
+        prepare_training_environment(seed=42)
+    else:
+        prepare_training_environment(seed=42, backend=None)
     # set log level to debug
     logger.setLevel(logging.DEBUG)
 
-    index_path_old = "gs://ai2-helios/data/20250113-sample-dataset-helios/index.csv"
-    index_path = "gs://ai2-helios/data/20250115-sample-dataset-helios/index.csv"
-    index_parser = DatasetIndexParser(index_path)
-    samples = index_parser.samples
-    workdir = UPath("/weka/dfive-default/henryh/helios/workdir")
-    dataloader = HeliosDataLoader.wrap_numpy_dataset(
-        dataset=HeliosDataset(
-            *samples,
-            ignore_data_sources=["openstreetmap"],
-            filter_samples_with_missing_inputs=True,
-            dtype=np.dtype("float32"),
-        ),
-        global_batch_size=4,
-        dp_world_size=1,
-        collator=per_modality_collate_fn,
-        work_dir=workdir,
-        num_threads=0,
-        num_workers=0,
-    )
-
-    from helios.latent_predictor import LatentMIMStyle
-    from helios.train.encoder import PatchEncoder
-    from helios.train.trainer import HeliosTrainer
-
     # Variable masking is not used
-    encoder = PatchEncoder(
-        in_channels=13,
-        embed_dim=64,
-        patch_size=16,
-        depth=1,
-        num_heads=1,
+    from helios.constants import S2_BANDS
+
+    # The indexes need to be compatible with pytorch indexing
+    modalities_to_channel_groups_dict = {
+        "s2": {
+            "S2_RGB": [S2_BANDS.index(b) for b in ["B02", "B03", "B04"]],
+            "S2_Red_Edge": [S2_BANDS.index(b) for b in ["B05", "B06", "B07"]],
+            "S2_NIR_10m": [S2_BANDS.index(b) for b in ["B08"]],
+            "S2_NIR_20m": [S2_BANDS.index(b) for b in ["B8A"]],
+            "S2_SWIR": [S2_BANDS.index(b) for b in ["B11", "B12"]],
+        },
+        # "latlon": {
+        #     "latlon": [0, 1],
+        # },
+    }
+    # Log the type of band indexes
+    # for modality, channel_groups in modalities_to_channel_groups_dict.items():
+    #     for group_name, band_indices in channel_groups.items():
+    #         logger.debug(
+    #             f"Band indices for {modality} {group_name}: type={type(band_indices[0])}, indices={band_indices}"
+    #         )
+    # exit(0)
+    encoder = Encoder(
+        embedding_size=16,
+        max_patch_size=8,
+        num_heads=2,
+        depth=2,
         mlp_ratio=1.0,
+        drop_path=0.1,
+        max_sequence_length=12,
+        base_patch_size=8,
+        use_channel_embs=True,
+        modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
     )
-    decoder = SimpleLatentDecoder(
-        embed_dim=64,
+    decoder = Predictor(
+        encoder_embedding_size=16,
+        decoder_embedding_size=16,
+        depth=2,
         mlp_ratio=1.0,
-        dropout=0.1,
+        num_heads=2,
+        max_sequence_length=12,
+        max_patch_size=8,
+        modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
     )
     model = LatentMIMStyle(encoder, decoder)
-    # target_encoder = deepcopy(encoder)
-    # for p in target_encoder.parameters():
-    #     p.requires_grad = False
 
-    # # we will need to keep the state of momentum so that we can resume training
-    # # Add EMA decay rate and optimizer
-    # ema_decay = 0.99
-    # optimizer = torch.optim.AdamW(
-    #     list(encoder.parameters()) + list(decoder.parameters()),
-    #     lr=1e-4,
-    #     weight_decay=0.01
-    # )
-
-    # for epoch in range(1, 3):
-    #     dataloader.reshuffle(epoch=epoch)
-    #     batch_iterator = dataloader._iter_batches()
-    #     batches_found = 0
-    #     for batch in batch_iterator:
-    #         optimizer.zero_grad()
-
-    #         with torch.no_grad():
-    #             input = rearrange(batch.sentinel2, "b h w t c -> b c t h w")
-    #             target_output = target_encoder.forward(input)
-
-    #         # Run Encoder and decoder on the augmented input
-    #         latent = encoder.forward(input, apply_aug=True)
-    #         decoded = decoder.forward(latent["encoded"])
-    #         loss = patch_disc_loss(
-    #             pred=decoded,
-    #             target=target_output["encoded"],
-    #             pred2unit=True,
-    #         )
-
-    #         # Backpropagate and optimize
-    #         loss.backward()
-    #         optimizer.step()
-
-    #         print(f"Epoch {epoch}, Loss: {loss.item():.4f}")
-
-    #         # Update target encoder with EMA
-    #         with torch.no_grad():
-    #             for param, target_param in zip(
-    #                 encoder.parameters(), target_encoder.parameters()
-    #             ):
-    #                 target_param.data = (
-    #                     ema_decay * target_param.data + (1 - ema_decay) * param.data
-    #                 )
-
-    #     dataloader.reset()
-
-    # Need an optimizer
-    # Need a checkpointer
-    # Need a module
-    # first lets grab the anysat model already in there repo
-
-    from olmo_core.optim import AdamWConfig
-    from olmo_core.train.checkpoint import CheckpointerConfig
-    from olmo_core.train.common import Duration, LoadStrategy
-
-    from helios.train.callbacks.speed_monitor import HeliosSpeedMonitorCallback
-
-    max_duration = Duration.epochs(4)
-
+    device = get_default_device()
+    logger.info(f"Using device: {device}")
+    # Ideally though this should be handled by the Model COnfig and build
+    model = model.to(device)
     checkpointer_config = CheckpointerConfig(work_dir=workdir)
-    checkpointer = checkpointer_config.build()
-    DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(DEVICE)
     optim_config = AdamWConfig()
-    optim = optim_config.build(model)
-    trainer = HeliosTrainer(
+    masking_config = MaskingConfig(strategy_config={"type": "random"})
+    loss_config = LossConfig(loss_config={"type": "patch_discrimination"})
+    train_module_config = HeliosTrainModuleConfig(
+        optim=optim_config,
+        masking_config=masking_config,
+        loss_config=loss_config,
+        rank_batch_size=RANK_BATCH_SIZE,
+    )
+    train_module = train_module_config.build(model=model)
+    dp_process_group = train_module.dp_process_group
+
+    # Prepare samples from Helios dataset
+    tile_path = UPath(
+        "/weka/dfive-default/helios_sample_data/20250130-sample-dataset-helios/"
+    )
+    tiles = parse_helios_dataset(tile_path)
+    samples = image_tiles_to_samples(tiles)
+
+    # Create HeliosDataLoader
+    dataloader = HeliosDataLoader(
+        dataset=HeliosDataset(
+            *samples,
+            path=tile_path,
+            dtype=np.dtype("float32"),
+        ),
+        collator=collate_helios,
+        global_batch_size=GLOBAL_BATCH_SIZE,
+        dp_world_size=get_world_size(dp_process_group),
+        dp_rank=get_rank(dp_process_group),
+        fs_local_rank=get_fs_local_rank(),
         work_dir=workdir,
-        model=model,
-        optim=optim,
-        data_loader=dataloader,
-        load_strategy=LoadStrategy.never,
-        device=DEVICE,
-        save_folder=workdir / "save_folder",
-        callbacks={"speed_monitor": HeliosSpeedMonitorCallback()},
-        rank_microbatch_size=4,
-        cancel_check_interval=1,
-        max_duration=max_duration,
-        checkpointer=checkpointer,
+        num_threads=NUM_THREADS,
+        num_workers=NUM_WORKERS,
     )
 
+    run_name = f"test-debug-{str(uuid.uuid4())[:8]}"
+    wandb_callback = WandBCallback(
+        name=run_name,
+        project=WANDB_PROJECT,
+        entity=WANDB_USERNAME,
+    )
+    callbacks = {
+        "speed_monitor": HeliosSpeedMonitorCallback(),
+        "wandb": wandb_callback,
+    }
+    trainer_config = TrainerConfig(
+        work_dir=workdir,
+        load_strategy=LOAD_STRATEGY,
+        device=device,
+        save_folder=SAVE_FOLDER,
+        callbacks=callbacks,
+        cancel_check_interval=CANCEL_CHECK_INTERVAL,
+        metrics_collect_interval=METRICS_COLLECT_INTERVAL,
+        max_duration=MAX_DURATION,
+        checkpointer=checkpointer_config,
+    )
+    trainer = trainer_config.build(
+        train_module=train_module,
+        data_loader=dataloader,
+    )
     trainer.fit()
+
+    # eval. Currently this will fail because by default our model ingests 4 timesteps.
+    # we should update the model architecture to ingest variable numbers of timesteps
+    from torch.utils.data import DataLoader
+
+    from helios.evals.datasets import GeobenchDataset
+    from helios.evals.embeddings import get_embeddings
+    from helios.evals.knn import run_knn
+
+    geobench_dir = UPath("/weka/skylight-default/presto-geobench/dataset/geobench")
+
+    common_args = {"geobench_dir": geobench_dir, "dataset": "m-eurosat"}
+    train_ds = GeobenchDataset(geobench_dir, "m-eurosat", "train", "default")
+    train_loader = DataLoader(train_ds, collate_fn=GeobenchDataset.collate_fn)
+    val_loader = DataLoader(
+        GeobenchDataset(geobench_dir, "m-eurosat", "valid", "default"),
+        collate_fn=GeobenchDataset.collate_fn,
+    )
+    # TODO: this should use target encoder
+    train_embeddings, train_labels = get_embeddings(
+        data_loader=train_loader, model=encoder
+    )
+    val_embeddings, test_labels = get_embeddings(data_loader=val_loader, model=encoder)
+    val_result = run_knn(
+        eval_type="KNN-20",
+        train_embeddings=train_embeddings,
+        train_labels=train_labels,
+        test_embeddings=val_embeddings,
+        test_labels=test_labels,
+        num_classes=train_ds.num_classes,
+        is_multilabel=train_ds.is_multilabel,
+        device=device,
+    )
+    logger.info(val_result)
+    teardown_training_environment()
