@@ -46,7 +46,7 @@ class HeliosSample(NamedTuple):
     latlon: ArrayTensor | None = None  # [B, 2]
     timestamps: ArrayTensor | None = None  # [B, T, D=3], where D=[day, month, year]
 
-    def shape(self, attribute: str, num_channels: int | None = None) -> Sequence[int]:
+    def shape(self, attribute: str, mask: bool = False) -> Sequence[int]:
         """Returns the expected shape of an attribute.
 
         This is useful if you want to know what the shape of a
@@ -59,12 +59,7 @@ class HeliosSample(NamedTuple):
 
         if attribute == "timestamps":
             # timestamps is a special case which is not in Modality
-            return b + [
-                self.t,
-                len(self.attribute_to_bands()["timestamps"])
-                if num_channels is None
-                else num_channels,
-            ]
+            return b + [self.t, self.num_bands(attribute, mask)]
 
         modality_spec = Modality.get_modality_from_name(attribute)
 
@@ -76,11 +71,7 @@ class HeliosSample(NamedTuple):
         if modality_spec.is_multitemporal:
             return_bands += [self.t]
 
-        return_bands += [
-            len(self.attribute_to_bands()[attribute])
-            if num_channels is None
-            else num_channels
-        ]
+        return_bands += [self.num_bands(attribute, mask)]
         return return_bands
 
     def as_dict(self, ignore_nones: bool = True) -> dict[str, ArrayTensor | None]:
@@ -119,13 +110,33 @@ class HeliosSample(NamedTuple):
         )
 
     @staticmethod
-    def attribute_to_bands() -> dict[str, list[str]]:
+    def num_bands(attribute: str, mask: bool = False) -> int:
         """Get the bands for each attribute.
 
         Returns:
             A dictionary mapping attribute names to their corresponding bands.
+
+        If
         """
-        return {"sentinel2": S2_BANDS, "latlon": LATLON_BANDS, "timestamps": TIMESTAMPS}
+        if mask:
+            # we use the band sets to construct our tokens,
+            # so that a band set == a channel group
+            if attribute == "timestamps":
+                raise ValueError("No masks can be created for timestamps")
+            mask_dict = {
+                "sentinel2": len(
+                    Modality.get_modality_from_name("sentinel2").band_sets
+                ),
+                "latlon": len(Modality.get_modality_from_name("latlon").band_sets),
+            }
+            return mask_dict[attribute]
+        else:
+            x_dict = {
+                "sentinel2": len(S2_BANDS),
+                "latlon": len(LATLON_BANDS),
+                "timestamps": len(TIMESTAMPS),
+            }
+            return x_dict[attribute]
 
     @property
     def b(self) -> int:
