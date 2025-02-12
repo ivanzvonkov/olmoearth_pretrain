@@ -58,6 +58,7 @@ class HeliosSample(NamedTuple):
             b = []
 
         if attribute == "timestamps":
+            # timestamps is a special case which is not in Modality
             return b + [
                 self.t,
                 len(self.attribute_to_bands()["timestamps"])
