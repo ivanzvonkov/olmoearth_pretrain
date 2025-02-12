@@ -34,15 +34,15 @@ class TokensAndMasks(NamedTuple):
         timestamps: timestamps of the data
     """
 
-    s2: Tensor  # (B, C_G, T, P_H, P_W)
-    s2_mask: Tensor
+    sentinel2: Tensor  # (B, C_G, T, P_H, P_W)
+    sentinel2_mask: Tensor
     latlon: Tensor
     latlon_mask: Tensor
 
     @property
     def device(self) -> torch.device:
         """Get the device of the tokens and masks."""
-        return self.s2.device
+        return self.sentinel2.device
 
     # TODO: It seems like we want a lot of our named tuples to have this functionality so we should probably create a utility base class for the named tuples and double subclass
     @classmethod
@@ -91,6 +91,14 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
                 self._get_patch_embedding_module_for_modality(modality)
             )
 
+    @staticmethod
+    def _get_embedding_module_name(modality: str, idx: int) -> str:
+        """Get the embedding module name.
+
+        Module Dicts require string keys
+        """
+        return f"{modality}__{idx}"
+
     def _get_patch_embedding_module_for_modality(self, modality: str) -> nn.Module:
         """Get the patch embedding module for a modality."""
         modality_spec = Modality.get_modality_from_name(modality)
@@ -102,7 +110,9 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
             # static in space
             return nn.ModuleDict(
                 {
-                    idx: nn.Linear(len(channel_set_idxs), self.embedding_size)
+                    self._get_embedding_module_name(modality, idx): nn.Linear(
+                        len(channel_set_idxs), self.embedding_size
+                    )
                     for idx, channel_set_idxs in enumerate(
                         modality_spec.bandsets_as_indices()
                     )
@@ -111,7 +121,7 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
         else:
             return nn.ModuleDict(
                 {
-                    idx: FlexiPatchEmbed(
+                    self._get_embedding_module_name(modality, idx): FlexiPatchEmbed(
                         in_chans=len(channel_set_idxs),
                         embedding_size=self.embedding_size,
                         patch_size=self.max_patch_size,
@@ -146,9 +156,9 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
             # Now apply the embedding to
             if self.is_any_data_seen_by_encoder(token_mask):
                 patchified_data = modality_data[..., channel_set_indices]
-                patchified_data = self.per_modality_embeddings[modality][idx](
-                    patchified_data, **modality_specific_kwargs
-                )
+                patchified_data = self.per_modality_embeddings[modality][
+                    self._get_embedding_module_name(modality, idx)
+                ](patchified_data, **modality_specific_kwargs)
             else:
                 patchified_data = torch.empty(
                     modality_data.shape[0],
@@ -592,12 +602,9 @@ class Encoder(FlexiHeliosBase):
         Assumes modality channel groups are in the second to last dimension of the tokens.
         """
         exit_ids_per_modality_dict = {}
-        for idx, modality in enumerate(self.supported_modalities):
+        for modality in self.supported_modalities:
             num_exit_layers = token_exit_cfg[modality]
-
-            exit_seq_modality = torch.zeros_like(x[modality])
-            exit_seq_modality[..., idx, :] = num_exit_layers
-
+            exit_seq_modality = torch.full_like(x[modality], fill_value=num_exit_layers)
             exit_ids_per_modality_dict[modality] = exit_seq_modality
         return exit_ids_per_modality_dict
 
