@@ -16,9 +16,9 @@ def set_random_seeds() -> None:
 
 
 @pytest.fixture
-def modalities_to_channel_groups_dict() -> dict[str, dict[str, list[int]]]:
-    """Create a modalities to channel groups dict fixture for testing."""
-    return {
-        "s2": {"rgb": [0, 1, 2], "nir": [3]},
-        "latlon": {"pos": [0, 1]},
-    }
+def supported_modalities() -> list[str]:
+    """Create a list of supported modalities for testing."""
+    return ["sentinel2", "latlon"]
+
+
+# TODO: add some create mock data factory functions for all the contracts and different steps
