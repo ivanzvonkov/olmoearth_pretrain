@@ -238,6 +238,7 @@ Modality(
 
 # Accessing modalities
 ALL_MODALITIES = MODALITIES.get_all()
+# TODO: should latlon be a modality?
 SUPPORTED_MODALITIES = MODALITIES.get_subset(
     lambda x: x.name in ["sentinel1", "sentinel2", "worldcover", "latlon"]
 )

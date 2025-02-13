@@ -18,13 +18,8 @@ from torch.utils.data import Dataset
 from upath import UPath
 
 from helios.constants import LATLON_BANDS, TIMESTAMPS
-from helios.data.constants import (
-    MODALITIES,
-    SUPPORTED_MODALITIES,
-    BASE_RESOLUTION,
-    IMAGE_TILE_SIZE,
-    Modality,
-)
+from helios.data.constants import (BASE_RESOLUTION, IMAGE_TILE_SIZE,
+                                   MODALITIES, SUPPORTED_MODALITIES, Modality)
 from helios.dataset.parse import TimeSpan
 from helios.dataset.sample import SampleInformation, load_image_for_sample
 from helios.types import ArrayTensor
@@ -38,6 +33,7 @@ class HeliosSample(NamedTuple):
     This is a namedtuple that contains the data of a single sample or a batch of samples from the Helios dataset.
     For each modality, we have an ArrayTensor named by the modality, along with the latlon and timestamps.
     """
+
     sentinel2: ArrayTensor | None = None  # [B, H, W, T, len(S2_bands)]
     sentinel1: ArrayTensor | None = None  # [B, H, W, T, len(S1_bands)]
     worldcover: ArrayTensor | None = None  # [B, H, W, len(WC_bands)]
@@ -71,16 +67,20 @@ class HeliosSample(NamedTuple):
                 raise ValueError("Sentinel2 is not present in the sample")
             return_shape = []
             if MODALITIES.get(attribute).get_tile_resolution() > 0:
-                return_shape += self.sentinel2.shape[:-2]  # get batch size (if has), height, width
+                return_shape += self.sentinel2.shape[
+                    :-2
+                ]  # get batch size (if has), height, width
             if MODALITIES.get(attribute).is_multitemporal:
                 return_shape += [self.sentinel2.shape[-2]]  # number of timesteps
             if not mask:
                 # TODO: change it to num_bands instead
-                return_shape += [len(MODALITIES.get(attribute).get_band_names())]  # number of bands
+                return_shape += [
+                    len(MODALITIES.get(attribute).get_band_names())
+                ]  # number of bands
             else:
                 return_shape += [len(MODALITIES.get(attribute).band_sets)]
             return return_shape
-    
+
     @staticmethod
     def num_bands(attribute: str) -> int:
         """Get the number of bands for a given attribute."""
@@ -119,7 +119,9 @@ class HeliosSample(NamedTuple):
         return HeliosSample(
             sentinel2=self.sentinel2.to(device) if self.sentinel2 is not None else None,
             sentinel1=self.sentinel1.to(device) if self.sentinel1 is not None else None,
-            worldcover=self.worldcover.to(device) if self.worldcover is not None else None,
+            worldcover=(
+                self.worldcover.to(device) if self.worldcover is not None else None
+            ),
             latlon=self.latlon.to(device) if self.latlon is not None else None,
             timestamps=(
                 self.timestamps.to(device) if self.timestamps is not None else None
@@ -230,20 +232,29 @@ class HeliosDataset(Dataset):
     ) -> list[SampleInformation]:
         """Filter samples to adjust to the HeliosSample format."""
         # Right now, only use yearly S1 and S2 data
+        logger.info(f"Number of samples before filtering: {len(samples)}")
         filtered_samples = []
         for sample in samples:
             # Check if the sample has all the necessary modalities
-            if not all(modality in sample.modalities for modality in SUPPORTED_MODALITIES):
+            if not all(
+                modality in sample.modalities for modality in SUPPORTED_MODALITIES
+            ):
                 continue
             # Check if S1 and S2 all have 12 months of data
             total_months = 12
             if (
                 sample.time_span != TimeSpan.YEAR
-                or len(sample.modalities[MODALITIES.get("sentinel1")].images) != total_months
-                or len(sample.modalities[MODALITIES.get("sentinel2")].images) != total_months
+                or len(sample.modalities[MODALITIES.get("sentinel1")].images)
+                != total_months
+                or len(sample.modalities[MODALITIES.get("sentinel2")].images)
+                != total_months
             ):
+                logger.info(
+                    f"Sample {sample.grid_tile} has {len(sample.modalities[MODALITIES.get('sentinel1')].images)} months of S1 data and {len(sample.modalities[MODALITIES.get('sentinel2')].images)} months of S2 data"
+                )
                 continue
             filtered_samples.append(sample)
+        logger.info(f"Number of samples after filtering: {len(filtered_samples)}")
         return filtered_samples
 
     def _get_latlon(self, sample: SampleInformation) -> np.ndarray:

@@ -1,6 +1,7 @@
 """Test the HeliosDataset class."""
 
 import calendar
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -8,10 +9,13 @@ import numpy as np
 import rasterio
 from rasterio.transform import from_origin
 
-from helios.data.constants import BandSet, Modality, MODALITIES
+from helios.data.constants import MODALITIES, BandSet
 from helios.data.dataset import HeliosDataset, HeliosSample
-from helios.dataset.parse import GridTile, ModalityImage, ModalityTile, TimeSpan
+from helios.dataset.parse import (GridTile, ModalityImage, ModalityTile,
+                                  TimeSpan)
 from helios.dataset.sample import SampleInformation
+
+logger = logging.getLogger(__name__)
 
 
 def create_geotiff(
@@ -77,7 +81,8 @@ def prepare_dataset(data_path: Path) -> HeliosDataset:
                         / "s2_10m.tif",
                         BandSet(
                             ["B05", "B06", "B07", "B8A", "B11", "B12"], 32
-                        ): data_path / "s2_20m.tif",
+                        ): data_path
+                        / "s2_20m.tif",
                         BandSet(["B01", "B09", "B10"], 64): data_path / "s2_40m.tif",
                     },
                 ),
@@ -102,6 +107,7 @@ def prepare_dataset(data_path: Path) -> HeliosDataset:
             },
         )
     ]
+    logger.info(f"num samples: {len(samples)}")
     dataset = HeliosDataset(*samples, path=data_path)
     return dataset
 

@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 from torch.utils.data import DataLoader
 
-from helios.constants import S2_BANDS
 from helios.evals.datasets import GeobenchDataset
 from helios.nn.flexihelios import Encoder
 

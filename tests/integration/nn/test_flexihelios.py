@@ -8,8 +8,12 @@ import torch
 from einops import rearrange
 
 from helios.data.constants import MODALITIES
-from helios.nn.flexihelios import (Encoder, FlexiHeliosPatchEmbeddings,
-                                   Predictor, TokensAndMasks)
+from helios.nn.flexihelios import (
+    Encoder,
+    FlexiHeliosPatchEmbeddings,
+    Predictor,
+    TokensAndMasks,
+)
 from helios.train.masking import MaskedHeliosSample, MaskValue
 
 
@@ -244,9 +248,12 @@ class TestEncoder:
             latlon_num_band_sets,
             expected_embedding_size,
         ), f"Expected output latlon shape {latlon.shape}, got {output.latlon.shape}"
-        assert output.latlon_mask.shape == (
-            B,
-            latlon_num_band_sets,
+        assert (
+            output.latlon_mask.shape
+            == (
+                B,
+                latlon_num_band_sets,
+            )
         ), f"Expected output latlon_mask shape {latlon_mask.shape}, got {output.latlon_mask.shape}"
 
     def test_forward_exit_config_exists(
@@ -383,9 +390,12 @@ class TestEncoder:
             1,
             expected_embedding_size,
         ), f"Expected output latlon shape {latlon.shape}, got {output.latlon.shape}"
-        assert output.latlon_mask.shape == (
-            B,
-            1,
+        assert (
+            output.latlon_mask.shape
+            == (
+                B,
+                1,
+            )
         ), f"Expected output latlon_mask shape {latlon_mask.shape}, got {output.latlon_mask.shape}"
 
 
