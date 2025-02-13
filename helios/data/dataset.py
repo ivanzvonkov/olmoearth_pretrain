@@ -17,8 +17,13 @@ from pyproj import Transformer
 from torch.utils.data import Dataset
 from upath import UPath
 
-from helios.data.constants import (BASE_RESOLUTION, IMAGE_TILE_SIZE,
-                                   MODALITIES, SUPPORTED_MODALITIES, TIMESTAMPS)
+from helios.data.constants import (
+    BASE_RESOLUTION,
+    IMAGE_TILE_SIZE,
+    MODALITIES,
+    SUPPORTED_MODALITIES,
+    TIMESTAMPS,
+)
 from helios.dataset.parse import TimeSpan
 from helios.dataset.sample import SampleInformation, load_image_for_sample
 from helios.types import ArrayTensor
@@ -57,6 +62,8 @@ class HeliosSample(NamedTuple):
         # For static modality like worldcover, we specify the T dimension as 1
         if attribute == "timestamps":
             if not mask:
+                if self.timestamps is None:
+                    raise ValueError("Timestamps are not present in the sample")
                 return self.timestamps.shape
             else:
                 # timestamps is a special case which is not in Modality
@@ -65,14 +72,20 @@ class HeliosSample(NamedTuple):
             if self.sentinel2 is None:
                 raise ValueError("Sentinel2 is not present in the sample")
             attribute_shape = []
-            if MODALITIES.get(attribute).get_tile_resolution() > 0:
-                attribute_shape += self.sentinel2.shape[:-2]  # add batch size (if has), height, width
-            if MODALITIES.get(attribute).is_multitemporal:
+            if MODALITIES[attribute].get_tile_resolution() > 0:
+                attribute_shape += self.sentinel2.shape[
+                    :-2
+                ]  # add batch size (if has), height, width
+            if MODALITIES[attribute].is_multitemporal:
                 attribute_shape += [self.sentinel2.shape[-2]]  # add number of timesteps
             if not mask:
-                attribute_shape += [MODALITIES.get(attribute).num_channels]  # add number of bands
+                attribute_shape += [
+                    MODALITIES[attribute].num_channels
+                ]  # add number of bands
             else:
-                attribute_shape += [MODALITIES.get(attribute).num_band_sets]  # add number of band sets
+                attribute_shape += [
+                    MODALITIES[attribute].num_band_sets
+                ]  # add number of band sets
             return attribute_shape
 
     @staticmethod
@@ -81,7 +94,7 @@ class HeliosSample(NamedTuple):
         if attribute == "timestamps":
             return len(TIMESTAMPS)
         else:
-            return MODALITIES.get(attribute).num_channels
+            return MODALITIES[attribute].num_channels
 
     def as_dict(self, ignore_nones: bool = True) -> dict[str, ArrayTensor | None]:
         """Convert the namedtuple to a dictionary.
@@ -125,6 +138,7 @@ class HeliosSample(NamedTuple):
 
 def collate_helios(batch: list[HeliosSample]) -> HeliosSample:
     """Collate function."""
+
     # Stack tensors while handling None values
     def stack_or_none(attr: str) -> torch.Tensor | None:
         """Stack the tensors while handling None values."""
@@ -228,16 +242,23 @@ class HeliosDataset(Dataset):
         filtered_samples = []
         # For now, we use sentinel2 as the base grid with resolution factor 16
         # Avoid samples with NAIP which has a resolution factor of 1
-        resolution_factor = MODALITIES.get("sentinel2").tile_resolution_factor
+        resolution_factor = MODALITIES["sentinel2"].tile_resolution_factor
         for sample in samples:
             if sample.grid_tile.resolution_factor != resolution_factor:
                 continue
             # Check if all the modalities are available
-            if not all(MODALITIES.get(modality) in sample.modalities for modality in SUPPORTED_MODALITIES):
+            if not all(
+                MODALITIES[modality] in sample.modalities
+                for modality in SUPPORTED_MODALITIES
+            ):
                 continue
             # Check if S1 and S2 all have the same 12 months of data
-            sentinel1_months = len(set(sample.modalities[MODALITIES.get("sentinel1")].images))
-            sentinel2_months = len(set(sample.modalities[MODALITIES.get("sentinel2")].images))
+            sentinel1_months = len(
+                set(sample.modalities[MODALITIES["sentinel1"]].images)
+            )
+            sentinel2_months = len(
+                set(sample.modalities[MODALITIES["sentinel2"]].images)
+            )
             if (
                 sample.time_span != TimeSpan.YEAR
                 or sentinel1_months != sentinel2_months
@@ -264,7 +285,7 @@ class HeliosDataset(Dataset):
 
     def _get_timestamps(self, sample: SampleInformation) -> np.ndarray:
         """Get the timestamps of the sample."""
-        sample_sentinel2 = sample.modalities[MODALITIES.get("sentinel2")]
+        sample_sentinel2 = sample.modalities[MODALITIES["sentinel2"]]
         timestamps = [i.start_time for i in sample_sentinel2.images]
         dt = pd.to_datetime(timestamps)
         # Note that month should be 0-indexed
@@ -289,7 +310,9 @@ class HeliosDataset(Dataset):
             # Get latlon and timestamps from s2
             if modality == MODALITIES.get("sentinel2"):
                 sample_dict["latlon"] = self._get_latlon(sample).astype(np.float32)
-                sample_dict["timestamps"] = self._get_timestamps(sample).astype(np.int32)
+                sample_dict["timestamps"] = self._get_timestamps(sample).astype(
+                    np.int32
+                )
             # TODO: fix the bug with sentinel1 data (missing bands)
             # if modality == MODALITIES.get("sentinel1"):
             #     if modality_data.shape[-2] != 12:

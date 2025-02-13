@@ -270,7 +270,7 @@ class RandomMaskingStrategy(MaskingStrategy):
                 return_device = None
             logger.info(f"Modality name: {modality_name} shape: {modality.shape}")
             # TODO: Make this decions based on modlaity spec
-            num_channels = MODALITIES.get(modality_name).num_channels
+            num_channels = MODALITIES[modality_name].num_channels
             if len(modality.shape) == 5:
                 b, h, w, t, c = modality.shape
 

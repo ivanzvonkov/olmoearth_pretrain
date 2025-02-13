@@ -1,8 +1,5 @@
 """Constants shared across the helios package."""
 
-# Probably should delete all this band info
-NAIP_BANDS = ["R", "G", "B", "IR"]
-
 S2_BANDS = [
     "B01",
     "B02",

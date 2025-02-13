@@ -10,7 +10,7 @@ from einops import rearrange, repeat
 from torch import Tensor, nn
 
 from helios.constants import BASE_GSD
-from helios.data.constants import Modality, MODALITIES
+from helios.data.constants import MODALITIES
 from helios.nn.attention import Block
 from helios.nn.encodings import (
     get_1d_sincos_pos_encoding,
@@ -27,14 +27,14 @@ class TokensAndMasks(NamedTuple):
     """Output to compute the loss on.
 
     Args:
-        sentinel2: sentinel 2 data of shape (B, C_G, T, P_H, P_W)
+        sentinel2: sentinel 2 data of shape (B, P_H, P_W, T, Band_Sets)
         sentinel2_mask: sentinel 2 mask indicating which tokens are masked/unmasked
         latlon: lat lon data containing geographical coordinates
         latlon_mask: lat lon mask indicating which coordinates are masked/unmasked
         timestamps: timestamps of the data
     """
 
-    sentinel2: Tensor  # (B, C_G, T, P_H, P_W)
+    sentinel2: Tensor
     sentinel2_mask: Tensor
     latlon: Tensor
     latlon_mask: Tensor
@@ -82,9 +82,6 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
         self.embedding_size = embedding_size
         self.supported_modalities = supported_modalities
         # TODO: want to be able to remove certain bands and modalities
-        # dict will be modality -> channel_group -> bands
-
-        # I want to be able to easily assign an embeddign to a modality and I want it to be explicit for now
         self.per_modality_embeddings = nn.ModuleDict({})
         for modality in self.supported_modalities:
             self.per_modality_embeddings[modality] = (
@@ -101,7 +98,7 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
 
     def _get_patch_embedding_module_for_modality(self, modality: str) -> nn.Module:
         """Get the patch embedding module for a modality."""
-        modality_spec = MODALITIES.get(modality)
+        modality_spec = MODALITIES[modality]
         # Based on the modality name we choose the way to embed the data
 
         # I likely will need to know about what the embedding strategy is in the forward as well
@@ -141,7 +138,7 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
         modality_mask = getattr(input_data, masked_modality_name)
         modality_data = getattr(input_data, modality)
 
-        modality_spec = MODALITIES.get(modality)
+        modality_spec = MODALITIES[modality]
 
         modality_tokens, modality_masks = [], []
         for idx, channel_set_indices in enumerate(modality_spec.bandsets_as_indices()):
@@ -156,7 +153,7 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
             # Now apply the embedding to
             if self.is_any_data_seen_by_encoder(token_mask):
                 patchified_data = modality_data[..., channel_set_indices]
-                
+
                 patchified_data = self.per_modality_embeddings[modality][
                     self._get_embedding_module_name(modality, idx)
                 ](patchified_data, **modality_specific_kwargs)
@@ -184,8 +181,8 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
     ) -> TokensAndMasks:
         """Return flexibly patchified embeddings for each modality of the input data.
 
-        Given a [B, H, W, (T), C] inputs, returns a [B, H, W, (T), C_G, D] output.
-        # TODO: Confirm The input Masked Helios Sample has masks at full resolution, (no patches and no band sets)
+        Given a [B, H, W, (T), C] inputs, returns a [B, H, W, (T), b_s, D] output.
+
         We assume that the spatial masks are consistent for the given patch size,
         so that if patch_size == 2 then one possible mask would be
         [0, 0, 1, 1]
@@ -259,7 +256,7 @@ class FlexiHeliosCompositeEncodings(nn.Module):
             {
                 modality: nn.Parameter(
                     torch.zeros(
-                        len(MODALITIES.get(modality).band_sets),
+                        len(MODALITIES[modality].band_sets),
                         self.embedding_dim_per_embedding_type,
                     ),
                     **args,
@@ -305,12 +302,12 @@ class FlexiHeliosCompositeEncodings(nn.Module):
         """
         # TODO: Improve this implementation
         if modality_tokens.ndim == 3:
-            # modality_tokens = [B, C_G, D]; static in space, static in time
-            b, c_g, _ = modality_tokens.shape
+            # modality_tokens = [B, Band_Sets, D]; static in space, static in time
+            b, b_s, _ = modality_tokens.shape
             # Static modality only needs channel embeddings
             modality_channel_embed = self.per_modality_channel_embeddings[modality]
             modality_channel_embed = repeat(
-                modality_channel_embed, "c_g d -> b c_g d", b=b
+                modality_channel_embed, "b_s d -> b b_s d", b=b
             )
             modality_channel_embed = F.pad(
                 modality_channel_embed,
@@ -328,24 +325,24 @@ class FlexiHeliosCompositeEncodings(nn.Module):
             raise ValueError(
                 f"Unsupported tokens shape {modality_tokens.shape} for {modality}"
             )
-        b, h, w, t, c_g, _ = modality_tokens.shape
+        b, h, w, t, b_s, _ = modality_tokens.shape
 
         # Channel embeddings
         modality_channel_embed = self.per_modality_channel_embeddings[modality]
         modality_channel_embed = repeat(
-            modality_channel_embed, "c_g d -> b h w t c_g d", b=b, h=h, w=w, t=t
+            modality_channel_embed, "b_s d -> b h w t b_s d", b=b, h=h, w=w, t=t
         )
 
         # Time position encodings
         modality_pos_embed = repeat(
-            self.pos_embed[:t], "t d -> b h w t c_g d", b=b, h=h, w=w, c_g=c_g
+            self.pos_embed[:t], "t d -> b h w t b_s d", b=b, h=h, w=w, b_s=b_s
         )
 
         # Month encodings
         months = timestamps[:, :, 1]
         month_embed = self.month_embed(months)
         modality_month_embed = repeat(
-            month_embed, "b t d -> b h w t c_g d", h=h, w=w, c_g=c_g
+            month_embed, "b t d -> b h w t b_s d", h=h, w=w, b_s=b_s
         )
 
         # Spatial encodings
@@ -358,7 +355,7 @@ class FlexiHeliosCompositeEncodings(nn.Module):
             device=current_device,
         )
         spatial_embed = rearrange(spatial_embed, "b (h w) d -> b h w d", h=h, w=w)
-        spatial_embed = repeat(spatial_embed, "b h w d -> b h w t c_g d", c_g=c_g, t=t)
+        spatial_embed = repeat(spatial_embed, "b h w d -> b h w t b_s d", b_s=b_s, t=t)
 
         # Combine all encodings
         modality_embed = torch.cat(
@@ -1128,7 +1125,7 @@ class Predictor(FlexiHeliosBase):
             modality_data = getattr(tokens_and_masks, modality)
             modality_specific_dims = self.grab_modality_specific_dims(modality_data)
 
-            band_sets = MODALITIES.get(modality).band_sets
+            band_sets = MODALITIES[modality].band_sets
             for idx in range(len(band_sets)):
                 if self.is_any_data_to_be_decoded(modality_mask):
                     per_channel_modality_data = modality_data[..., idx, :]
@@ -1148,153 +1145,3 @@ class Predictor(FlexiHeliosBase):
             output_dict[modality] = torch.stack(per_modality_output_tokens, dim=-2)
             output_dict[masked_modality_name] = modality_mask
         return TokensAndMasks(**output_dict)
-
-
-# if __name__ == "__main__":
-#     import rasterio
-
-#     from helios.constants import S2_BANDS
-
-#     # Each band set is stored at different resolutions for monthly so that has to happen for us to load in
-#     path_to_example_s2_scene = "gs://ai2-helios/data/20250130-sample-dataset-helios/10_sentinel2_monthly/EPSG:32610_165_-1971_10.tif"
-#     other_bands_s2 = "gs://ai2-helios/data/20250130-sample-dataset-helios/10_sentinel2_monthly/EPSG:32610_165_-1971_20.tif"
-#     more_bands_s2 = "gs://ai2-helios/data/20250130-sample-dataset-helios/10_sentinel2_monthly/EPSG:32610_165_-1971_40.tif"
-
-#     # Read each file and print shapes
-#     with rasterio.open(path_to_example_s2_scene) as data:
-#         array_10m = data.read()
-
-#     with rasterio.open(other_bands_s2) as data:
-#         array_20m = data.read()
-#         # Convert to torch tensor and add batch dimension
-#         array_20m_tensor = torch.from_numpy(array_20m).float().unsqueeze(0)
-#         # Interpolate to 256x256
-#         array_20m_upsampled = F.interpolate(
-#             array_20m_tensor, size=(256, 256), mode="bilinear", align_corners=False
-#         ).squeeze(0)
-#         array_20m_upsampled = array_20m_upsampled
-
-#     with rasterio.open(more_bands_s2) as data:
-#         array_40m = data.read()
-#         # Convert to torch tensor and add batch dimension
-#         array_40m_tensor = torch.from_numpy(array_40m).float().unsqueeze(0)
-#         # Interpolate to 256x256
-#         array_40m_upsampled = F.interpolate(
-#             array_40m_tensor, size=(256, 256), mode="bilinear", align_corners=False
-#         ).squeeze(0)
-#         array_40m_upsampled = array_40m_upsampled
-#     array_10m = torch.from_numpy(array_10m).float()
-#     num_timesteps = 12
-#     num_bands = len(S2_BANDS)
-#     s2_array = torch.cat([array_10m, array_20m_upsampled, array_40m_upsampled], dim=0)
-#     s2_array = rearrange(
-#         s2_array, "(t c) h w -> h w t c", c=num_bands, t=num_timesteps
-#     ).unsqueeze(0)
-#     modalities_to_channel_groups_dict = {
-#         "s2": {
-#             "S2_RGB": [S2_BANDS.index(b) for b in ["B02", "B03", "B04"]],
-#             "S2_Red_Edge": [S2_BANDS.index(b) for b in ["B05", "B06", "B07"]],
-#             "S2_NIR_10m": [S2_BANDS.index(b) for b in ["B08"]],
-#             "S2_NIR_20m": [S2_BANDS.index(b) for b in ["B8A"]],
-#             "S2_SWIR": [S2_BANDS.index(b) for b in ["B11", "B12"]],
-#         }
-#     }
-
-#     s2_mask = torch.randint_like(s2_array, 0, 3).float()
-#     latlon = torch.randn(1, 2).float()
-#     latlon_mask = torch.ones_like(latlon).float()
-#     timestamps = (
-#         torch.tensor(
-#             [
-#                 # 1
-#                 [1, 2, 2018],
-#                 # 2
-#                 [5, 2, 2018],
-#                 # 3
-#                 [15, 5, 2018],
-#                 # 4
-#                 [25, 8, 2018],
-#                 # 5
-#                 [10, 9, 2018],
-#                 # 6
-#                 [20, 10, 2018],
-#                 # 7
-#                 [30, 10, 2018],
-#                 # 8
-#                 [15, 11, 2018],
-#                 # 9
-#                 [25, 1, 2019],
-#                 # 10
-#                 [10, 2, 2019],
-#                 # 11
-#                 [20, 3, 2019],
-#                 # 12
-#                 [30, 4, 2019],
-#             ]
-#         )
-#         .unsqueeze(0)
-#         .permute(0, 2, 1)
-#     )
-#     device = torch.device("cuda")
-#     x = MaskedHeliosSample(
-#         s2_array,
-#         s2_mask,
-#         latlon,
-#         latlon_mask,
-#         timestamps,
-#     )
-#     max_patch_size = 8
-#     embedding_size = 16
-#     max_sequence_length = 12  # For now we are not supporting variable time series
-#     base_patch_size = 4
-#     patch_size = 4
-#     use_channel_embs = True
-#     input_res = BASE_GSD
-#     patch_size = 4
-#     exit_after = None
-#     token_exit_cfg = None
-#     encoder = Encoder(
-#         embedding_size=embedding_size,
-#         max_patch_size=max_patch_size,
-#         num_heads=2,
-#         mlp_ratio=4.0,
-#         depth=2,
-#         drop_path=0.1,
-#         modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
-#         max_sequence_length=max_sequence_length,
-#         base_patch_size=base_patch_size,
-#         use_channel_embs=use_channel_embs,
-#     )
-#     predictor = Predictor(
-#         encoder_embedding_size=embedding_size,
-#         decoder_embedding_size=embedding_size,
-#         modalities_to_channel_groups_dict=modalities_to_channel_groups_dict,
-#         depth=2,
-#         mlp_ratio=4.0,
-#         num_heads=2,
-#         max_sequence_length=max_sequence_length,
-#         max_patch_size=max_patch_size,
-#         learnable_channel_embeddings=use_channel_embs,
-#         output_embedding_size=embedding_size,
-#     )
-#     encoded_tokens = encoder.forward(
-#         x, patch_size, input_res, exit_after, token_exit_cfg
-#     )
-
-#     print(f"encoded_tokens.s2.shape: {encoded_tokens.s2.shape}")
-
-#     decoded_tokens = predictor.forward(
-#         encoded_tokens, timestamps, patch_size, input_res
-#     )
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")
-#     print(f"decoded_tokens.s2.shape: {decoded_tokens.s2.shape}")

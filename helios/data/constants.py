@@ -3,10 +3,8 @@
 Warning: this is only developed for raster data currently.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
-
-from helios.constants import MODALITY_NAME_TO_BANDS
 
 # The highest resolution that we are working at.
 # Everything else is a factor (which is a power of 2) coarser than this resolution.
@@ -75,14 +73,17 @@ class Modality:
 
     def bandsets_as_indices(self) -> list[list[int]]:
         """Return the band sets as indices."""
-        modality_bands = MODALITY_NAME_TO_BANDS[self.name]
-
+        # TODO: Add Integration test that we actually load the data in the correct order from the band sets
         band_specs_as_indices = []
         for band_set in self.band_sets:
-            band_specs_as_indices.append(
-                [modality_bands.index(b_name) for b_name in band_set.bands]
-            )
+            # TODO: I think the bands are not actually in the order of the old constant but stacked succesively from band sets
+            band_specs_as_indices.append(list(range(len(band_set.bands))))
         return band_specs_as_indices
+
+    @property
+    def band_order(self) -> list[str]:
+        """Get the band order."""
+        return [b for band_set in self.band_sets for b in band_set.bands]
 
     @property
     def num_band_sets(self) -> int:
@@ -102,17 +103,13 @@ MODALITIES = {
     "naip": Modality(
         name="naip",
         tile_resolution_factor=1,
-        band_sets=[
-            BandSet(["R", "G", "B", "IR"], 1)
-        ],
+        band_sets=[BandSet(["R", "G", "B", "IR"], 1)],
         is_multitemporal=False,
     ),
     "sentinel1": Modality(
         name="sentinel1",
         tile_resolution_factor=16,
-        band_sets=[
-            BandSet(["VV", "VH"], 16)
-        ],
+        band_sets=[BandSet(["VV", "VH"], 16)],
         is_multitemporal=True,
     ),
     "sentinel2": Modality(
@@ -142,16 +139,48 @@ MODALITIES = {
     "worldcover": Modality(
         name="worldcover",
         tile_resolution_factor=16,
-        band_sets=[
-            BandSet(["B1"], 16)
-        ],
+        band_sets=[BandSet(["B1"], 16)],
         is_multitemporal=False,
     ),
     "openstreetmap": Modality(
         name="openstreetmap",
         tile_resolution_factor=16,
         band_sets=[
-            BandSet(["aerialway_pylon", "aerodrome", "airstrip", "amenity_fuel", "building", "chimney", "communications_tower", "crane", "flagpole", "fountain", "generator_wind", "helipad", "highway", "leisure", "lighthouse", "obelisk", "observatory", "parking", "petroleum_well", "power_plant", "power_substation", "power_tower", "river", "runway", "satellite_dish", "silo", "storage_tank", "taxiway", "water_tower", "works"], 4)
+            BandSet(
+                [
+                    "aerialway_pylon",
+                    "aerodrome",
+                    "airstrip",
+                    "amenity_fuel",
+                    "building",
+                    "chimney",
+                    "communications_tower",
+                    "crane",
+                    "flagpole",
+                    "fountain",
+                    "generator_wind",
+                    "helipad",
+                    "highway",
+                    "leisure",
+                    "lighthouse",
+                    "obelisk",
+                    "observatory",
+                    "parking",
+                    "petroleum_well",
+                    "power_plant",
+                    "power_substation",
+                    "power_tower",
+                    "river",
+                    "runway",
+                    "satellite_dish",
+                    "silo",
+                    "storage_tank",
+                    "taxiway",
+                    "water_tower",
+                    "works",
+                ],
+                4,
+            )
         ],
         is_multitemporal=False,
     ),
