@@ -45,10 +45,6 @@ def image_tiles_to_samples(
 ) -> list[SampleInformation]:
     """Compute samples from the parsed per-modality image tiles.
 
-    TODO: Currently, this only returns samples where every modality is available, but
-    in the future it should be an option if caller wants that or to include tiles that
-    may only include a subset of modalities.
-
     Args:
         image_tiles: the parsed dataset from parse_helios_dataset.
         supported_modalities: the modalities to include in the samples. Default is all
@@ -138,7 +134,6 @@ def image_tiles_to_samples(
             sample.modalities[modality] = image_tile
 
         samples.append(sample)
-
     return samples
 
 

@@ -20,9 +20,9 @@ from upath import UPath
 from helios.data.constants import (
     BASE_RESOLUTION,
     IMAGE_TILE_SIZE,
-    SUPPORTED_MODALITIES,
     TIMESTAMPS,
     Modality,
+    ModalitySpec,
 )
 from helios.dataset.parse import ModalityTile, TimeSpan
 from helios.dataset.sample import SampleInformation, load_image_for_sample
@@ -164,6 +164,7 @@ class HeliosDataset(Dataset):
         self,
         *samples: SampleInformation,
         path: UPath,
+        supported_modalities: list[ModalitySpec],
         dtype: np.dtype = np.float32,
     ):
         """Initialize the dataset.
@@ -175,15 +176,58 @@ class HeliosDataset(Dataset):
 
         Args:
             samples: The samples to include in the dataset.
-            path: The path to the dataset.
+            path: The path to the dataset root directory.
+            supported_modalities: The modalities to include in the dataset.
             dtype: The dtype of the data.
         """
+        self.supported_modalities = supported_modalities
         self.samples = self._filter_samples(list(samples))
         self.path = path
         self.dtype = dtype
         self._fs_local_rank = get_fs_local_rank()
         self._work_dir: Path | None = None  # type: ignore
         self._work_dir_set = False
+
+    def _filter_samples(
+        self, samples: list[SampleInformation]
+    ) -> list[SampleInformation]:
+        """Filter samples to adjust to the HeliosSample format."""
+        logger.info(f"Number of samples before filtering: {len(samples)}")
+        filtered_samples = []
+        # For now, we use sentinel2 as the base grid with resolution factor 16
+        # Avoid samples with NAIP which has a resolution factor of 1
+        resolution_factor = Modality.SENTINEL2.tile_resolution_factor
+        for sample in samples:
+            if sample.grid_tile.resolution_factor != resolution_factor:
+                continue
+            # Check if all the modalities are available that are read in
+            if not all(
+                modality in sample.modalities
+                for modality in self.supported_modalities
+                if not modality.ignore_when_parsing
+            ):
+                continue
+            # check if sample modalities have s1 and s2
+            if (
+                Modality.SENTINEL1 in sample.modalities
+                and Modality.SENTINEL2 in sample.modalities
+            ):
+                # Check if S1 and S2 all have the same 12 months of data
+                sentinel1_months = len(
+                    set(sample.modalities[Modality.SENTINEL1].images)
+                )
+                sentinel2_months = len(
+                    set(sample.modalities[Modality.SENTINEL2].images)
+                )
+                if (
+                    sample.time_span != TimeSpan.YEAR
+                    or sentinel1_months != sentinel2_months
+                    or sentinel2_months != 12
+                ):
+                    continue
+            filtered_samples.append(sample)
+        logger.info(f"Number of samples after filtering: {len(filtered_samples)}")
+        return filtered_samples
 
     @property
     def fingerprint_version(self) -> str:
@@ -234,36 +278,6 @@ class HeliosDataset(Dataset):
         """Prepare the dataset."""
         len(self)
 
-    def _filter_samples(
-        self, samples: list[SampleInformation]
-    ) -> list[SampleInformation]:
-        """Filter samples to adjust to the HeliosSample format."""
-        logger.info(f"Number of samples before filtering: {len(samples)}")
-        filtered_samples = []
-        # For now, we use sentinel2 as the base grid with resolution factor 16
-        # Avoid samples with NAIP which has a resolution factor of 1
-        resolution_factor = Modality.SENTINEL2.tile_resolution_factor
-        for sample in samples:
-            if sample.grid_tile.resolution_factor != resolution_factor:
-                continue
-            # Check if all the modalities are available
-            if not all(
-                modality in sample.modalities for modality in SUPPORTED_MODALITIES
-            ):
-                continue
-            # Check if S1 and S2 all have the same 12 months of data
-            sentinel1_months = len(set(sample.modalities[Modality.SENTINEL1].images))
-            sentinel2_months = len(set(sample.modalities[Modality.SENTINEL2].images))
-            if (
-                sample.time_span != TimeSpan.YEAR
-                or sentinel1_months != sentinel2_months
-                or sentinel2_months != 12
-            ):
-                continue
-            filtered_samples.append(sample)
-        logger.info(f"Number of samples after filtering: {len(filtered_samples)}")
-        return filtered_samples
-
     def _get_latlon(self, sample: SampleInformation) -> np.ndarray:
         """Get the latlon of the sample."""
         # Get coordinates at projection units, and then transform to latlon
@@ -303,18 +317,14 @@ class HeliosDataset(Dataset):
         """Get the item at the given index."""
         sample = self.samples[index]
         sample_dict = {}
-        # TODO: we need to be able to handle missing modalities at the sample level
-        # so we should basically do NONE if the modality is not present
         for modality in sample.modalities:
-            # Skip modalities that are not supported right now
-            if modality not in SUPPORTED_MODALITIES:
-                continue
             sample_modality = sample.modalities[modality]
             image = self.load_sample(sample_modality, sample, self.dtype)
             sample_dict[modality.name] = image
             # Get latlon and timestamps from s2
             if modality == Modality.SENTINEL2:
-                sample_dict["latlon"] = self._get_latlon(sample).astype(np.float32)
+                if Modality.LATLON in self.supported_modalities:
+                    sample_dict["latlon"] = self._get_latlon(sample).astype(np.float32)
                 sample_dict["timestamps"] = self._get_timestamps(sample).astype(
                     np.int32
                 )
@@ -324,5 +334,5 @@ class HeliosDataset(Dataset):
             #         logger.info(f"sample.sentinel1.shape: {modality_data.shape}")
             #         logger.info(f"sample.timestamps: {sample}")
             #         exit(0)
-        # TODO: Add normalization and better way of doing dtype
+        # TODO: Add normalization
         return HeliosSample(**sample_dict)

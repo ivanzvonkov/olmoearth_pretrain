@@ -174,7 +174,7 @@ def parse_modality_csv(
 
 
 def parse_helios_dataset(
-    helios_path: UPath, supported_modalities: list[ModalitySpec] = []
+    helios_path: UPath, supported_modalities: list[ModalitySpec] = Modality.values()
 ) -> dict[ModalitySpec, dict[TimeSpan, list[ModalityTile]]]:
     """Parse the various per-modality tiles present in a Helios dataset.
 
@@ -187,6 +187,9 @@ def parse_helios_dataset(
         if modality.ignore_when_parsing:
             continue
         if modality not in supported_modalities:
+            logger.warning(
+                f"ignoring modality {modality.name} not in supported_modalities"
+            )
             continue
         # TODO: there's N/A in the image_idx column for openstreetmap
         if modality.name == "openstreetmap":
