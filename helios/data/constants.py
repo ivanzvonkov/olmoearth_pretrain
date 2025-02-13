@@ -193,8 +193,6 @@ class Modality:
         is_multitemporal=False,
     )
 
-    # TODO: decide if we want to include latlon as a modality
-    # The issue is that parse_modality_csv will search for the csv file and relevant ModalityTile
     LATLON = ModalitySpec(
         name="latlon",
         tile_resolution_factor=0,

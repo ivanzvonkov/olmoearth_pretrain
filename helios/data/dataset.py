@@ -309,11 +309,11 @@ class HeliosDataset(Dataset):
             sample_modality = sample.modalities[modality]
             image = self.load_sample(sample_modality, sample, self.dtype)
             sample_dict[modality.name] = image
+            # TODO: Add function to transform Sentinel1 data as mentioned in the EE
             # Get latlon and timestamps from s2
             if modality == Modality.SENTINEL2:
-                sample_dict["latlon"] = self._get_latlon(sample).astype(np.float32)
-                sample_dict["timestamps"] = self._get_timestamps(sample).astype(
-                    np.int32
-                )
+                sample_dict["latlon"] = self._get_latlon(sample)
+                sample_dict["timestamps"] = self._get_timestamps(sample)
         # TODO: Add normalization and better way of doing dtype
+        # OK, maybe a good starting point is to have a predefined set of normalization
         return HeliosSample(**sample_dict)
