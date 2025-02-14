@@ -1,5 +1,6 @@
 """Loss functions for training."""
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
@@ -13,6 +14,8 @@ from helios.nn.flexihelios import TokensAndMasks
 from helios.train.masking import MaskValue
 from olmo_core.config import Config
 from torch import Tensor
+
+logger = logging.getLogger(__name__)
 
 
 class Loss(ABC):
@@ -81,7 +84,10 @@ class PatchDiscriminationLoss(Loss):
         """
         # TODO: How will we deal with only training with some subset of modalities? If we use passed in modalities channels dict to define which modalities is one way but using class directly implies all used
         all_preds = torch.cat(
-            [self._flatten(getattr(predictions, d)) for d in self.supported_modality_names],
+            [
+                self._flatten(getattr(predictions, d))
+                for d in self.supported_modality_names
+            ],
             dim=1,
         )
         all_masks = torch.cat(
@@ -117,7 +123,8 @@ class PatchDiscriminationLoss(Loss):
                 end = start + c
                 logit_mask[:, start:end, start:end] = 0
                 start += c
-
+            logger.info(f"logit_mask: {logit_mask.shape}")
+            logger.info(f"scores: {scores.shape}")
             scores = scores + logit_mask
 
         labels = torch.arange(nt, dtype=torch.long, device=pred.device)[None].repeat(
