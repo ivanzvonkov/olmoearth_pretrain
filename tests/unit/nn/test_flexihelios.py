@@ -4,7 +4,8 @@ import pytest
 import torch
 from einops import repeat
 
-from helios.nn.flexihelios import Encoder, FlexiHeliosBase, Predictor, TokensAndMasks
+from helios.nn.flexihelios import (Encoder, FlexiHeliosBase, Predictor,
+                                   TokensAndMasks)
 from helios.train.masking import MaskValue
 
 
@@ -39,12 +40,12 @@ class TestFlexiHeliosBase:
         sentinel2_mask = torch.randint(0, 2, (B, 2, 1, 1, 2)).float()
         latlon = torch.randn(B, 1, D)
         latlon_mask = torch.randint(0, 2, (B, 1)).float()
-        x = TokensAndMasks(
-            sentinel2=sentinel2_tokens,
-            sentinel2_mask=sentinel2_mask,
-            latlon=latlon,
-            latlon_mask=latlon_mask,
-        )
+        x = {
+            "sentinel2": sentinel2_tokens,
+            "sentinel2_mask": sentinel2_mask,
+            "latlon": latlon,
+            "latlon_mask": latlon_mask,
+        }
         tokens, masks = flexi_helios_base.collapse_and_combine_hwtc(x)
         assert tokens.shape == (B, 5, D)
         assert masks.shape == (B, 5)

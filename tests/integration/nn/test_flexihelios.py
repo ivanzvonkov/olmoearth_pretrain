@@ -157,12 +157,12 @@ class TestEncoder:
         )
 
         # Construct the TokensAndMasks namedtuple with mock modality data + mask.
-        x = TokensAndMasks(
-            sentinel2=sentinel2_tokens,
-            sentinel2_mask=sentinel2_mask,
-            latlon=latlon,
-            latlon_mask=latlon_mask,
-        )
+        x = {
+            "sentinel2": sentinel2_tokens,
+            "sentinel2_mask": sentinel2_mask,
+            "latlon": latlon,
+            "latlon_mask": latlon_mask,
+        }
 
         timestamps = torch.tensor(
             [[15, 7, 2023], [15, 8, 2023], [15, 9, 2023]], dtype=torch.long
@@ -174,21 +174,20 @@ class TestEncoder:
             x=x, timestamps=timestamps, patch_size=patch_size, input_res=input_res
         )
 
-        assert isinstance(
-            output, TokensAndMasks
-        ), "apply_attn should return a TokensAndMasks object."
-
         # Ensure shape is preserved in the output tokens.
         assert (
-            output.sentinel2.shape == sentinel2_tokens.shape
-        ), f"Expected output 'sentinel2' shape {sentinel2_tokens.shape}, got {output.sentinel2.shape}."
+            output.get("sentinel2").shape == sentinel2_tokens.shape
+        ), f"Expected output 'sentinel2' shape {sentinel2_tokens.shape}, got {output.get('sentinel2').shape}."
 
         # Confirm the mask was preserved and that masked tokens are zeroed out in the output.
         assert (
-            output.sentinel2_mask == sentinel2_mask
+            output.get("sentinel2_mask") == sentinel2_mask
         ).all(), "Mask should be preserved in output"
         assert (
-            output.sentinel2[sentinel2_mask >= MaskValue.TARGET_ENCODER_ONLY.value] == 0
+            output.get("sentinel2")[
+                sentinel2_mask >= MaskValue.TARGET_ENCODER_ONLY.value
+            ]
+            == 0
         ).all(), "Masked tokens should be 0 in output"
 
     def test_forward_exit_config_none(
@@ -217,9 +216,14 @@ class TestEncoder:
         years = torch.randint(2018, 2020, (B, T, 1), dtype=torch.long)
         timestamps = torch.cat([days, months, years], dim=-1)  # Shape: (B, T, 3)
 
-        x = MaskedHeliosSample(
-            sentinel2, sentinel2_mask, latlon, latlon_mask, timestamps
-        )
+        masked_sample_dict = {
+            "sentinel2": sentinel2,
+            "sentinel2_mask": sentinel2_mask,
+            "latlon": latlon,
+            "latlon_mask": latlon_mask,
+            "timestamps": timestamps,
+        }
+        x = MaskedHeliosSample(**masked_sample_dict)
 
         patch_size = 4
         input_res = 1
@@ -286,9 +290,14 @@ class TestEncoder:
         years = torch.randint(2018, 2020, (B, T, 1), dtype=torch.long)
         timestamps = torch.cat([days, months, years], dim=-1)
 
-        x = MaskedHeliosSample(
-            sentinel2, sentinel2_mask, latlon, latlon_mask, timestamps
-        )
+        masked_sample_dict = {
+            "sentinel2": sentinel2,
+            "sentinel2_mask": sentinel2_mask,
+            "latlon": latlon,
+            "latlon_mask": latlon_mask,
+            "timestamps": timestamps,
+        }
+        x = MaskedHeliosSample(**masked_sample_dict)
 
         patch_size = 4
         input_res = 1
@@ -357,13 +366,14 @@ class TestEncoder:
         years = torch.randint(2018, 2020, (B, T, 1), dtype=torch.long)
         timestamps = torch.cat([days, months, years], dim=-1)  # Shape: (B, T, 3)
 
-        x = MaskedHeliosSample(
-            sentinel2=sentinel2,
-            sentinel2_mask=sentinel2_mask,
-            latlon=latlon,
-            latlon_mask=latlon_mask,
-            timestamps=timestamps,
-        )
+        masked_sample_dict = {
+            "sentinel2": sentinel2,
+            "sentinel2_mask": sentinel2_mask,
+            "latlon": latlon,
+            "latlon_mask": latlon_mask,
+            "timestamps": timestamps,
+        }
+        x = MaskedHeliosSample(**masked_sample_dict)
 
         patch_size = 4
         input_res = 1
