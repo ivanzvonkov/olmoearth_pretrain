@@ -12,11 +12,9 @@ from torch import Tensor, nn
 from helios.constants import BASE_GSD
 from helios.data.constants import Modality, ModalitySpec
 from helios.nn.attention import Block
-from helios.nn.encodings import (
-    get_1d_sincos_pos_encoding,
-    get_2d_sincos_pos_encoding_with_resolution,
-    get_month_encoding_table,
-)
+from helios.nn.encodings import (get_1d_sincos_pos_encoding,
+                                 get_2d_sincos_pos_encoding_with_resolution,
+                                 get_month_encoding_table)
 from helios.nn.flexi_patch_embed import FlexiPatchEmbed
 from helios.train.masking import MaskedHeliosSample, MaskValue
 
@@ -556,6 +554,22 @@ class FlexiHeliosBase(nn.Module):
         )
         return pattern_input, dim_dict
 
+    def split_tokens_masks_and_dims(
+        self, x: dict[str, Tensor]
+    ) -> tuple[dict[str, Tensor], dict[str, Tensor], dict[str, tuple]]:
+        """Split the tokens, masks, and dimensions out into separate dicts."""
+        tokens_only_dict = {}
+        original_masks_dict = {}
+        modalities_to_dims_dict = {}
+        # TODO: Should I have a dict like object that has methods that can return a mask or atoken here?
+        for modality in self.supported_modality_names:
+            x_modality = x[modality]
+            tokens_only_dict[modality] = x_modality
+            modalities_to_dims_dict[modality] = x_modality.shape
+            masked_modality_name = MaskedHeliosSample.get_masked_modality_name(modality)
+            original_masks_dict[masked_modality_name] = x[masked_modality_name]
+        return tokens_only_dict, original_masks_dict, modalities_to_dims_dict
+
     @staticmethod
     def split_and_expand_per_modality(
         x: Tensor, modalities_to_dims_dict: dict[str, tuple]
@@ -773,22 +787,6 @@ class Encoder(FlexiHeliosBase):
             exited_tokens = None
         return exit_ids_seq, exited_tokens
 
-    def split_tokens_masks_and_dims(
-        self, x: dict[str, Tensor]
-    ) -> tuple[dict[str, Tensor], dict[str, Tensor], dict[str, tuple]]:
-        """Split the tokens, masks, and dimensions out into separate dicts."""
-        tokens_only_dict = {}
-        original_masks_dict = {}
-        modalities_to_dims_dict = {}
-        # TODO: Should I have a dict like object that has methods that can return a mask or atoken here?
-        for modality in self.supported_modality_names:
-            x_modality = x[modality]
-            tokens_only_dict[modality] = x_modality
-            modalities_to_dims_dict[modality] = x_modality.shape
-            masked_modality_name = MaskedHeliosSample.get_masked_modality_name(modality)
-            original_masks_dict[masked_modality_name] = x[masked_modality_name]
-        return tokens_only_dict, original_masks_dict, modalities_to_dims_dict
-
     def apply_attn(
         self,
         x: dict[str, Tensor],
@@ -976,7 +974,7 @@ class Predictor(FlexiHeliosBase):
         self.norm = nn.LayerNorm(decoder_embedding_size)
         self.apply(self._init_weights)
 
-    def add_masks(self, tokens_and_masks: TokensAndMasks) -> dict[str, Tensor]:
+    def add_masks(self, x: dict[str, Tensor]) -> dict[str, Tensor]:
         """Replace tokens that should be decoded (MaskValue.DECODER_ONLY) with the learnable mask token.
 
         in a dimension-agnostic way using einops. We assume the final dimension of each token tensor
@@ -984,10 +982,8 @@ class Predictor(FlexiHeliosBase):
         """
         output_dict = {}
         for modality in self.supported_modality_names:
-            x_modality = getattr(tokens_and_masks, modality)
-            mask_modality = getattr(
-                tokens_and_masks, tokens_and_masks.get_masked_modality_name(modality)
-            )
+            x_modality = x[modality]
+            mask_modality = x[MaskedHeliosSample.get_masked_modality_name(modality)]
 
             # A boolean mask: True where tokens must be replaced by the mask token
             kept_mask = mask_modality == MaskValue.DECODER_ONLY.value
@@ -1095,30 +1091,20 @@ class Predictor(FlexiHeliosBase):
 
     def apply_attn(
         self,
-        x: TokensAndMasks,
+        x: dict[str, Tensor],
         timestamps: Tensor,
         patch_size: int,
         input_res: int,
-    ) -> TokensAndMasks:
+    ) -> dict[str, Tensor]:
         """Apply the attention to the tokens and masks."""
-        # TODO: This can likely be a method on the named tuple that returns these 3 dicts or a method in flexiheliosbase
-        tokens_only_dict = {}
-        original_masks_dict = {}
-        modalities_to_dims_dict = {}
-        for modality in self.supported_modality_names:
-            x_modality = getattr(x, modality)
-            tokens_only_dict[modality] = x_modality
-            modalities_to_dims_dict[modality] = x_modality.shape
-            masked_modality_name = x.get_masked_modality_name(modality)
-            original_masks_dict[masked_modality_name] = getattr(x, masked_modality_name)
+        tokens_only_dict, original_masks_dict, modalities_to_dims_dict = (
+            self.split_tokens_masks_and_dims(x)
+        )
         tokens_dict = self.composite_encodings(
             tokens_only_dict, timestamps, patch_size, input_res
         )
-        tokens_and_masks_dict = x._asdict()
-        tokens_and_masks_dict.update(tokens_dict)
-        x, mask = self.collapse_and_combine_hwtc(
-            TokensAndMasks(**tokens_and_masks_dict)
-        )
+        x.update(tokens_dict)
+        x, mask = self.collapse_and_combine_hwtc(x)
         x, y, x_mask, y_mask, indices = self.split_x_y(x, mask)
         for blk in self.blocks:
             # note that we are not taking the inverse of the mask, since split_x_y gives us
@@ -1128,9 +1114,8 @@ class Predictor(FlexiHeliosBase):
         tokens_per_modality_dict = self.split_and_expand_per_modality(
             x, modalities_to_dims_dict
         )
-        tokens_and_masks_dict.update(original_masks_dict)
-        tokens_and_masks_dict.update(tokens_per_modality_dict)
-        return TokensAndMasks(**tokens_and_masks_dict)
+        tokens_per_modality_dict.update(original_masks_dict)
+        return tokens_per_modality_dict
 
     def is_any_data_to_be_decoded(self, modality_mask: Tensor) -> bool:
         """Check if any data is to be decoded for a given modality."""
@@ -1154,8 +1139,9 @@ class Predictor(FlexiHeliosBase):
         Returns:
             TokensAndMasks containing the predicted tokens and their masks
         """
-        # Apply Input Norms and encoder to decoder embeds to each modality
+
         decoder_emedded_dict = x._asdict()
+        # Apply Input Norms and encoder to decoder embeds to each modality
         for modality in self.supported_modality_names:
             x_modality = getattr(x, modality)
             x_modality = self.input_norm(x_modality)
@@ -1165,21 +1151,21 @@ class Predictor(FlexiHeliosBase):
             decoder_emedded_dict[masked_modality_name] = getattr(
                 x, masked_modality_name
             )
-        tokens_only_dict = self.add_masks(TokensAndMasks(**decoder_emedded_dict))
+
+        tokens_only_dict = self.add_masks(decoder_emedded_dict)
         decoder_emedded_dict.update(tokens_only_dict)
-        tokens_and_masks = TokensAndMasks(**decoder_emedded_dict)
         tokens_and_masks = self.apply_attn(
-            tokens_and_masks, timestamps, patch_size, input_res
+            decoder_emedded_dict, timestamps, patch_size, input_res
         )
 
         # TODO: Factor this out into a more readable function
         output_dict = {}
-        for modality in tokens_and_masks.modalities:
-            masked_modality_name = tokens_and_masks.get_masked_modality_name(modality)
-            modality_mask = getattr(tokens_and_masks, masked_modality_name)
+        for modality in self.supported_modality_names:
+            masked_modality_name = MaskedHeliosSample.get_masked_modality_name(modality)
+            modality_mask = tokens_and_masks[masked_modality_name]
             # patchify masked data
             per_modality_output_tokens = []
-            modality_data = getattr(tokens_and_masks, modality)
+            modality_data = tokens_and_masks[modality]
             modality_specific_dims = self.grab_modality_specific_dims(modality_data)
 
             band_sets = Modality.get(modality).band_sets
