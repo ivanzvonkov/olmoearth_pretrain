@@ -57,7 +57,7 @@ class MaskedHeliosSample(NamedTuple):
     latlon: ArrayTensor | None = None  # [B, 2]
     latlon_mask: ArrayTensor | None = None
 
-    def as_dict(self) -> dict[str, Any]:
+    def as_dict(self, return_none: bool = True) -> dict[str, Any]:
         """Convert the namedtuple to a dictionary.
 
         Returns:
@@ -66,7 +66,11 @@ class MaskedHeliosSample(NamedTuple):
         return_dict = {}
         for field in self._fields:
             val = getattr(self, field)
-            return_dict[field] = val
+            if return_none:
+                return_dict[field] = val
+            else:
+                if val is not None:
+                    return_dict[field] = val
         return return_dict
 
     @property

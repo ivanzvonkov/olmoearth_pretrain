@@ -17,9 +17,14 @@ from pyproj import Transformer
 from torch.utils.data import Dataset
 from upath import UPath
 
-from helios.data.constants import (BASE_RESOLUTION, IMAGE_TILE_SIZE,
-                                   TIMESTAMPS, Modality, ModalitySpec,
-                                   TimeSpan)
+from helios.data.constants import (
+    BASE_RESOLUTION,
+    IMAGE_TILE_SIZE,
+    TIMESTAMPS,
+    Modality,
+    ModalitySpec,
+    TimeSpan,
+)
 from helios.data.normalize import NORMALIZE_STRATEGY, Normalizer, Strategy
 from helios.data.utils import convert_to_db
 from helios.dataset.parse import ModalityTile

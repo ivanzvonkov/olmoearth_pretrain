@@ -7,8 +7,13 @@ from datetime import datetime
 
 from upath import UPath
 
-from helios.data.constants import (BASE_RESOLUTION, BandSet, Modality,
-                                   ModalitySpec, TimeSpan)
+from helios.data.constants import (
+    BASE_RESOLUTION,
+    BandSet,
+    Modality,
+    ModalitySpec,
+    TimeSpan,
+)
 from helios.dataset_creation.util import WindowMetadata, get_modality_fname
 
 logger = logging.getLogger(__name__)
