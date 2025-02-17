@@ -11,7 +11,7 @@ from helios.train.masking import MaskValue, RandomMaskingStrategy
 logger = logging.getLogger(__name__)
 
 
-def test_random_masking() -> None:
+def test_random_masking_and_unmask() -> None:
     """Test random masking ratios."""
     b, h, w, t = 100, 16, 16, 8
 
@@ -53,3 +53,9 @@ def test_random_masking() -> None:
                     masked_sample.get_unmasked_modality_name(modality_name),
                 ).shape
             ), f"{modality_name} has incorrect shape"
+
+    unmasked_sample = masked_sample.unmask()
+    for modality_name in unmasked_sample._fields:
+        if modality_name.endswith("mask"):
+            mask = getattr(unmasked_sample, modality_name)
+            assert (mask == 0).all()
