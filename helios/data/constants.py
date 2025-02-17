@@ -281,6 +281,11 @@ class Modality:
             modalities.append(modality)
         return modalities
 
+    @classmethod
+    def names(self) -> list[str]:
+        """Get all of the modality names."""
+        return [modality.name for modality in self.values()]
+
 
 # Modalities to ingest image tiles
 SUPPORTED_MODALITIES = [

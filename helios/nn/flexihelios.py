@@ -2,11 +2,13 @@
 
 import logging
 import math
+from dataclasses import dataclass
 from typing import NamedTuple
 
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
+from olmo.core.config import Config
 from torch import Tensor, nn
 
 from helios.constants import BASE_GSD
@@ -1195,3 +1197,83 @@ class Predictor(FlexiHeliosBase):
             output_dict[modality] = torch.stack(per_modality_output_tokens, dim=-2)
             output_dict[masked_modality_name] = modality_mask
         return TokensAndMasks(**output_dict)
+
+
+@dataclass
+class EncoderConfig(Config):
+    """Configuration for the Encoder."""
+
+    supported_modalities: list[str]
+    embedding_size: int = 16
+    max_patch_size: int = 8
+    num_heads: int = 2
+    mlp_ratio: float = 1.0
+    depth: int = 2
+    drop_path: float = 0.1
+    max_sequence_length: int = 12
+    base_patch_size: int = 8
+    use_channel_embs: bool = True
+
+    def validate(self) -> None:
+        """Validate the configuration."""
+        if len(self.supported_modalities) == 0:
+            raise ValueError("At least one modality must be added!")
+        else:
+            for modality in self.supported_modalities:
+                if modality not in Modality.names():
+                    raise ValueError(f"Modality {modality} is not supported")
+
+    def build(self) -> "Encoder":
+        """Build the encoder."""
+        return Encoder(
+            embedding_size=self.embedding_size,
+            max_patch_size=self.max_patch_size,
+            num_heads=self.num_heads,
+            depth=self.depth,
+            mlp_ratio=self.mlp_ratio,
+            drop_path=self.drop_path,
+            supported_modalities=self.supported_modalities,
+            max_sequence_length=self.max_sequence_length,
+            base_patch_size=self.base_patch_size,
+            use_channel_embs=self.use_channel_embs,
+        )
+
+
+@dataclass
+class PredictorConfig(Config):
+    """Configuration for the Predictor."""
+
+    supported_modalities: list[str]
+    encoder_embedding_size: int = 16
+    decoder_embedding_size: int = 16
+    depth: int = 2
+    mlp_ratio: float = 1.0
+    num_heads: int = 2
+    max_sequence_length: int = 12
+    max_patch_size: int = 8
+    drop_path: float = 0.0
+    learnable_channel_embeddings: bool = False
+    output_embedding_size: int | None = None
+
+    def validate(self) -> None:
+        """Validate the configuration."""
+        if len(self.supported_modalities) == 0:
+            raise ValueError("At least one modality must be added!")
+        else:
+            for modality in self.supported_modalities:
+                if modality not in Modality.names():
+                    raise ValueError(f"Modality {modality} is not supported")
+
+    def build(self) -> "Predictor":
+        """Build the predictor."""
+        return Predictor(
+            encoder_embedding_size=self.encoder_embedding_size,
+            decoder_embedding_size=self.decoder_embedding_size,
+            depth=self.depth,
+            mlp_ratio=self.mlp_ratio,
+            num_heads=self.num_heads,
+            max_sequence_length=self.max_sequence_length,
+            max_patch_size=self.max_patch_size,
+            drop_path=self.drop_path,
+            supported_modalities=self.supported_modalities,
+        )
