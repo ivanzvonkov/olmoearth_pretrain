@@ -30,14 +30,18 @@ from helios.train.train_module import HeliosTrainModuleConfig
 
 logger = logging.getLogger(__name__)
 
+# THings that need a config
+# Data Loader
+# Model
+## OLD LOSS FUNCTION Keeping so pipeline runs until we have new integration
+
 
 if __name__ == "__main__":
     # Variables to be changed per user
     workdir = UPath("/temp/helios/workdir")  # nosec
     WANDB_USERNAME = "eai-ai2"  # nosec
     WANDB_PROJECT = "helios-debug"
-
-    # Experiment Variables
+    # PER EXPERIMENT Variables
     GLOBAL_BATCH_SIZE = 1
     RANK_BATCH_SIZE = 1
     MAX_DURATION = Duration.epochs(10)
@@ -48,7 +52,6 @@ if __name__ == "__main__":
     SAVE_FOLDER = workdir / "save_folder"
     LOAD_STRATEGY = LoadStrategy.if_available
 
-    #################### Setup environment ####################
     dp_config = None
     # for distributed training use torchrun
     # Uncomment this line to use distributed training
@@ -61,17 +64,13 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     logger.info("Starting Helios training")
 
-<<<<<<< HEAD
+    #################### Configs for model ####################
     supported_modalities = [
         Modality.SENTINEL2,
         Modality.LATLON,
         Modality.SENTINEL1,
         # Modality.WORLDCOVER,
     ]
-=======
-    #################### Configs for model ####################
-    supported_modalities = ["sentinel2", "latlon"]
->>>>>>> add blocks for different configs
     encoder = Encoder(
         embedding_size=16,
         max_patch_size=8,
