@@ -19,4 +19,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the folder `scripts` to `scripts/`
 # You might need multiple of these statements to copy all the folders you need for your experiment.
 COPY helios/ /stage/helios/
+COPY olmo_core_proto.py /stage/olmo_core_proto.py
 ENV PYTHONPATH="${PYTHONPATH}:/stage/"
