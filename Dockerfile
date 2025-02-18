@@ -14,7 +14,7 @@ WORKDIR /stage/
 # We do this first because it's slow and each of these commands are cached in sequence.
 RUN apt-get update && apt-get install --no-install-recommends -y git && apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
-RUN pip install --no-cache-dir git+https://github.com/allenai/rslearn.git@master && pip install -r --no-cache-dir requirements.txt
+RUN pip install --no-cache-dir git+https://github.com/allenai/rslearn.git@master && pip install --no-cache-dir -r requirements.txt
 
 # Copy the folder `scripts` to `scripts/`
 # You might need multiple of these statements to copy all the folders you need for your experiment.
