@@ -155,10 +155,12 @@ class HeliosSample(NamedTuple):
             raise ValueError("Timestamps are not present in the sample")
         return self.timestamps.shape[1]
 
-    def _t_from_hw(self, h_w_p: int, max_tokens_per_instance: int) -> int:
+    def _get_max_t_within_token_budget(
+        self, h_w_p: int, max_tokens_per_instance: int
+    ) -> int:
         """Find max t possible when subsetting.
 
-        Given a sampled h_w (in tokens),
+        Given a sampled h_w_p (the number of tokens along the h and w dimensions)
         return the maximum t allowed within the
         max_tokens budget so that the patchified
         HeliosSample will have fewer than max_tokens tokens.
@@ -220,7 +222,9 @@ class HeliosSample(NamedTuple):
             )
 
         sampled_hw_p = choice(hw_to_sample)
-        max_t = self._t_from_hw(sampled_hw_p, max_tokens_per_instance)
+        max_t = self._get_max_t_within_token_budget(
+            sampled_hw_p, max_tokens_per_instance
+        )
         sampled_hw = sampled_hw_p * patch_size
 
         start_h = np.random.choice(self.height - sampled_hw_p + 1)
