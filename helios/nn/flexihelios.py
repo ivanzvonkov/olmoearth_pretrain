@@ -412,9 +412,6 @@ class FlexiHeliosCompositeEncodings(nn.Module):
             )
 
             # Combine all encodings
-            logger.info(
-                f" modality: {modality}, modality_channel_embed: {modality_channel_embed.shape}, modality_pos_embed: {modality_pos_embed.shape}, modality_month_embed: {modality_month_embed.shape}, spatial_embed: {spatial_embed.shape}"
-            )
             modality_embed = torch.cat(
                 [
                     modality_channel_embed,
