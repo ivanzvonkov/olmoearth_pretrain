@@ -12,33 +12,29 @@ import torch
 import torch.distributed as dist
 import torch.distributed.checkpoint.state_dict as dist_cp_sd
 import torch.nn as nn
+from helios.data.dataset import HeliosSample
+from helios.train.loss import LossConfig
+from helios.train.masking import MaskedHeliosSample, MaskingConfig
 from olmo_core.config import Config, DType
-from olmo_core.distributed.parallel import (
-    DataParallelConfig,
-    DataParallelType,
-    build_device_mesh,
-    get_dp_mesh,
-    get_dp_process_group,
-)
+from olmo_core.distributed.parallel import (DataParallelConfig,
+                                            DataParallelType,
+                                            build_device_mesh, get_dp_mesh,
+                                            get_dp_process_group)
 from olmo_core.distributed.utils import get_world_size
 from olmo_core.exceptions import OLMoConfigurationError
 from olmo_core.float8 import Float8Config, Float8Handler
 from olmo_core.optim import OptimConfig, SkipStepOptimizer
 from olmo_core.optim.scheduler import Scheduler
 from olmo_core.train.common import ReduceType
-from olmo_core.train.train_module import EvalBatchSizeUnit, EvalBatchSpec, TrainModule
-from olmo_core.train.train_module.transformer import (
-    TransformerActivationCheckpointingConfig,
-)
+from olmo_core.train.train_module import (EvalBatchSizeUnit, EvalBatchSpec,
+                                          TrainModule)
+from olmo_core.train.train_module.transformer import \
+    TransformerActivationCheckpointingConfig
 from olmo_core.utils import gc_cuda, get_default_device
 from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.tensor import DTensor
 from torch.optim import Optimizer
-
-from helios.data.dataset import HeliosSample
-from helios.train.loss import LossConfig
-from helios.train.masking import MaskedHeliosSample, MaskingConfig
 
 logger = getLogger(__name__)
 
@@ -372,9 +368,11 @@ class HeliosTrainModule(TrainModule):
         # Move tensors to the right device.
         # we may want to modify this
         token_budget = 1500
-        h_w_to_sample = list(range(1, 13))
+        # Smallest h /w must be bigger than the smallest patch size
+        h_w_to_sample = list(range(2, 13))
 
-        patch_size = np.random.choice(self.model.encoder.max_patch_size)
+        patch_size = np.random.choice(np.arange(1, self.model.encoder.max_patch_size))
+        logger.info(f"Patch size: {patch_size}")
         subsampled_batch = batch.subset(patch_size, token_budget, h_w_to_sample)
 
         subsampled_batch = subsampled_batch.to_device(self.device)
@@ -493,6 +491,7 @@ class HeliosTrainModule(TrainModule):
             decoded = self.model.forward(batch, patch_size=patch_size)
 
             with torch.no_grad():
+                logger.info(f"target encoder running here")
                 target_output = self.model.target_encoder.forward(
                     batch.unmask(), patch_size=patch_size
                 )

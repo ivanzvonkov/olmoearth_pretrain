@@ -13,12 +13,6 @@ import numpy as np
 import pandas as pd
 import torch
 from einops import rearrange
-from olmo_core.aliases import PathOrStr
-from olmo_core.distributed.utils import get_fs_local_rank
-from pyproj import Transformer
-from torch.utils.data import Dataset
-from upath import UPath
-
 from helios.data.constants import (
     BASE_RESOLUTION,
     IMAGE_TILE_SIZE,
@@ -32,6 +26,11 @@ from helios.data.utils import convert_to_db
 from helios.dataset.parse import ModalityTile
 from helios.dataset.sample import SampleInformation, load_image_for_sample
 from helios.types import ArrayTensor
+from olmo_core.aliases import PathOrStr
+from olmo_core.distributed.utils import get_fs_local_rank
+from pyproj import Transformer
+from torch.utils.data import Dataset
+from upath import UPath
 
 logger = logging.getLogger(__name__)
 
@@ -229,7 +228,8 @@ class HeliosSample(NamedTuple):
         sampled_hw = sampled_hw_p * patch_size
 
         start_h = np.random.choice(self.height - sampled_hw_p + 1)
-        start_w = np.random.choice(self.width - sampled_hw_p + 1)
+        # FORCE h == w for now other option is to update 2d pos encoding
+        start_w = start_h  # np.random.choice(self.width - sampled_hw_p + 1)
         start_t = np.random.choice(self.time - max_t + 1)
 
         new_data_dict: dict[str, ArrayTensor] = {}

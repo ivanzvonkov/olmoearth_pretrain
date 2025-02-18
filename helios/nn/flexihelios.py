@@ -7,18 +7,15 @@ from typing import NamedTuple
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
-from torch import Tensor, nn
-
 from helios.constants import BASE_GSD
 from helios.data.constants import Modality, ModalitySpec
 from helios.nn.attention import Block
-from helios.nn.encodings import (
-    get_1d_sincos_pos_encoding,
-    get_2d_sincos_pos_encoding_with_resolution,
-    get_month_encoding_table,
-)
+from helios.nn.encodings import (get_1d_sincos_pos_encoding,
+                                 get_2d_sincos_pos_encoding_with_resolution,
+                                 get_month_encoding_table)
 from helios.nn.flexi_patch_embed import FlexiPatchEmbed
 from helios.train.masking import MaskedHeliosSample, MaskValue
+from torch import Tensor, nn
 
 logger = logging.getLogger(__name__)
 
@@ -317,6 +314,7 @@ class FlexiHeliosCompositeEncodings(nn.Module):
         Returns:
             Tensor with encodings applied based on modality type
         """
+        logger.info(f"Applying encodings to modality {modality}")
         if modality == Modality.LATLON.name:
             return modality_tokens
         # TODO: Improve this implementation it is quite bad
@@ -371,6 +369,7 @@ class FlexiHeliosCompositeEncodings(nn.Module):
             # )
         elif modality_tokens.ndim == 6:
             b, h, w, t, b_s, _ = modality_tokens.shape
+            logger.info(f"Modality {modality} has 6 dimensions: {modality_tokens.shape}")
 
             # Channel embeddings
             modality_channel_embed = self.per_modality_channel_embeddings[modality]
@@ -401,7 +400,7 @@ class FlexiHeliosCompositeEncodings(nn.Module):
             )
             spatial_embed = rearrange(spatial_embed, "b (h w) d -> b h w d", h=h, w=w)
             spatial_embed = repeat(
-                spatial_embed, "b h w d -> b h w t b_s d", b_s=b_s, t=t
+                spatial_embed, "b h w d -> b h w t b_s d", b_s=b_s, t=t, h=h, w=w # Adding to handle uneven dims
             )
 
             # Combine all encodings
@@ -692,6 +691,7 @@ class Encoder(FlexiHeliosBase):
             updated_mask: [B, T]
             where T is the max number of unmasked tokens for an instance
         """
+        logger.info(f"Removing masked tokens from {x.shape} and {mask.shape}")
         org_mask_dtype = mask.dtype
         mask = mask.bool()
         # At this point when we flip the mask 1 means keep 0 means remove
