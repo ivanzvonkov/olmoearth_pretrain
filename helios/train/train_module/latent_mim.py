@@ -173,17 +173,10 @@ class LatentMIMTrainModule(HeliosTrainModule):
         h_w_to_sample = list(
             range(self.model.h_w_to_sample_min, self.model.h_w_to_sample_max)
         )
-
         patch_size = np.random.choice(np.arange(1, self.model.encoder.max_patch_size))
-        logger.info(f"Patch size: {patch_size}")
         subsampled_batch = batch.subset(patch_size, token_budget, h_w_to_sample)
-
         subsampled_batch = subsampled_batch.to_device(self.device)
-        logger.info(f"subsampled batch: input {subsampled_batch.sentinel2.shape}")
         masked_batch = self.masking_strategy.apply_mask(subsampled_batch)
-        logger.info(
-            f"masked batch: input {masked_batch.sentinel2.shape} and mask {masked_batch.sentinel2_mask.shape}"
-        )
 
         # Run Encoder and decoder on the augmented input
         decoded, loss = self.model_forward(masked_batch, patch_size)

@@ -125,6 +125,11 @@ class HeliosSample(NamedTuple):
                 return_dict[field] = val
         return return_dict
 
+    @property
+    def modalities(self) -> list[str]:
+        """Get the modalities present in the sample."""
+        return list(self.as_dict(ignore_nones=False).keys())
+
     def to_device(self, device: torch.device) -> "HeliosSample":
         """Move all tensors to the specified device.
 
@@ -233,10 +238,8 @@ class HeliosSample(NamedTuple):
             sampled_hw_p, max_tokens_per_instance
         )
         sampled_hw = sampled_hw_p * patch_size
-        max_start_h = self.height - sampled_hw + 1
-        start_h = np.random.choice(max_start_h)
-        # TODO: FORCE h == w for now other option is to update 2d pos encoding
-        start_w = start_h  # np.random.choice(self.width - sampled_hw_p + 1)
+        start_h = np.random.choice(self.height - sampled_hw + 1)
+        start_w = np.random.choice(self.width - sampled_hw + 1)
         start_t = np.random.choice(self.time - max_t + 1)
         new_data_dict: dict[str, ArrayTensor] = {}
         for attribute, modality in self.as_dict(ignore_nones=True).items():
@@ -267,25 +270,21 @@ class HeliosSample(NamedTuple):
 
 
 def collate_helios(batch: list[HeliosSample]) -> HeliosSample:
-    """Collate function."""
+    """Collate function that automatically handles any modalities present in the samples."""
 
     # Stack tensors while handling None values
-    def stack_or_none(attr: str) -> torch.Tensor | None:
+    def stack(attr: str) -> torch.Tensor | None:
         """Stack the tensors while handling None values."""
-        if batch[0].__getattribute__(attr) is None:
-            # TODO: THis will need to updated to handle sometimes missing modalities
-            return None
         return torch.stack(
             [torch.from_numpy(getattr(sample, attr)) for sample in batch], dim=0
         )
 
-    return HeliosSample(
-        sentinel2=stack_or_none("sentinel2"),
-        sentinel1=stack_or_none("sentinel1"),
-        # worldcover=stack_or_none("worldcover"),
-        latlon=stack_or_none("latlon"),
-        timestamps=stack_or_none("timestamps"),
-    )
+    # TODO: Gets all non-None modalities ASSUMES ALL SAMPLES HAVE THE SAME MODALITIES
+    sample_fields = batch[0].modalities
+
+    # Create a dictionary of stacked tensors for each field
+    collated_dict = {field: stack(field) for field in sample_fields}
+    return HeliosSample(**collated_dict)
 
 
 class HeliosDataset(Dataset):
@@ -377,12 +376,48 @@ class HeliosDataset(Dataset):
         """Prepare the dataset."""
         len(self)
 
+    def _log_modality_distribution(self, samples: list[SampleInformation]) -> None:
+        """Log the modality distribution."""
+        # Log modality distribution
+        modality_counts: dict[str, int] = {}
+        modality_combinations: dict[frozenset[str], int] = {}
+
+        for sample in samples:
+            # Count individual modalities
+            for modality in sample.modalities:
+                modality_counts[modality.name] = (
+                    modality_counts.get(modality.name, 0) + 1
+                )
+
+            # Count modality combinations
+            combination = frozenset(m.name for m in sample.modalities)
+            modality_combinations[combination] = (
+                modality_combinations.get(combination, 0) + 1
+            )
+
+        # Log individual modality counts
+        for modality_name, count in modality_counts.items():
+            percentage = (count / len(samples)) * 100
+            logger.info(
+                f"Modality {modality_name}: {count} samples ({percentage:.1f}%)"
+            )
+
+        # Log modality combinations
+        logger.info("\nModality combinations:")
+        for combination, count in modality_combinations.items():
+            percentage = (count / len(samples)) * 100
+            logger.info(
+                f"{'+'.join(sorted(combination))}: {count} samples ({percentage:.1f}%)"
+            )
+
     def _get_samples(self) -> list[SampleInformation]:
         """Get the samples from the raw dataset (image tile directory)."""
         tiles = parse_helios_dataset(self.tile_path)
         logger.info(f"Total tiles: {len(tiles)}")
         samples = image_tiles_to_samples(tiles)
         logger.info(f"Total samples: {len(samples)}")
+        logger.info("Distribution of samples before filtering:\n")
+        self._log_modality_distribution(samples)
         return samples
 
     def _filter_samples(
@@ -402,6 +437,12 @@ class HeliosDataset(Dataset):
                 modality in sample.modalities
                 for modality in self.supported_modalities
                 if not modality.ignore_when_parsing
+            ):
+                continue
+            if not all(
+                modality in sample.modalities
+                for modality in self.supported_modalities
+                if modality != Modality.LATLON
             ):
                 continue
             # check if sample modalities have s1 and s2
@@ -427,6 +468,9 @@ class HeliosDataset(Dataset):
                 continue
             filtered_samples.append(sample)
         logger.info(f"Number of samples after filtering: {len(filtered_samples)}")
+        logger.info("Distribution of samples after filtering:")
+        filtered_samples = filtered_samples[:2]
+        self._log_modality_distribution(filtered_samples)
         return filtered_samples
 
     def _get_latlon(self, sample: SampleInformation) -> np.ndarray:
@@ -482,6 +526,8 @@ class HeliosDataset(Dataset):
         """Get the item at the given index."""
         sample = self.samples[index]
         sample_dict = {}
+        if Modality.WORLDCOVER not in sample.modalities:
+            raise ValueError("Worldcover is not present in the sample")
         for modality in sample.modalities:
             sample_modality = sample.modalities[modality]
             image = self.load_sample(sample_modality, sample)
@@ -495,7 +541,6 @@ class HeliosDataset(Dataset):
             if modality == Modality.SENTINEL2:
                 sample_dict["latlon"] = self._get_latlon(sample).astype(self.dtype)
                 sample_dict["timestamps"] = self._get_timestamps(sample)
-
         return HeliosSample(**sample_dict)
 
 

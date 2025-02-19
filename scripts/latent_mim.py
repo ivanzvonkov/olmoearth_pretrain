@@ -37,6 +37,7 @@ if __name__ == "__main__":
     WANDB_USERNAME = "eai-ai2"  # nosec
     WANDB_PROJECT = "helios-debug"
     # PER EXPERIMENT Variables
+    LR = 1e-4
     GLOBAL_BATCH_SIZE = 32
     RANK_BATCH_SIZE = 32
     MAX_DURATION = Duration.epochs(10)
@@ -53,7 +54,7 @@ if __name__ == "__main__":
         Modality.SENTINEL2,
         Modality.LATLON,
         Modality.SENTINEL1,
-        # Modality.WORLDCOVER,
+        Modality.WORLDCOVER,
     ]
     MAX_PATCH_SIZE = 8  # NOTE: actual patch_size <= max_patch_size
     ENCODE_RATIO = 0.5
@@ -113,7 +114,7 @@ if __name__ == "__main__":
 
     #################### Configs for train module ####################
     checkpointer_config = CheckpointerConfig(work_dir=workdir)
-    optim_config = AdamWConfig()
+    optim_config = AdamWConfig(lr=LR)
     masking_config = MaskingConfig(
         strategy_config={
             "type": "random",
