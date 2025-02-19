@@ -68,7 +68,7 @@ class PatchDiscriminationLoss(Loss):
 
     def __init__(
         self,
-        tau: float = 0.07,
+        tau: float = 0.1,
         pred2unit: bool = False,
         mask_other_samples: bool = True,
     ):

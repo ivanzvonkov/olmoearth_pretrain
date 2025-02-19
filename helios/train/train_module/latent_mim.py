@@ -46,7 +46,8 @@ class LatentMIMTrainModuleConfig(HeliosTrainModuleConfig):
     masking_config: MaskingConfig = field(
         default_factory=lambda: MaskingConfig(strategy_config={"type": "random"})
     )
-    ema_decay: float = 0.99
+    ema_decay: float = 0.999
+    max_grad_norm: float = 1.0
 
     def build(
         self,
@@ -199,6 +200,7 @@ class LatentMIMTrainModule(HeliosTrainModule):
             loss.backward()
         # Update target encoder with EMA this should be a callback
         with torch.no_grad():
+            logger.info(f"Using ema decay {self.ema_decay}")
             for param, target_param in zip(
                 self.model.encoder.parameters(), self.model.target_encoder.parameters()
             ):
