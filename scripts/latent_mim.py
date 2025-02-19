@@ -5,16 +5,6 @@ import shutil
 import uuid
 
 import numpy as np
-from olmo_core.distributed.utils import get_fs_local_rank, get_rank, get_world_size
-from olmo_core.optim import AdamWConfig
-from olmo_core.train import prepare_training_environment, teardown_training_environment
-from olmo_core.train.callbacks import GPUMemoryMonitorCallback, WandBCallback
-from olmo_core.train.checkpoint import CheckpointerConfig
-from olmo_core.train.common import Duration, LoadStrategy
-from olmo_core.train.config import TrainerConfig
-from olmo_core.utils import get_default_device
-from upath import UPath
-
 from helios.data.constants import Modality
 from helios.data.dataloader import HeliosDataLoaderConfig
 from helios.data.dataset import HeliosDatasetConfig, collate_helios
@@ -24,6 +14,17 @@ from helios.train.callbacks.speed_monitor import HeliosSpeedMonitorCallback
 from helios.train.loss import LossConfig
 from helios.train.masking import MaskingConfig
 from helios.train.train_module.latent_mim import LatentMIMTrainModuleConfig
+from olmo_core.distributed.utils import (get_fs_local_rank, get_rank,
+                                         get_world_size)
+from olmo_core.optim import AdamWConfig
+from olmo_core.train import (prepare_training_environment,
+                             teardown_training_environment)
+from olmo_core.train.callbacks import GPUMemoryMonitorCallback, WandBCallback
+from olmo_core.train.checkpoint import CheckpointerConfig
+from olmo_core.train.common import Duration, LoadStrategy
+from olmo_core.train.config import TrainerConfig
+from olmo_core.utils import get_default_device
+from upath import UPath
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ if __name__ == "__main__":
     GLOBAL_BATCH_SIZE = 32
     RANK_BATCH_SIZE = 32
     MAX_DURATION = Duration.epochs(10)
-    NUM_WORKERS = 8
+    NUM_WORKERS = 0
     NUM_THREADS = 0
     METRICS_COLLECT_INTERVAL = 1
     CANCEL_CHECK_INTERVAL = 1
@@ -52,8 +53,8 @@ if __name__ == "__main__":
     SUPPORTED_MODALITIES = [
         Modality.SENTINEL2,
         Modality.LATLON,
-        # Modality.SENTINEL1,
-        Modality.WORLDCOVER,
+        Modality.SENTINEL1,
+        # Modality.WORLDCOVER,
     ]
     MAX_PATCH_SIZE = 8  # NOTE: actual patch_size <= max_patch_size
     ENCODE_RATIO = 0.5
@@ -190,11 +191,10 @@ if __name__ == "__main__":
     #################### Eval ####################
     # eval. Currently this will fail because by default our model ingests 4 timesteps.
     # we should update the model architecture to ingest variable numbers of timesteps
-    from torch.utils.data import DataLoader
-
     from helios.evals.datasets import GeobenchDataset
     from helios.evals.embeddings import get_embeddings
     from helios.evals.knn import run_knn
+    from torch.utils.data import DataLoader
 
     geobench_dir = UPath("/weka/skylight-default/presto-geobench/dataset/geobench")
 

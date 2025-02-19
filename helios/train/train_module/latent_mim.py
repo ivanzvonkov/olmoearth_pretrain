@@ -1,29 +1,25 @@
 """Training and optimizer abstraction for Helios."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from logging import getLogger
 from typing import Any
 
 import numpy as np
 import torch
 import torch.distributed.checkpoint.state_dict as dist_cp_sd
+from helios.data.dataset import HeliosSample
+from helios.train.loss import LossConfig
+from helios.train.masking import MaskedHeliosSample, MaskingConfig
+from helios.train.train_module.train_module import (HeliosTrainModule,
+                                                    HeliosTrainModuleConfig)
 from olmo_core.distributed.parallel import DataParallelConfig
 from olmo_core.distributed.utils import get_world_size
 from olmo_core.float8 import Float8Config
 from olmo_core.optim import OptimConfig
 from olmo_core.optim.scheduler import Scheduler
 from olmo_core.train.common import ReduceType
-from olmo_core.train.train_module.transformer import (
-    TransformerActivationCheckpointingConfig,
-)
-
-from helios.data.dataset import HeliosSample
-from helios.train.loss import LossConfig
-from helios.train.masking import MaskedHeliosSample, MaskingConfig
-from helios.train.train_module.train_module import (
-    HeliosTrainModule,
-    HeliosTrainModuleConfig,
-)
+from olmo_core.train.train_module.transformer import \
+    TransformerActivationCheckpointingConfig
 
 logger = getLogger(__name__)
 
@@ -40,8 +36,12 @@ class LatentMIMTrainModuleConfig(HeliosTrainModuleConfig):
         ema_decay: EMA decay rate for target encoder (default: 0.99).
     """
 
-    loss_config: LossConfig = LossConfig(loss_config={"type": "patch_discrimination"})
-    masking_config: MaskingConfig = MaskingConfig(strategy_config={"type": "random"})
+    loss_config: LossConfig = field(
+        default_factory=lambda: LossConfig(loss_config={"type": "patch_discrimination"})
+    )
+    masking_config: MaskingConfig = field(
+        default_factory=lambda: MaskingConfig(strategy_config={"type": "random"})
+    )
     ema_decay: float = 0.99
 
     def build(

@@ -8,9 +8,6 @@ from typing import Any, NamedTuple
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
-from olmo_core.config import Config
-from torch import Tensor, nn
-
 from helios.data.constants import Modality, ModalitySpec
 from helios.nn.attention import Block
 from helios.nn.encodings import (
@@ -20,6 +17,8 @@ from helios.nn.encodings import (
 )
 from helios.nn.flexi_patch_embed import FlexiPatchEmbed
 from helios.train.masking import MaskedHeliosSample, MaskValue
+from olmo_core.config import Config
+from torch import Tensor, nn
 
 logger = logging.getLogger(__name__)
 
@@ -1199,8 +1198,12 @@ class Predictor(FlexiHeliosBase):
         modalities_to_process = get_modalities_to_process(
             available_modalities, self.supported_modality_names
         )
+        logger.info(f"Modalities to process: {modalities_to_process}")
         for modality in modalities_to_process:
             x_modality = getattr(x, modality)
+            if x_modality is None:
+                logger.warning(f"Modality {modality} is None")
+                raise ValueError(f"Modality {modality} is None")
             x_modality = self.input_norm(x_modality)
             x_modality = self.encoder_to_decoder_embed(x_modality)
             masked_modality_name = x.get_masked_modality_name(modality)

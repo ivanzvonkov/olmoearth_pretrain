@@ -14,13 +14,6 @@ import numpy as np
 import pandas as pd
 import torch
 from einops import rearrange
-from olmo_core.aliases import PathOrStr
-from olmo_core.config import Config
-from olmo_core.distributed.utils import get_fs_local_rank
-from pyproj import Transformer
-from torch.utils.data import Dataset
-from upath import UPath
-
 from helios.data.constants import (
     BASE_RESOLUTION,
     IMAGE_TILE_SIZE,
@@ -38,6 +31,12 @@ from helios.dataset.sample import (
     load_image_for_sample,
 )
 from helios.types import ArrayTensor
+from olmo_core.aliases import PathOrStr
+from olmo_core.config import Config
+from olmo_core.distributed.utils import get_fs_local_rank
+from pyproj import Transformer
+from torch.utils.data import Dataset
+from upath import UPath
 
 logger = logging.getLogger(__name__)
 
@@ -495,7 +494,8 @@ class HeliosDataset(Dataset):
             if modality == Modality.SENTINEL2:
                 sample_dict["latlon"] = self._get_latlon(sample).astype(self.dtype)
                 sample_dict["timestamps"] = self._get_timestamps(sample)
-
+        if sample_dict["sentinel1"] is None:
+            raise ValueError("Sentinel1 is not supported yet")
         return HeliosSample(**sample_dict)
 
 
