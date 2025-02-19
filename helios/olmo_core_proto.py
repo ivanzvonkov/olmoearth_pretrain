@@ -43,9 +43,9 @@ if __name__ == "__main__":
     WANDB_USERNAME = "eai-ai2"  # nosec
     WANDB_PROJECT = "helios-debug"
     # PER EXPERIMENT Variables
-    GLOBAL_BATCH_SIZE = 1
-    RANK_BATCH_SIZE = 1
-    MAX_DURATION = Duration.epochs(10)
+    GLOBAL_BATCH_SIZE = 32
+    RANK_BATCH_SIZE = 32
+    MAX_DURATION = Duration.steps(2)
     NUM_WORKERS = 0
     NUM_THREADS = 0
     METRICS_COLLECT_INTERVAL = 1
@@ -73,11 +73,13 @@ if __name__ == "__main__":
         Modality.SENTINEL1,
         # Modality.WORLDCOVER,
     ]
+    embedding_size = 128
+    depth = 12
     encoder = Encoder(
-        embedding_size=16,
+        embedding_size=embedding_size,
         max_patch_size=8,
         num_heads=2,
-        depth=2,
+        depth=depth,
         mlp_ratio=1.0,
         drop_path=0.1,
         max_sequence_length=12,
@@ -85,9 +87,9 @@ if __name__ == "__main__":
         supported_modalities=supported_modalities,
     )
     decoder = Predictor(
-        encoder_embedding_size=16,
-        decoder_embedding_size=16,
-        depth=2,
+        encoder_embedding_size=embedding_size,
+        decoder_embedding_size=embedding_size,
+        depth=depth,
         mlp_ratio=1.0,
         num_heads=2,
         max_sequence_length=12,
@@ -195,9 +197,11 @@ if __name__ == "__main__":
     )
     # TODO: this should use target encoder
     train_embeddings, train_labels = get_embeddings(
-        data_loader=train_loader, model=encoder
+        data_loader=train_loader, model=encoder, patch_size=8
     )
-    val_embeddings, test_labels = get_embeddings(data_loader=val_loader, model=encoder)
+    val_embeddings, test_labels = get_embeddings(
+        data_loader=val_loader, model=encoder, patch_size=8
+    )
     val_result = run_knn(
         eval_type="KNN-20",
         train_embeddings=train_embeddings,

@@ -5,17 +5,16 @@ import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, Optional, Union
 
 import numpy as np
 import torch
 from class_registry import ClassRegistry
 from einops import rearrange, repeat
-from olmo_core.config import Config
-
 from helios.data.constants import Modality
 from helios.data.dataset import HeliosSample
 from helios.types import ArrayTensor
+from olmo_core.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,6 @@ class MaskValue(Enum):
     MISSING = 3
 
 
-# SHould be return type of masking strategy
 class MaskedHeliosSample(NamedTuple):
     """A masked sample of the data from the Helios dataset.
 
@@ -91,6 +89,18 @@ class MaskedHeliosSample(NamedTuple):
             else:
                 return_dict[key] = val
         return MaskedHeliosSample(**return_dict)
+
+    # TODO:: Myabe we don't want this
+    def to(
+        self,
+        **kwargs: Any,
+    ) -> "MaskedHeliosSample":
+        """Move the MaskedHeliosSample to a device or change the dtype applying pytorch to
+
+        See https://pytorch.org/docs/stable/generated/torch.Tensor.to.html"""
+        return MaskedHeliosSample(
+            **{k: v.to(**kwargs) for k, v in self.as_dict(return_none=False).items()}
+        )
 
     @property
     def modalities(self) -> list[str]:
