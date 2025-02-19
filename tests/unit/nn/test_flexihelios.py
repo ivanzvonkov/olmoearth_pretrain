@@ -26,7 +26,6 @@ class TestFlexiHeliosBase:
             drop_path=0.1,
             supported_modalities=supported_modalities,
             max_sequence_length=12,
-            base_patch_size=4,
             use_channel_embs=True,
         )
         return flexi_helios_base
@@ -102,14 +101,13 @@ class TestEncoder:
         """
         return Encoder(
             embedding_size=8,
-            max_patch_size=8,
             num_heads=2,
             mlp_ratio=4.0,
             depth=2,
             drop_path=0.1,
             supported_modalities=supported_modalities,
             max_sequence_length=12,
-            base_patch_size=4,
+            max_patch_size=8,
             use_channel_embs=True,
         )
 
@@ -253,7 +251,6 @@ class TestPredictor:
             mlp_ratio=4.0,
             num_heads=2,
             max_sequence_length=12,
-            max_patch_size=8,
             drop_path=0.1,
             learnable_channel_embeddings=True,
             output_embedding_size=8,
@@ -265,7 +262,7 @@ class TestPredictor:
         sentinel2_tokens = torch.randn(B, H, W, T, C_G, D)
 
         sentinel2_mask = torch.zeros(B, H, W, T, C_G).float()
-        sentinel2_mask[0, 0, 0, 0, 0] = MaskValue.DECODER_ONLY.value
+        sentinel2_mask[0, 0, 0, 0, 0] = MaskValue.DECODER.value
         latlon = torch.randn(B, 1, D)
         latlon_mask = torch.randint(0, 2, (B, 1)).float()
 

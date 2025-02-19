@@ -43,7 +43,6 @@ class Loss(ABC):
                 if is_masks:
                     attr = attr.unsqueeze(dim=-1)
                 flattened_attr = cls._flatten(attr)
-                logger.info(f"flattened_attr: {flattened_attr.shape} for {attr_name}")
                 flattened_attrs.append(flattened_attr)
 
         flattened_x = torch.cat(flattened_attrs, dim=1)
@@ -104,8 +103,8 @@ class PatchDiscriminationLoss(Loss):
         all_masks = self._flatten_tokens_or_masks(predictions, is_masks=True)
         all_targets = self._flatten_tokens_or_masks(targets)
 
-        pred = all_preds[all_masks == MaskValue.DECODER_ONLY.value].unsqueeze(dim=0)
-        target = all_targets[all_masks == MaskValue.DECODER_ONLY.value].unsqueeze(dim=0)
+        pred = all_preds[all_masks == MaskValue.DECODER.value].unsqueeze(dim=0)
+        target = all_targets[all_masks == MaskValue.DECODER.value].unsqueeze(dim=0)
         bs, nt, _ = pred.shape
 
         if self.pred2unit:
@@ -163,8 +162,8 @@ class L1Loss(Loss):
         all_preds = self._flatten_tokens_or_masks(predictions)
         all_masks = self._flatten_tokens_or_masks(predictions, is_masks=True)
         all_targets = self._flatten_tokens_or_masks(targets)
-        pred = all_preds[all_masks == MaskValue.DECODER_ONLY.value]
-        target = all_targets[all_masks == MaskValue.DECODER_ONLY.value]
+        pred = all_preds[all_masks == MaskValue.DECODER.value]
+        target = all_targets[all_masks == MaskValue.DECODER.value]
 
         return F.l1_loss(pred, target)
 
@@ -189,8 +188,8 @@ class L2Loss(Loss):
         all_preds = self._flatten_tokens_or_masks(predictions)
         all_masks = self._flatten_tokens_or_masks(predictions, is_masks=True)
         all_targets = self._flatten_tokens_or_masks(targets)
-        pred = all_preds[all_masks == MaskValue.DECODER_ONLY.value]
-        target = all_targets[all_masks == MaskValue.DECODER_ONLY.value]
+        pred = all_preds[all_masks == MaskValue.DECODER.value]
+        target = all_targets[all_masks == MaskValue.DECODER.value]
 
         return F.mse_loss(pred, target)
 
@@ -215,8 +214,8 @@ class CrossEntropyLoss(Loss):
         all_preds = self._flatten_tokens_or_masks(predictions)
         all_masks = self._flatten_tokens_or_masks(predictions, is_masks=True)
         all_targets = self._flatten_tokens_or_masks(targets)
-        pred = all_preds[all_masks == MaskValue.DECODER_ONLY.value]
-        target = all_targets[all_masks == MaskValue.DECODER_ONLY.value]
+        pred = all_preds[all_masks == MaskValue.DECODER.value]
+        target = all_targets[all_masks == MaskValue.DECODER.value]
 
         return F.cross_entropy(pred, target.squeeze())
 
