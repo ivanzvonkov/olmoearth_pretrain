@@ -21,9 +21,7 @@ logger = logging.getLogger(__name__)
 class Loss(ABC):
     """Abstract base class for loss functions."""
 
-    def __init__(self, name: str) -> None:
-        """Initialize the loss function."""
-        self.name = name
+    name: str
 
     @staticmethod
     def _flatten(x: Tensor) -> Tensor:
@@ -70,6 +68,8 @@ LOSS_REGISTRY = ClassRegistry[Loss]()
 class PatchDiscriminationLoss(Loss):
     """Loss function for patch discrimination task."""
 
+    name = "Patch Discrimination"
+
     def __init__(
         self,
         tau: float = 0.1,
@@ -85,7 +85,6 @@ class PatchDiscriminationLoss(Loss):
                 from within a sample (True) or using all other instances in a batch (False).
                 If this is False, then this is the AllDisc loss from the Galileo paper
         """
-        super().__init__(name="patch_discrimination")
         self.tau = tau
         self.pred2unit = pred2unit
         self.mask_other_samples = mask_other_samples
@@ -152,9 +151,7 @@ class PatchDiscriminationLoss(Loss):
 class L1Loss(Loss):
     """Loss function for L1 (mean average error)."""
 
-    def __init__(self) -> None:
-        """Initialize the loss function."""
-        super().__init__(name="l1")
+    name = "L1"
 
     def compute(
         self, predictions: TokensAndMasks, targets: TokensAndMasks, **kwargs: Any
@@ -182,9 +179,7 @@ class L1Loss(Loss):
 class L2Loss(Loss):
     """Loss function for L2 (mean squared error)."""
 
-    def __init__(self) -> None:
-        """Initialize the loss function."""
-        super().__init__(name="l2")
+    name = "L2"
 
     def compute(
         self, predictions: TokensAndMasks, targets: TokensAndMasks, **kwargs: Any
@@ -212,9 +207,7 @@ class L2Loss(Loss):
 class CrossEntropyLoss(Loss):
     """Loss function for cross entropy."""
 
-    def __init__(self) -> None:
-        """Initialize the loss function."""
-        super().__init__(name="cross_entropy")
+    name = "Cross Entropy"
 
     def compute(
         self, predictions: TokensAndMasks, targets: TokensAndMasks, **kwargs: Any

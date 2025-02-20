@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 # Geobench classification
-METRIC_NAME = "f1"
+METRIC_NAME = "Top-1 Accuracy"
 NAME_PREFIX = "Geobench"
 GEOBENCH_DIR = UPath("/weka/dfive-default/presto-geobench/dataset/geobench")
 
