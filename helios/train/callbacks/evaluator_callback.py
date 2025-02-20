@@ -93,8 +93,6 @@ class DownstreamEvaluatorCallback(Callback):
         if self.step <= 1 or self.step % self.eval_interval != 0:
             return
 
-        # dp_world_size = get_world_size(self.trainer.dp_process_group)
-
         for evaluator in self.evaluators:
             logger.info(f"Running {evaluator.name} evals...")
             start_time = time.monotonic()

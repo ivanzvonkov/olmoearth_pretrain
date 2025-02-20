@@ -27,8 +27,6 @@ from helios.train.train_module.train_module import (
 
 logger = getLogger(__name__)
 
-TRAIN_PATCH_DISC_LOSS_METRIC = "train/patch_disc_loss"
-
 
 @dataclass
 class LatentMIMTrainModuleConfig(HeliosTrainModuleConfig):
@@ -183,7 +181,11 @@ class LatentMIMTrainModule(HeliosTrainModule):
         decoded, loss = self.model_forward(masked_batch, patch_size)
 
         self.trainer.record_metric(
+<<<<<<< HEAD
             TRAIN_PATCH_DISC_LOSS_METRIC,
+=======
+            f"train/{self.base_loss.name}",  # get loss name
+>>>>>>> add name to loss
             loss / get_world_size(self.dp_process_group),
             ReduceType.mean,
         )

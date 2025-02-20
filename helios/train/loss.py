@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 class Loss(ABC):
     """Abstract base class for loss functions."""
 
+    def __init__(self, name: str) -> None:
+        """Initialize the loss function."""
+        self.name = name
+
     @staticmethod
     def _flatten(x: Tensor) -> Tensor:
         return rearrange(x, "b ... d -> b (...) d")
@@ -81,6 +85,7 @@ class PatchDiscriminationLoss(Loss):
                 from within a sample (True) or using all other instances in a batch (False).
                 If this is False, then this is the AllDisc loss from the Galileo paper
         """
+        super().__init__(name="patch_discrimination")
         self.tau = tau
         self.pred2unit = pred2unit
         self.mask_other_samples = mask_other_samples
@@ -147,6 +152,10 @@ class PatchDiscriminationLoss(Loss):
 class L1Loss(Loss):
     """Loss function for L1 (mean average error)."""
 
+    def __init__(self) -> None:
+        """Initialize the loss function."""
+        super().__init__(name="l1")
+
     def compute(
         self, predictions: TokensAndMasks, targets: TokensAndMasks, **kwargs: Any
     ) -> float:
@@ -173,6 +182,10 @@ class L1Loss(Loss):
 class L2Loss(Loss):
     """Loss function for L2 (mean squared error)."""
 
+    def __init__(self) -> None:
+        """Initialize the loss function."""
+        super().__init__(name="l2")
+
     def compute(
         self, predictions: TokensAndMasks, targets: TokensAndMasks, **kwargs: Any
     ) -> float:
@@ -198,6 +211,10 @@ class L2Loss(Loss):
 @LOSS_REGISTRY.register("cross_entropy")
 class CrossEntropyLoss(Loss):
     """Loss function for cross entropy."""
+
+    def __init__(self) -> None:
+        """Initialize the loss function."""
+        super().__init__(name="cross_entropy")
 
     def compute(
         self, predictions: TokensAndMasks, targets: TokensAndMasks, **kwargs: Any
