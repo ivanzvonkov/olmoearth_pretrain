@@ -14,30 +14,21 @@ import numpy as np
 import pandas as pd
 import torch
 from einops import rearrange
+from helios.data.constants import (BASE_RESOLUTION, IMAGE_TILE_SIZE,
+                                   TIMESTAMPS, Modality, ModalitySpec,
+                                   TimeSpan)
+from helios.data.normalize import NORMALIZE_STRATEGY, Normalizer, Strategy
+from helios.data.utils import convert_to_db
+from helios.dataset.parse import ModalityTile, parse_helios_dataset
+from helios.dataset.sample import (SampleInformation, image_tiles_to_samples,
+                                   load_image_for_sample)
+from helios.types import ArrayTensor
 from olmo_core.aliases import PathOrStr
 from olmo_core.config import Config
 from olmo_core.distributed.utils import get_fs_local_rank
 from pyproj import Transformer
 from torch.utils.data import Dataset
 from upath import UPath
-
-from helios.data.constants import (
-    BASE_RESOLUTION,
-    IMAGE_TILE_SIZE,
-    TIMESTAMPS,
-    Modality,
-    ModalitySpec,
-    TimeSpan,
-)
-from helios.data.normalize import NORMALIZE_STRATEGY, Normalizer, Strategy
-from helios.data.utils import convert_to_db
-from helios.dataset.parse import ModalityTile, parse_helios_dataset
-from helios.dataset.sample import (
-    SampleInformation,
-    image_tiles_to_samples,
-    load_image_for_sample,
-)
-from helios.types import ArrayTensor
 
 logger = logging.getLogger(__name__)
 
@@ -414,9 +405,9 @@ class HeliosDataset(Dataset):
 
     def _get_samples(self) -> list[SampleInformation]:
         """Get the samples from the raw dataset (image tile directory)."""
-        tiles = parse_helios_dataset(self.tile_path)
+        tiles = parse_helios_dataset(self.tile_path, self.supported_modalities)
         logger.info(f"Total tiles: {len(tiles)}")
-        samples = image_tiles_to_samples(tiles)
+        samples = image_tiles_to_samples(tiles, self.supported_modalities)
         logger.info(f"Total samples: {len(samples)}")
         logger.info("Distribution of samples before filtering:\n")
         self._log_modality_distribution(samples)
