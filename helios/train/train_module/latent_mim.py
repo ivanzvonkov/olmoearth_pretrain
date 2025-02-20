@@ -162,11 +162,7 @@ class LatentMIMTrainModule(HeliosTrainModule):
 
     def train_batch(self, batch: HeliosSample, dry_run: bool = False) -> None:
         """Train a batch."""
-        # Record how many instances are going to be skipped (masked out).
-        # if (instance_mask := batch.get("instance_mask")) is not None and not dry_run:
-        #     self.record_metric("train/masked instances", (~instance_mask).sum(), ReduceType.sum)
-
-        # we may want to modify this
+        # Set the maximum number of tokens
         token_budget = self.model.token_budget
         # Smallest h /w must be bigger than the smallest patch size
         h_w_to_sample = list(
@@ -206,11 +202,9 @@ class LatentMIMTrainModule(HeliosTrainModule):
                 )
 
         del batch  # In case this helps with memory utilization.
-
         if dry_run:
             self._clear_loss_buffers()
             return
-
         self._clear_loss_buffers()
 
     def eval_batch(
