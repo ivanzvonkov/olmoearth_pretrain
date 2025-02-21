@@ -116,6 +116,12 @@ class TransformConfig(Config):
 
     transform_type: str = "no_transform"
 
+    def validate(self) -> None:
+        """Validate the configuration."""
+        if self.transform_type not in TRANSFORM_REGISTRY:
+            raise ValueError(f"Invalid transform type: {self.transform_type}")
+
     def build(self) -> Transform:
         """Build the transform."""
+        self.validate()
         return TRANSFORM_REGISTRY.get_class(self.transform_type)()
