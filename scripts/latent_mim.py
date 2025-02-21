@@ -130,6 +130,7 @@ if __name__ == "__main__":
         token_budget=TOKEN_BUDGET,
         h_w_to_sample_min=H_W_TO_SAMPLE_MIN,
         h_w_to_sample_max=H_W_TO_SAMPLE_MAX,
+        transform=TRANSFORM,
     )
     model = model_config.build()
 

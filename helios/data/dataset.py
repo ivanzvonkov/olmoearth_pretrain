@@ -30,7 +30,6 @@ from helios.data.constants import (
     TimeSpan,
 )
 from helios.data.normalize import Normalizer, Strategy
-from helios.data.transform import Transform
 from helios.data.utils import convert_to_db
 from helios.dataset.parse import ModalityTile, parse_helios_dataset
 from helios.dataset.sample import (
@@ -268,10 +267,6 @@ class HeliosSample(NamedTuple):
             elif modality_spec.is_static_in_space_and_time:
                 new_data_dict[attribute] = modality
         return HeliosSample(**new_data_dict)
-
-    def transform(self, transform: Transform) -> "HeliosSample":
-        """Transform the sample."""
-        return transform.apply(self)
 
 
 def collate_helios(batch: list[HeliosSample]) -> HeliosSample:

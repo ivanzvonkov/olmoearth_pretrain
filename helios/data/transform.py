@@ -1,6 +1,7 @@
 """Transformations for the HeliosSample."""
 
 import random
+from abc import ABC
 
 import torchvision.transforms.v2.functional as F
 from einops import rearrange
@@ -10,7 +11,7 @@ from helios.data.dataset import HeliosSample
 from helios.types import ArrayTensor
 
 
-class Transform:
+class Transform(ABC):
     """A transform that can be applied to a HeliosSample."""
 
     def apply(self, batch: HeliosSample) -> "HeliosSample":
@@ -80,14 +81,13 @@ class FlipAndRotateSpace(Transform):
             else:
                 modality_spec = Modality.get(attribute)
                 # Apply the transformation to the space varying data
-                if modality_spec.is_spacetime_varying:
+                if (
+                    modality_spec.is_spacetime_varying
+                    or modality_spec.is_space_only_varying
+                ):
                     modality_data = rearrange(modality_data, "b h w t c -> b t c h w")
                     modality_data = transformation(modality_data)
                     modality_data = rearrange(modality_data, "b t c h w -> b h w t c")
-                elif modality_spec.is_space_only_varying:
-                    modality_data = rearrange(modality_data, "b h w c -> b c h w")
-                    modality_data = transformation(modality_data)
-                    modality_data = rearrange(modality_data, "b c h w -> b h w c")
                 new_data_dict[attribute] = modality_data
         # Return the transformed sample
         return HeliosSample(**new_data_dict)
