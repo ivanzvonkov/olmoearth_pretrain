@@ -78,7 +78,7 @@ if __name__ == "__main__":
     DROP_PATH = 0.1
     MAX_GRAD_NORM = 1.0
 
-    LOSS_TYPE = "l2"  # "patch_discrimination"
+    LOSS_TYPE = "patch_discrimination"
 
     EVAL_INTERVAL_EPOCHS = 1
     EVAL_TASKS = ["m-eurosat"]
