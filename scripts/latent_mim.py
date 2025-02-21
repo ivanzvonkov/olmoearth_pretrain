@@ -7,7 +7,7 @@ from os import environ
 import numpy as np
 from olmo_core.distributed.utils import get_fs_local_rank, get_rank, get_world_size
 from olmo_core.optim import AdamWConfig
-from olmo_core.optim.scheduler import ConstantWithWarmup
+from olmo_core.optim.scheduler import CosWithWarmup
 from olmo_core.train import prepare_training_environment, teardown_training_environment
 from olmo_core.train.callbacks import (
     GPUMemoryMonitorCallback,
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     TOKEN_BUDGET = 1500
     H_W_TO_SAMPLE_MIN = 2
     H_W_TO_SAMPLE_MAX = 13
-    WARMUP_STEPS = 2
+    WARMUP_EPOCHS = MAX_DURATION.value // 10
     ENCODER_EMBEDDING_SIZE = 256
     DECODER_EMBEDDING_SIZE = 256
     ENCODER_DEPTH = 4
@@ -136,6 +136,15 @@ if __name__ == "__main__":
     # Ideally though this should be handled by the Model COnfig and build
     model = model.to(device)
 
+    ################### Configs for dataset ####################
+    dataset_config = HeliosDatasetConfig(
+        tile_path=TILE_PATH,
+        supported_modalities=SUPPORTED_MODALITIES,
+        dtype=DTYPE,
+    )
+    dataset = dataset_config.build()
+    steps_per_epoch = len(dataset) // GLOBAL_BATCH_SIZE
+
     #################### Configs for train module ####################
     checkpointer_config = CheckpointerConfig(work_dir=workdir)
     optim_config = AdamWConfig(lr=LR)
@@ -151,7 +160,8 @@ if __name__ == "__main__":
             "type": LOSS_TYPE,
         }
     )
-    scheduler = ConstantWithWarmup(warmup_steps=WARMUP_STEPS)
+
+    scheduler = CosWithWarmup(warmup_steps=WARMUP_EPOCHS * steps_per_epoch)
     train_module_config = LatentMIMTrainModuleConfig(
         optim=optim_config,
         masking_config=masking_config,
@@ -164,12 +174,6 @@ if __name__ == "__main__":
     dp_process_group = train_module.dp_process_group
 
     #################### Configs for dataloader ####################
-    dataset_config = HeliosDatasetConfig(
-        tile_path=TILE_PATH,
-        supported_modalities=SUPPORTED_MODALITIES,
-        dtype=DTYPE,
-    )
-    dataset = dataset_config.build()
     dataloader_config = HeliosDataLoaderConfig(
         global_batch_size=GLOBAL_BATCH_SIZE,
         dp_world_size=get_world_size(dp_process_group),
