@@ -22,6 +22,7 @@ from upath import UPath
 from helios.data.constants import Modality
 from helios.data.dataloader import HeliosDataLoaderConfig
 from helios.data.dataset import HeliosDatasetConfig, collate_helios
+from helios.data.transform import FlipAndRotateSpace
 from helios.nn.flexihelios import EncoderConfig, PredictorConfig
 from helios.nn.latent_mim import LatentMIMConfig
 from helios.train.callbacks.evaluator_callback import DownstreamEvaluatorCallbackConfig
@@ -70,6 +71,7 @@ if __name__ == "__main__":
     TOKEN_BUDGET = 1500
     H_W_TO_SAMPLE_MIN = 2
     H_W_TO_SAMPLE_MAX = 13
+    TRANSFORM = FlipAndRotateSpace()
     WARMUP_STEPS = 2
     ENCODER_EMBEDDING_SIZE = 256
     DECODER_EMBEDDING_SIZE = 256

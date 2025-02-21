@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import torch.nn as nn
 from olmo_core.config import Config
 
+from helios.data.transform import FlipAndRotateSpace, Transform
 from helios.nn.flexihelios import EncoderConfig, PredictorConfig, TokensAndMasks
 from helios.train.masking import MaskedHeliosSample
 
@@ -20,6 +21,7 @@ class LatentMIM(nn.Module):
         token_budget: int = 1500,
         h_w_to_sample_min: int = 2,
         h_w_to_sample_max: int = 13,
+        transform: Transform = FlipAndRotateSpace(),
     ):
         """Initialize the Latent MIM Style.
 
@@ -29,6 +31,7 @@ class LatentMIM(nn.Module):
             token_budget: The token budget to use.
             h_w_to_sample_min: The minimum height and width to sample.
             h_w_to_sample_max: The maximum height and width to sample.
+            transform: The transform to use.
         """
         super().__init__()
         self.encoder = encoder
@@ -37,6 +40,7 @@ class LatentMIM(nn.Module):
         for p in self.target_encoder.parameters():
             p.requires_grad = False
         self.token_budget = token_budget
+        self.transform = transform
         self.h_w_to_sample_min = h_w_to_sample_min
         self.h_w_to_sample_max = h_w_to_sample_max
 
@@ -57,6 +61,7 @@ class LatentMIMConfig(Config):
     token_budget: int = 1500
     h_w_to_sample_min: int = 2
     h_w_to_sample_max: int = 13
+    transform: Transform = FlipAndRotateSpace()
 
     def validate(self) -> None:
         """Validate the configuration."""
