@@ -6,10 +6,8 @@ from helios.data.dataset import HeliosDataset
 from helios.data.visualize import visualize_sample
 
 
-
-
-
 def test_visualize_sample():
     """Test the visualize_sample function."""
+    samples = []
     dataset = HeliosDataset()
     visualize_sample(dataset, 0)
