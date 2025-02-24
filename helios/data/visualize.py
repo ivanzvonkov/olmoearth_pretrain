@@ -19,7 +19,6 @@ from helios.data.dataset import HeliosDataset
 
 logger = logging.getLogger(__name__)
 
-# TODO: Instead of dim checks, we should use the modality spec properties
 WORLDCOVER_LEGEND = {
     10: ("#006400", "Tree cover"),
     20: ("#ffbb22", "Shrubland"),
@@ -116,7 +115,7 @@ def visualize_sample(
         logger.info(f"Modality data shape (loaded): {modality_data.shape}")
 
         # If temporal [H, W, T, C], take first time step
-        if modality_spec.is_spacetime_varying:
+        if modality_spec.is_spatial:
             modality_data = modality_data[:, :, 0]
             logger.info(
                 f"Modality data shape after first time step: {modality_data.shape}"

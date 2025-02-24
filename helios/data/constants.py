@@ -137,6 +137,11 @@ class ModalitySpec:
         return sum(len(band_set.bands) for band_set in self.band_sets)
 
     @property
+    def is_spatial(self) -> bool:
+        """Does the modality have spatial data."""
+        return self.get_tile_resolution() > 0
+
+    @property
     def is_spacetime_varying(self) -> bool:
         """Does the modality vary in space and time."""
         return self.get_tile_resolution() > 0 and self.is_multitemporal
