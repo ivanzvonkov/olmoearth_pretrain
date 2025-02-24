@@ -88,7 +88,7 @@ def build_train_module_config(
     """Build the train module config for an experiment."""
     LR = 0.0001
     RANK_BATCH_SIZE = (
-        16  # TODO: maybe this should be computed dynamically and not specified here
+        32  # TODO: maybe this should be computed dynamically and not specified here
     )
     ENCODE_RATIO = 0.1
     DECODE_RATIO = 0.5
@@ -130,7 +130,7 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
     # TODO: Include collate function here
     NUM_WORKERS = 0
     NUM_THREADS = 0
-    GLOBAL_BATCH_SIZE = 16
+    GLOBAL_BATCH_SIZE = 32
 
     dataloader_config = HeliosDataLoaderConfig(
         global_batch_size=GLOBAL_BATCH_SIZE,
