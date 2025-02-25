@@ -14,7 +14,6 @@ from torch.utils.data import Dataset, default_collate
 
 from helios.data.constants import Modality
 from helios.data.dataset import HeliosSample
-from helios.data.normalize import Normalizer, Strategy
 from helios.train.masking import MaskedHeliosSample
 
 torch.multiprocessing.set_sharing_strategy("file_system")
@@ -106,6 +105,10 @@ class GeobenchDataset(Dataset):
         self.split = split
         self.partition = partition
         self.norm_stats_from_pretrained = norm_stats_from_pretrained
+        if self.norm_stats_from_pretrained:
+            from helios.data.normalize import Normalizer, Strategy
+
+            self.normalizer_computed = Normalizer(Strategy.COMPUTED)
 
         for task in geobench.task_iterator(
             benchmark_name=config.benchmark_name,
@@ -273,8 +276,9 @@ class GeobenchDataset(Dataset):
         ]
         # Normalize using the pretrained dataset's normalization stats
         if self.norm_stats_from_pretrained:
-            normalizer_computed = Normalizer(Strategy.COMPUTED)
-            s2 = torch.tensor(normalizer_computed.normalize(Modality.SENTINEL2, s2))
+            s2 = torch.tensor(
+                self.normalizer_computed.normalize(Modality.SENTINEL2, s2.numpy())
+            )
 
         timestamp = repeat(torch.tensor(self.default_day_month_year), "d -> t d", t=1)
         masked_sample = MaskedHeliosSample.from_heliossample(
