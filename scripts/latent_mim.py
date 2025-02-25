@@ -21,13 +21,14 @@ from helios.data.dataloader import HeliosDataLoaderConfig
 from helios.data.dataset import HeliosDatasetConfig
 from helios.data.normalize import Strategy
 from helios.internal.experiment import CommonComponents, HeliosVisualizeConfig, main
-from helios.nn.flexihelios import EncoderConfig, PredictorConfig
+from helios.nn.flexihelios import EncoderConfig, PoolingType, PredictorConfig
 from helios.nn.latent_mim import LatentMIMConfig
 from helios.train.callbacks import (
     DownstreamEvaluatorCallbackConfig,
     HeliosSpeedMonitorCallback,
     HeliosWandBCallback,
 )
+from helios.train.callbacks.evaluator_callback import DownstreamTaskConfig
 from helios.train.loss import LossConfig
 from helios.train.masking import MaskingConfig
 from helios.train.train_module.latent_mim import LatentMIMTrainModuleConfig
@@ -87,14 +88,15 @@ def build_train_module_config(
     common: CommonComponents,
 ) -> LatentMIMTrainModuleConfig:
     """Build the train module config for an experiment."""
-    LR = 0.0001
+    LR = 0.002
+    WD = 0.02
     RANK_BATCH_SIZE = (
         16  # TODO: maybe this should be computed dynamically and not specified here
     )
     ENCODE_RATIO = 0.1
-    DECODE_RATIO = 0.5
+    DECODE_RATIO = 0.75
 
-    optim_config = AdamWConfig(lr=LR)
+    optim_config = AdamWConfig(lr=LR, weight_decay=WD)
     masking_config = MaskingConfig(
         strategy_config={
             "type": "random",
@@ -129,7 +131,7 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
     # things should be set during building
     # TODO: handle dp_process_group internally
     # TODO: Include collate function here
-    NUM_WORKERS = 0
+    NUM_WORKERS = 1
     NUM_THREADS = 0
     GLOBAL_BATCH_SIZE = 16
 
@@ -171,7 +173,15 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
         enabled=True,  # set to False to avoid wandb errors
     )
     EVAL_INTERVAL_EPOCHS = 1
-    EVAL_TASKS = ["m-eurosat"]
+    EVAL_TASKS = [
+        DownstreamTaskConfig(
+            name="m-eurosat",
+            batch_size=128,
+            num_workers=8,
+            pooling_type=PoolingType.MAX,
+            norm_stats_from_pretrained=True,
+        ),
+    ]
     # Let us not use garbage collector fallback
     trainer_config = (
         TrainerConfig(

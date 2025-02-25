@@ -80,10 +80,20 @@ class GeobenchDataset(Dataset):
         dataset: str,
         split: str,
         partition: str,
+        norm_stats_from_pretrained: bool = False,
         norm_method: str = "norm_no_clip",
         visualize_samples: bool = False,
     ):
-        """Init GeoBench dataset."""
+        """Init GeoBench dataset.
+
+        Args:
+            geobench_dir: Path to the GeoBench directory
+            dataset: Dataset name
+            split: Split to use
+            partition: Partition to use
+            norm_stats_from_pretrained: Whether to use normalization stats from pretrained model
+            norm_method: Normalization method to use, only when norm_stats_from_pretrained is False
+        """
         config = DATASET_TO_CONFIG[dataset]
         self.config = config
         self.num_classes = config.num_classes
@@ -97,6 +107,12 @@ class GeobenchDataset(Dataset):
 
         self.split = split
         self.partition = partition
+        self.norm_stats_from_pretrained = norm_stats_from_pretrained
+        # If normalize with pretrained stats, we initialize the normalizer here
+        if self.norm_stats_from_pretrained:
+            from helios.data.normalize import Normalizer, Strategy
+
+            self.normalizer_computed = Normalizer(Strategy.COMPUTED)
 
         for task in geobench.task_iterator(
             benchmark_name=config.benchmark_name,
@@ -245,10 +261,11 @@ class GeobenchDataset(Dataset):
         if self.dataset == "m-so2sat":
             x = x * 10_000
 
-        x = torch.tensor(
-            self._normalize_bands(x, self.mean, self.std, self.norm_method)
-        )
-
+        # Normalize using the downstream task's normalization stats
+        if not self.norm_stats_from_pretrained:
+            x = torch.tensor(
+                self._normalize_bands(x, self.mean, self.std, self.norm_method)
+            )
         # check if label is an object or a number
         if not (isinstance(label, int) or isinstance(label, list)):
             label = label.data
@@ -262,6 +279,12 @@ class GeobenchDataset(Dataset):
             :,
             GEOBENCH_TO_HELIOS_S2_BANDS,
         ]
+        # Normalize using the pretrained dataset's normalization stats
+        if self.norm_stats_from_pretrained:
+            s2 = torch.tensor(
+                self.normalizer_computed.normalize(Modality.SENTINEL2, s2)
+            )
+
         timestamp = repeat(torch.tensor(self.default_day_month_year), "d -> t d", t=1)
         masked_sample = MaskedHeliosSample.from_heliossample(
             HeliosSample(sentinel2=s2.float(), timestamps=timestamp.long())
