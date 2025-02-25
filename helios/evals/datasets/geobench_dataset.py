@@ -93,6 +93,7 @@ class GeobenchDataset(Dataset):
             partition: Partition to use
             norm_stats_from_pretrained: Whether to use normalization stats from pretrained model
             norm_method: Normalization method to use, only when norm_stats_from_pretrained is False
+            visualize_samples: Whether to visualize samples
         """
         config = DATASET_TO_CONFIG[dataset]
         self.config = config
