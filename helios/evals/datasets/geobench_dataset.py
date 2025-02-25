@@ -235,12 +235,7 @@ class GeobenchDataset(Dataset):
         sample = self.dataset[idx]
         label = sample.label
 
-        x_list = []
-        for band_idx in self.band_indices:
-            print(f"Band idx: {band_idx}")
-            x_list.append(sample.bands[band_idx].data)
-
-        print(f"x_list:  len: {len(x_list)}")
+        x_list = [sample.bands[band_idx].data for band_idx in self.band_indices]
 
         x_list = self._impute_bands(x_list, self.band_names, self.config.imputes)
 
@@ -328,19 +323,3 @@ class GeobenchDataset(Dataset):
             # Save and close
             fig.savefig(save_path, bbox_inches="tight")
             plt.close(fig)
-
-
-if __name__ == "__main__":
-    METRIC_NAME = "Top-1 Accuracy"
-    NAME_PREFIX = "Geobench"
-    from upath import UPath
-
-    GEOBENCH_DIR = UPath("/weka/dfive-default/presto-geobench/dataset/geobench")
-
-    # Normalization is norm no clip
-    dataset = GeobenchDataset(
-        GEOBENCH_DIR, dataset="m-eurosat", split="train", partition="default"
-    )
-    sample, target = dataset[0]
-    print(sample)
-    print(target)
