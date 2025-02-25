@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import torch.distributed.checkpoint.state_dict as dist_cp_sd
 from olmo_core.distributed.parallel import DataParallelConfig
-from olmo_core.distributed.utils import get_world_size
+from olmo_core.distributed.utils import get_world_size, get_local_tensor
 from olmo_core.float8 import Float8Config
 from olmo_core.optim import OptimConfig
 from olmo_core.optim.scheduler import Scheduler
@@ -185,14 +185,17 @@ class LatentMIMTrainModule(HeliosTrainModule):
         # Set the maximum number of tokens
         token_budget = self.model.token_budget
 
-        loss = torch.tensor(0.0, device=self.device)
+        total_batch_loss = torch.tensor(0.0, device=self.device)
         # Split into micro-batches.
         microbatches = split_batch(batch, self.rank_microbatch_size)
-        for microbatch_idx, microbatch in enumerate(microbatches):
-            with self._train_microbatch_context(microbatch_idx, len(microbatches)):
+        num_microbatches = len(microbatches)
+        for microbatch_idx, microbatch in enumerate(microbatches, start=1):
+            with self._train_microbatch_context(microbatch_idx, num_microbatches):
                 logger.info(
-                    f"Training microbatch {microbatch_idx} of {len(microbatches)}"
+                    f"Training microbatch {microbatch_idx} of {num_microbatches} with batch size {microbatch.batch_size}"
                 )
+
+                # Gallileo does this subsetting at the microbtch level so we will too for now
                 # Smallest h /w must be bigger than the smallest patch size
                 h_w_to_sample = list(
                     range(self.model.h_w_to_sample_min, self.model.h_w_to_sample_max)
@@ -200,31 +203,34 @@ class LatentMIMTrainModule(HeliosTrainModule):
                 patch_size = np.random.choice(
                     np.arange(1, self.model.encoder.max_patch_size)
                 )
-                batch = self.model.transform.apply(microbatch)
-                subsampled_batch = batch.subset(patch_size, token_budget, h_w_to_sample)
+                microbatch = self.model.transform.apply(microbatch)
+                subsampled_batch = microbatch.subset(patch_size, token_budget, h_w_to_sample)
                 subsampled_batch = subsampled_batch.to_device(self.device)
                 masked_batch = self.masking_strategy.apply_mask(subsampled_batch)
 
                 # Run Encoder and decoder on the augmented input
                 decoded, target_output = self.model_forward(masked_batch, patch_size)
                 loss = self.loss_fn(decoded, target_output)
+                # Scale loss by number of microbatches
+                loss = loss / num_microbatches
+                loss_val = get_local_tensor(loss)
+                total_batch_loss += loss_val
                 del decoded, target_output
                 loss.backward()
 
         self.trainer.record_metric(
             f"train/{self.base_loss.name}",
-            loss / get_world_size(self.dp_process_group),
+            total_batch_loss / get_world_size(self.dp_process_group),
             ReduceType.mean,
         )
+
+        if dry_run:
+            return
 
         self.update_target_encoder()
 
         del batch  # In case this helps with memory utilization.
         del masked_batch
-        if dry_run:
-            self._clear_loss_buffers()
-            return
-        self._clear_loss_buffers()
 
     def eval_batch(
         self, batch: dict[str, Any], labels: torch.Tensor | None = None

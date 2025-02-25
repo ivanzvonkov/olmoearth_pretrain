@@ -296,7 +296,7 @@ def iter_batched(
     batch: list[HeliosSample] = []
     instances = 0
     for x in iterable:
-        if instances > batch_size:
+        if instances >= batch_size:
             yield tuple(batch)
             batch.clear()
             instances = 0

@@ -87,7 +87,7 @@ def build_train_module_config(
 ) -> LatentMIMTrainModuleConfig:
     """Build the train module config for an experiment."""
     LR = 0.0001
-    RANK_MICROBATCH_SIZE = 64
+    RANK_MICROBATCH_SIZE = 8
     ENCODE_RATIO = 0.1
     DECODE_RATIO = 0.5
     WD = 0.02
@@ -126,9 +126,9 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
     """Build the dataloader config for an experiment."""
     # things should be set during building
     # TODO: Include collate function here
-    NUM_WORKERS = 16
+    NUM_WORKERS = 4
     NUM_THREADS = 4
-    GLOBAL_BATCH_SIZE = 512
+    GLOBAL_BATCH_SIZE = 32
 
     dataloader_config = HeliosDataLoaderConfig(
         global_batch_size=GLOBAL_BATCH_SIZE,
@@ -197,7 +197,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
 
 def build_common_components() -> CommonComponents:
     """Build the common components for an experiment."""
-    run_name = "gradient_accumulation_test"
+    run_name = "fix_gradient_accumulation_testing_w_wo"
     # Variables to be changed per user
     workdir = UPath("/temp/helios/workdir")  # nosec
     # This allows pre-emptible jobs to save their workdir in the output folder
