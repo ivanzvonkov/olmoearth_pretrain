@@ -215,7 +215,7 @@ class TestEncoder:
         sentinel2 = torch.randn(B, H, W, T, C)
         sentinel2_mask = torch.zeros(B, H, W, T, C, dtype=torch.long)
         latlon = torch.randn(B, latlon_num_bands)
-        latlon_mask = torch.randint(0, 2, (B, latlon_num_bands), dtype=torch.float32)
+        latlon_mask = torch.zeros(B, latlon_num_bands, dtype=torch.float32)
         days = torch.randint(0, 25, (B, T, 1), dtype=torch.long)
         months = torch.randint(0, 12, (B, T, 1), dtype=torch.long)
         years = torch.randint(2018, 2020, (B, T, 1), dtype=torch.long)
@@ -276,6 +276,21 @@ class TestEncoder:
             )
         ), f"Expected output latlon_mask shape {latlon_mask.shape}, got {output.latlon_mask.shape}"
 
+        # test the gradients are correct too
+        output.sentinel2.sum().backward()
+
+        for name, param in encoder.named_parameters():
+            # the composite_encodings is a bug which will be fixed now
+            if not any(
+                ignore_param in name
+                for ignore_param in [
+                    "pos_embed",
+                    "month_embed",
+                    "composite_encodings.per_modality_channel_embeddings.latlon",
+                ]
+            ):
+                assert param.grad is not None, name
+
     def test_forward_exit_config_exists(
         self,
         encoder: Encoder,
@@ -291,7 +306,7 @@ class TestEncoder:
         latlon_num_band_sets, latlon_num_bands = modality_band_set_len_and_total_bands[
             "latlon"
         ]
-        B, H, W, T, C = 1, 8, 8, 4, sentinel2_num_bands
+        B, H, W, T, C = 1, 2, 2, 1, sentinel2_num_bands
         sentinel2 = torch.randn(B, H, W, T, C)
         sentinel2_mask = torch.zeros(B, H, W, T, C, dtype=torch.long)
         latlon = torch.randn(B, latlon_num_bands)
@@ -311,10 +326,10 @@ class TestEncoder:
         }
         x = MaskedHeliosSample(**masked_sample_dict)
 
-        patch_size = 4
+        patch_size = 2
         input_res = 1
 
-        token_exit_cfg = {"sentinel2": 1, "latlon": 0}
+        token_exit_cfg = {"sentinel2": 0, "latlon": 0}
         exit_after_n_layers = 1
 
         output = encoder.forward(
@@ -357,6 +372,22 @@ class TestEncoder:
             output.latlon.shape == expected_shape_latlon
         ), f"Expected output latlon shape {expected_shape_latlon}, got {output.latlon.shape}"
 
+        output.sentinel2.sum().backward()
+        for name, param in encoder.named_parameters():
+            # the composite_encodings is a bug which will be fixed now
+            if not (
+                any(
+                    ignore_param in name
+                    for ignore_param in [
+                        "pos_embed",
+                        "month_embed",
+                        "composite_encodings.per_modality_channel_embeddings.latlon",
+                    ]
+                )
+                or ("block" in name)
+            ):
+                assert param.grad is not None, name
+
     def test_entire_modality_masked(
         self,
         encoder: Encoder,
@@ -374,8 +405,8 @@ class TestEncoder:
         latlon = torch.randn(B, latlon_num_bands)
         # Mask the entirety of each modality
         sentinel2_mask = torch.ones(B, H, W, T, C, dtype=torch.long)
-        # Make 1 token in 1 channel group in S2 visible
-        sentinel2_mask[0, 0, 0, 0, 0] = 0
+        # Make 1 token in all S2 channel groups
+        sentinel2_mask[0, 0, 0, 0, :] = 0
         latlon_mask = torch.ones(B, 2, dtype=torch.float32)
         days = torch.randint(0, 25, (B, T, 1), dtype=torch.long)
         months = torch.randint(0, 12, (B, T, 1), dtype=torch.long)
@@ -435,6 +466,23 @@ class TestEncoder:
                 1,
             )
         ), f"Expected output latlon_mask shape {latlon_mask.shape}, got {output.latlon_mask.shape}"
+
+        output.sentinel2.sum().backward()
+        for name, param in encoder.named_parameters():
+            # the composite_encodings is a bug which will be fixed now
+            if not (
+                any(
+                    ignore_param in name
+                    for ignore_param in [
+                        "pos_embed",
+                        "month_embed",
+                        "composite_encodings.per_modality_channel_embeddings.latlon",
+                        "patch_embeddings.per_modality_embeddings.latlon",
+                    ]
+                )
+                or ("block" in name)
+            ):
+                assert param.grad is not None, name
 
 
 class TestPredictor:
@@ -533,6 +581,17 @@ class TestPredictor:
             predictor.output_embedding_size,
         )
         assert output.latlon_mask.shape == (B, latlon_num_band_sets)
+        output.sentinel2.sum().backward()
+        for name, param in predictor.named_parameters():
+            if not any(
+                ignore_param in name
+                for ignore_param in [
+                    "pos_embed",
+                    "month_embed",
+                    "composite_encodings.per_modality_channel_embeddings.latlon",
+                ]
+            ):
+                assert param.grad is not None, name
 
     def test_predictor_forward(
         self,
@@ -610,6 +669,109 @@ class TestPredictor:
             predictor.output_embedding_size,
         )
         assert output.latlon_mask.shape == (B, latlon_num_band_sets)
+        output.sentinel2.sum().backward()
+        for name, param in predictor.named_parameters():
+            if not any(
+                ignore_param in name
+                for ignore_param in [
+                    "pos_embed",
+                    "month_embed",
+                    "composite_encodings.per_modality_channel_embeddings.latlon",
+                ]
+            ):
+                assert param.grad is not None, name
+
+    @torch.no_grad()
+    def test_token_exit_cfgs_single_exit_equivalency(
+        self,
+        modality_band_set_len_and_total_bands: dict[str, tuple[int, int]],
+    ) -> None:
+        """Test the full end to end forward pass of the model with an exit configuration."""
+        supported_modalities = [
+            Modality.SENTINEL2,
+            Modality.LATLON,
+            Modality.WORLDCOVER,
+        ]
+        token_exit_cfg = {"sentinel2": 1, "latlon": 1, "worldcover": 1}
+        sentinel2_num_band_sets, sentinel2_num_bands = (
+            modality_band_set_len_and_total_bands["sentinel2"]
+        )
+        latlon_num_band_sets, latlon_num_bands = modality_band_set_len_and_total_bands[
+            "latlon"
+        ]
+        B, H, W, T, C = (
+            1,
+            4,
+            4,
+            2,
+            sentinel2_num_bands,
+        )
+        # Create dummy sentinel2 data: shape (B, H, W, T, C)
+        sentinel2 = torch.randn(B, H, W, T, C)
+        # Here we assume 0 (ONLINE_ENCODER) means the token is visible.
+        sentinel2_mask = torch.zeros(B, H, W, T, C, dtype=torch.long)
+        # Dummy latitude-longitude data.
+        latlon = torch.randn(B, latlon_num_bands)
+        latlon_mask = (
+            torch.ones(B, latlon_num_bands, dtype=torch.float32)
+            * MaskValue.DECODER.value
+        )
+        worldcover = torch.randn(B, H, W, 1, 1)
+        worldcover_mask = (
+            torch.ones(B, H, W, 1, 1, dtype=torch.float32) * MaskValue.DECODER.value
+        )
+        # Generate valid timestamps:
+        # - days: range 1..31,
+        # - months: range 1..13,
+        # - years: e.g. 2018-2019.
+        days = torch.randint(0, 25, (B, T, 1), dtype=torch.long)
+        months = torch.randint(0, 12, (B, T, 1), dtype=torch.long)
+        years = torch.randint(2018, 2020, (B, T, 1), dtype=torch.long)
+        timestamps = torch.cat([days, months, years], dim=-1)  # Shape: (B, T, 3)
+
+        masked_sample_dict = {
+            "sentinel2": sentinel2,
+            "sentinel2_mask": sentinel2_mask,
+            "latlon": latlon,
+            "latlon_mask": latlon_mask,
+            "worldcover": worldcover,
+            "worldcover_mask": worldcover_mask,
+            "timestamps": timestamps,
+        }
+        x = MaskedHeliosSample(**masked_sample_dict)
+
+        patch_size = 4
+        input_res = 1
+        # Shared constants for encoder and predictor
+        MAX_PATCH_SIZE = 8
+        NUM_HEADS = 2
+        MLP_RATIO = 4.0
+        MAX_SEQ_LENGTH = 12
+        DEPTH = 2
+        DROP_PATH = 0.1
+        ENCODER_EMBEDDING_SIZE = 16
+        encoder = Encoder(
+            supported_modalities=supported_modalities,
+            embedding_size=ENCODER_EMBEDDING_SIZE,
+            max_patch_size=MAX_PATCH_SIZE,
+            num_heads=NUM_HEADS,
+            mlp_ratio=MLP_RATIO,
+            max_sequence_length=MAX_SEQ_LENGTH,
+            use_channel_embs=True,
+            depth=DEPTH,
+            drop_path=DROP_PATH,
+        )
+        output_exit_after = encoder.forward(
+            x, patch_size, input_res, exit_after_n_layers=1
+        )
+        output_exit_depth = encoder.forward(
+            x, patch_size, input_res, token_exit_cfg=token_exit_cfg
+        )
+        for key, val in output_exit_after.as_dict().items():
+            if val is None:
+                print(f"{key} is None")
+            else:
+                assert torch.equal(val, output_exit_depth.as_dict()[key]), val
 
 
 def test_end_to_end_with_exit_config(
@@ -626,9 +788,9 @@ def test_end_to_end_with_exit_config(
     ]
     B, H, W, T, C = (
         1,
-        8,
-        8,
         4,
+        4,
+        2,
         sentinel2_num_bands,
     )
     # Create dummy sentinel2 data: shape (B, H, W, T, C)
@@ -637,9 +799,13 @@ def test_end_to_end_with_exit_config(
     sentinel2_mask = torch.zeros(B, H, W, T, C, dtype=torch.long)
     # Dummy latitude-longitude data.
     latlon = torch.randn(B, latlon_num_bands)
-    latlon_mask = torch.ones(B, latlon_num_bands, dtype=torch.float32)
+    latlon_mask = (
+        torch.ones(B, latlon_num_bands, dtype=torch.float32) * MaskValue.DECODER.value
+    )
     worldcover = torch.randn(B, H, W, 1, 1)
-    worldcover_mask = torch.zeros(B, H, W, 1, 1, dtype=torch.float32)
+    worldcover_mask = (
+        torch.ones(B, H, W, 1, 1, dtype=torch.float32) * MaskValue.DECODER.value
+    )
     # Generate valid timestamps:
     # - days: range 1..31,
     # - months: range 1..13,
@@ -691,12 +857,13 @@ def test_end_to_end_with_exit_config(
         num_heads=NUM_HEADS,
         max_sequence_length=MAX_SEQ_LENGTH,
         drop_path=DROP_PATH,
+        learnable_channel_embeddings=True,
     )
     output = encoder.forward(
         x,
         patch_size,
         input_res,
-        exit_after_n_layers=1,
+        exit_after_n_layers=3,
         token_exit_cfg=token_exit_cfg,
     )
     output = predictor.forward(output, timestamps, patch_size, input_res)
@@ -747,3 +914,29 @@ def test_end_to_end_with_exit_config(
         1,
         1,
     )
+    output.worldcover.sum().backward()
+    for name, param in encoder.named_parameters():
+        # worldcover and latlons are masked from the encoder
+        if not any(
+            ignore_param in name
+            for ignore_param in [
+                "pos_embed",
+                "month_embed",
+                "composite_encodings.per_modality_channel_embeddings.latlon",
+                "composite_encodings.per_modality_channel_embeddings.worldcover",
+                "patch_embeddings.per_modality_embeddings.latlon",
+                "patch_embeddings.per_modality_embeddings.worldcover",
+            ]
+        ):
+            assert param.grad is not None, name
+    for name, param in predictor.named_parameters():
+        # sentinel2 is "masked" from the decoder
+        if not any(
+            ignore_param in name
+            for ignore_param in [
+                "pos_embed",
+                "month_embed",
+                "composite_encodings.per_modality_channel_embeddings.latlon",
+            ]
+        ):
+            assert param.grad is not None, name

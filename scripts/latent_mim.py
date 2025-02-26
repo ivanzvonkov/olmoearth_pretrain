@@ -109,6 +109,7 @@ def build_train_module_config(
             "type": "patch_discrimination",
         }
     )
+    token_exit_cfg = {modality.name: 0 for modality in common.supported_modalities}
 
     WARMUP_EPOCHS = 2
     dp_config = DataParallelConfig(name=DataParallelType.ddp)
@@ -118,6 +119,7 @@ def build_train_module_config(
         optim=optim_config,
         masking_config=masking_config,
         loss_config=loss_config,
+        token_exit_cfg=token_exit_cfg,
         rank_batch_size=RANK_BATCH_SIZE,
         max_grad_norm=1.0,
         dp_config=dp_config,
@@ -178,7 +180,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             name="m-eurosat",
             batch_size=128,
             num_workers=8,
-            pooling_type=PoolingType.MAX,
+            pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
         ),
     ]
