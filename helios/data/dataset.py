@@ -582,8 +582,6 @@ class HeliosDatasetConfig(Config):
         # Validate tile_path
         if not isinstance(self.tile_upath, UPath):
             raise ValueError("tile_path must be a UPath")
-        if not self.tile_upath.exists():
-            raise ValueError(f"tile_path {self.tile_upath} does not exist")
 
         # Validate supported_modalities
         if not isinstance(self.supported_modalities, list):
