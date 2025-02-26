@@ -19,6 +19,7 @@ class HeliosWandBCallback(WandBCallback):
     """Helios specific wandb callback."""
 
     upload_dataset_distribution_pre_train: bool = True
+    restart_on_same_run: bool = True
 
     def pre_train(self) -> None:
         """Pre-train callback for the wandb callback."""
@@ -30,9 +31,10 @@ class HeliosWandBCallback(WandBCallback):
             wandb_dir = Path(self.trainer.save_folder) / "wandb"
             wandb_dir.mkdir(parents=True, exist_ok=True)
 
-            runid_file = wandb_dir / "wandb_runid.txt"
-            if runid_file.exists():
-                resume_id = runid_file.read_text().strip()
+            if self.restart_on_same_run:
+                runid_file = wandb_dir / "wandb_runid.txt"
+                if runid_file.exists():
+                    resume_id = runid_file.read_text().strip()
             else:
                 resume_id = None
 
@@ -49,7 +51,7 @@ class HeliosWandBCallback(WandBCallback):
                 resume="allow",
             )
 
-            if not resume_id:
+            if not resume_id and self.restart_on_same_run:
                 runid_file.write_text(self.run.id)
 
             self._run_path = self.run.path  # type: ignore
