@@ -18,6 +18,7 @@ from olmo_core.train.train_module.transformer import (
 )
 
 from helios.data.dataset import HeliosSample
+from helios.nn.latent_mim import LatentMIM
 from helios.train.loss import LossConfig
 from helios.train.masking import MaskedHeliosSample, MaskingConfig
 from helios.train.train_module.train_module import (
@@ -49,7 +50,7 @@ class LatentMIMTrainModuleConfig(HeliosTrainModuleConfig):
 
     def build(
         self,
-        model: Any,
+        model: LatentMIM,
         device: torch.device | None = None,
     ) -> "LatentMIMTrainModule":
         """Build the corresponding :class:`LatentMIMTrainModule`.
@@ -91,7 +92,7 @@ class LatentMIMTrainModule(HeliosTrainModule):
 
     def __init__(
         self,
-        model: Any,
+        model: LatentMIM,
         optim: OptimConfig,
         masking_config: MaskingConfig,
         loss_config: LossConfig,
