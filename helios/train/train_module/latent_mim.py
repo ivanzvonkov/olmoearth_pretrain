@@ -46,7 +46,7 @@ class LatentMIMTrainModuleConfig(HeliosTrainModuleConfig):
         default_factory=lambda: MaskingConfig(strategy_config={"type": "random"})
     )
     token_exit_cfg: dict[str, int] = field(
-        default_factory=lambda: {modality.name: 0 for modality in Modality.values()}
+        default_factory=lambda: {modality: 0 for modality in Modality.names()}
     )
     ema_decay: tuple[float, float] = (0.996, 1.0)
     max_grad_norm: float = 1.0
