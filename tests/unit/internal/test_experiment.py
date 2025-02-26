@@ -138,8 +138,7 @@ def minimal_train_module_config_builder(
     token_exit_cfg = {modality: 0 for modality in common.supported_modality_names}
 
     train_module_config = LatentMIMTrainModuleConfig(
-        # TODO: change name to optim config
-        optim=optim_config,
+        optim_config=optim_config,
         masking_config=masking_config,
         loss_config=loss_config,
         token_exit_cfg=token_exit_cfg,

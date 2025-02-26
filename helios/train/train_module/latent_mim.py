@@ -97,7 +97,7 @@ class LatentMIMTrainModule(HeliosTrainModule):
     def __init__(
         self,
         model: Any,
-        optim: OptimConfig,
+        optim_config: OptimConfig,
         masking_config: MaskingConfig,
         loss_config: LossConfig,
         token_exit_cfg: dict[str, int],
@@ -119,7 +119,7 @@ class LatentMIMTrainModule(HeliosTrainModule):
 
         Args:
             model: The transformer model to train.
-            optim: The corresponding optimizer config.
+            optim_config: The corresponding optimizer config.
             masking_config: The masking configuration for the model.
             loss_config: The loss configuration for the model.
             rank_batch_size: The rank batch size in instances.
@@ -140,7 +140,7 @@ class LatentMIMTrainModule(HeliosTrainModule):
         """
         super().__init__(
             model=model,
-            optim=optim,
+            optim_config=optim_config,
             rank_batch_size=rank_batch_size,
             compile_model=compile_model,
             float8_config=float8_config,
