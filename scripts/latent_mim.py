@@ -150,7 +150,7 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
 
 def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
     """Build the dataset config for an experiment."""
-    TILE_PATH = UPath("/weka/dfive-default/helios/dataset/20250212/")
+    TILE_PATH = UPath("/weka/dfive-default/helios/dataset/20250223/")
     DTYPE = np.dtype("float32")
     return HeliosDatasetConfig(
         tile_path=TILE_PATH,
@@ -217,7 +217,7 @@ def build_common_components() -> CommonComponents:
     workdir = UPath("./output")  # nosec
     # This allows pre-emptible jobs to save their workdir in the output folder
     SUPPORTED_MODALITIES = [
-        Modality.SENTINEL2,
+        Modality.SENTINEL2_L2A,
         Modality.LATLON,
         Modality.SENTINEL1,
         Modality.WORLDCOVER,
