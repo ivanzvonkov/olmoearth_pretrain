@@ -69,7 +69,7 @@ def build_launch_config(
             # BeakerEnvSecret(name="SLACK_WEBHOOK_URL", secret="SLACK_WEBHOOK_URL"),
         ],
         setup_steps=[
-            'git clone "https://\\${GITHUB_PAT}@github.com/\\${GITHUB_REPOSITORY}" .',
+            'git clone "https://\\${GITHUB_PAT}@github.com/\\${GITHUB_REPO}" .',
             'git checkout "\\$GIT_REF"',
             "git submodule update --init --recursive",
             # Setup python environment.
