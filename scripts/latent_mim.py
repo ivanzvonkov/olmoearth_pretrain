@@ -152,7 +152,6 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
 def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
     """Build the dataset config for an experiment."""
     TILE_PATH = "/weka/dfive-default/helios/dataset/20250212/"
-    TILE_PATH = "./test_data"
     return HeliosDatasetConfig(
         tile_path=TILE_PATH,
         supported_modality_names=common.supported_modality_names,

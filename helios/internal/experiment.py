@@ -219,6 +219,7 @@ class SubCmd(StrEnum):
         """Run the given subcommand."""
         if get_local_rank() == 0:
             print(config)
+            # TODO: Add parameter count math to config
             # print(
             #     "\n"
             #     f"[b blue]Total parameters:[/]                {config.model.num_params:,d}\n"
