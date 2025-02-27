@@ -2,13 +2,9 @@
 
 from olmo_core.internal.common import get_beaker_username
 from olmo_core.io import is_url
-from olmo_core.launch.beaker import (
-    BeakerEnvSecret,
-    BeakerEnvVar,
-    BeakerLaunchConfig,
-    BeakerWekaBucket,
-    OLMoCoreBeakerImage,
-)
+from olmo_core.launch.beaker import (BeakerEnvSecret, BeakerEnvVar,
+                                     BeakerLaunchConfig, BeakerWekaBucket,
+                                     OLMoCoreBeakerImage)
 from olmo_core.utils import generate_uuid
 
 BUDGET = "ai2/d5"
@@ -56,7 +52,7 @@ def build_launch_config(
         weka_buckets=weka_buckets,
         beaker_image=OLMoCoreBeakerImage.stable,
         num_nodes=1,
-        num_gpus=8,
+        num_gpus=1,
         shared_filesystem=not is_url(root_dir),
         allow_dirty=False,
         env_vars=[
