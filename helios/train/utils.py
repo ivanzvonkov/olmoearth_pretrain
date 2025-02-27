@@ -17,8 +17,8 @@ def split_batch(batch: HeliosSample, microbatch_size: int) -> list[HeliosSample]
     """
     batch_size = batch.batch_size
     assert (
-        batch_size % microbatch_size == 0
-    ), "batch_size must be divisible by microbatch_size"
+        microbatch_size % batch_size == 0
+    ), f"batch_size ({batch_size:,d}) must be divisible by microbatch_size ({microbatch_size:,d})"
 
     # If the batch is already small enough, no need to split.
     if batch_size <= microbatch_size:
