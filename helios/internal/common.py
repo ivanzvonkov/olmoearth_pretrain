@@ -2,9 +2,13 @@
 
 from olmo_core.internal.common import get_beaker_username
 from olmo_core.io import is_url
-from olmo_core.launch.beaker import (BeakerEnvSecret, BeakerEnvVar,
-                                     BeakerLaunchConfig, BeakerWekaBucket,
-                                     OLMoCoreBeakerImage)
+from olmo_core.launch.beaker import (
+    BeakerEnvSecret,
+    BeakerEnvVar,
+    BeakerLaunchConfig,
+    BeakerWekaBucket,
+    OLMoCoreBeakerImage,
+)
 from olmo_core.utils import generate_uuid
 
 BUDGET = "ai2/d5"
@@ -69,6 +73,9 @@ def build_launch_config(
             # BeakerEnvSecret(name="SLACK_WEBHOOK_URL", secret="SLACK_WEBHOOK_URL"),
         ],
         setup_steps=[
+            # Strip "https://github.com/" from REPO_URL at runtime, remove any trailing ".git"
+            "export GITHUB_REPO=\"$(echo \\${REPO_URL#https://github.com/} | sed 's/\\.git$//')\"",
+            'echo "Found GITHUB_REPO=$GITHUB_REPO"',
             'git clone "https://\\${GITHUB_PAT}@github.com/\\${GITHUB_REPO}" .',
             'git checkout "\\$GIT_REF"',
             "git submodule update --init --recursive",
