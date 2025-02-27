@@ -17,6 +17,7 @@ class HeliosSpeedMonitorCallback(SpeedMonitorCallback):
 
     _total_tokens_encoded = 0
     _total_tokens_decoded = 0
+    _total_tokens_target_encoder = 0
 
     def pre_train(self) -> None:
         """Pre-train callback for the speed monitor."""
@@ -54,6 +55,7 @@ class HeliosSpeedMonitorCallback(SpeedMonitorCallback):
             self._step_tokens_decoded = (
                 batch.batch_size * self._decoder_ratio * self._token_budget
             )
+            self._step_tokens_target_encoder = batch.batch_size * self._token_budget
 
         self._total_steps += 1
         self._total_tokens_encoded += self._step_tokens_encoded
@@ -82,10 +84,17 @@ class HeliosSpeedMonitorCallback(SpeedMonitorCallback):
         bps = 1 / step_time
         bps_avg = self._total_steps / total_time
         data_pct = 100 * self._batch_load_time / step_time
-        tps_encoded = self._total_tokens_encoded / total_time
+        tps_encoded = self._total_tokens_encoded / step_time
         tps_encoded_avg = self._total_tokens_encoded / total_time
-        tps_decoded = self._total_tokens_decoded / total_time
+        tps_decoded = self._total_tokens_decoded / step_time
         tps_decoded_avg = self._total_tokens_decoded / total_time
+        tps_target_encoder = self._total_tokens_target_encoder / step_time
+        tps_target_encoder_avg = self._total_tokens_target_encoder / total_time
+
+        self.trainer.record_metric(
+            "throughput/total tokens target encoder-since-restart",
+            self._total_tokens_target_encoder,
+        )
 
         self.trainer.record_metric(
             "throughput/total tokens encoded-since-restart", self._total_tokens_encoded
@@ -94,6 +103,13 @@ class HeliosSpeedMonitorCallback(SpeedMonitorCallback):
             "throughput/total tokens decoded-since-restart", self._total_tokens_decoded
         )
         self.trainer.record_metric("throughput/device/TPS Encoded", tps_encoded)
+        self.trainer.record_metric(
+            "throughput/device/TPS Target Encoder", tps_target_encoder
+        )
+        self.trainer.record_metric(
+            "throughput/device/TPS Target Encoder (estimated avg)",
+            tps_target_encoder_avg,
+        )
         self.trainer.record_metric(
             "throughput/device/TPS Encoded (estimated avg)", tps_encoded_avg
         )
