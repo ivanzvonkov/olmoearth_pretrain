@@ -2,13 +2,9 @@
 
 from olmo_core.internal.common import get_beaker_username
 from olmo_core.io import is_url
-from olmo_core.launch.beaker import (
-    BeakerEnvSecret,
-    BeakerEnvVar,
-    BeakerLaunchConfig,
-    BeakerWekaBucket,
-    OLMoCoreBeakerImage,
-)
+from olmo_core.launch.beaker import (BeakerEnvSecret, BeakerEnvVar,
+                                     BeakerLaunchConfig, BeakerWekaBucket,
+                                     OLMoCoreBeakerImage)
 from olmo_core.utils import generate_uuid
 
 BUDGET = "ai2/d5"
@@ -73,9 +69,8 @@ def build_launch_config(
             # BeakerEnvSecret(name="SLACK_WEBHOOK_URL", secret="SLACK_WEBHOOK_URL"),
         ],
         setup_steps=[
-            # Clone repo.
-            "git clone 'https://$GITHUB_PAT@github.com/$GITHUB_REPOSITORY' .",
-            'git checkout "$GIT_REF"',
+            'git clone "https://\\${GITHUB_PAT}@github.com/\\${GITHUB_REPOSITORY}" .',
+            'git checkout "\\$GIT_REF"',
             "git submodule update --init --recursive",
             # Setup python environment.
             "conda shell.bash activate base",
