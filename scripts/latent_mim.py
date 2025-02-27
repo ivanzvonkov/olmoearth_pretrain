@@ -3,7 +3,7 @@
 import logging
 from os import environ
 
-import numpy as np
+from olmo_core.config import DType
 from olmo_core.distributed.parallel.data_parallel import (
     DataParallelConfig,
     DataParallelType,
@@ -55,7 +55,7 @@ def build_model_config(common: CommonComponents) -> LatentMIMConfig:
     MLP_RATIO = 4.0
     TRANSFORM_TYPE = "flip_and_rotate"
     encoder_config = EncoderConfig(
-        supported_modalities=common.supported_modalities,
+        supported_modality_names=common.supported_modality_names,
         embedding_size=ENCODER_EMBEDDING_SIZE,
         max_patch_size=MAX_PATCH_SIZE,
         num_heads=ENCODER_NUM_HEADS,
@@ -72,7 +72,7 @@ def build_model_config(common: CommonComponents) -> LatentMIMConfig:
         mlp_ratio=MLP_RATIO,
         num_heads=DECODER_NUM_HEADS,
         max_sequence_length=12,
-        supported_modalities=common.supported_modalities,
+        supported_modality_names=common.supported_modality_names,
         learnable_channel_embeddings=True,
     )
     model_config = LatentMIMConfig(
@@ -108,14 +108,16 @@ def build_train_module_config(
             "type": "l2",
         }
     )
-    token_exit_cfg = {modality.name: 0 for modality in common.supported_modalities}
+    token_exit_cfg = {modality: 0 for modality in common.supported_modality_names}
 
     WARMUP_EPOCHS = 2
     dp_config = DataParallelConfig(name=DataParallelType.ddp)
 
+    # TODO: would need a scheduler config and registry to be able to change this with overrides
     scheduler = CosWithWarmup(warmup_steps=WARMUP_EPOCHS * STEPS_PER_EPOCH)
     train_module_config = LatentMIMTrainModuleConfig(
-        optim=optim_config,
+        # TODO: change name to optim config
+        optim_config=optim_config,
         masking_config=masking_config,
         loss_config=loss_config,
         rank_microbatch_size=RANK_MICROBATCH_SIZE,
@@ -150,11 +152,10 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
 def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
     """Build the dataset config for an experiment."""
     TILE_PATH = UPath("/weka/dfive-default/helios/dataset/20250223/")
-    DTYPE = np.dtype("float32")
     return HeliosDatasetConfig(
         tile_path=TILE_PATH,
-        supported_modalities=common.supported_modalities,
-        dtype=DTYPE,
+        supported_modality_names=common.supported_modality_names,
+        dtype=DType.float32,
     )
 
 
@@ -211,22 +212,22 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
 
 def build_common_components() -> CommonComponents:
     """Build the common components for an experiment."""
-    run_name = "restarted_run_oh_yeah"
+    run_name = "test_run"
     # Variables to be changed per user
     workdir = UPath("./output")  # nosec
     # This allows pre-emptible jobs to save their workdir in the output folder
     SUPPORTED_MODALITIES = [
-        Modality.SENTINEL2_L2A,
-        Modality.LATLON,
-        Modality.SENTINEL1,
-        Modality.WORLDCOVER,
+        Modality.SENTINEL2_L2A.name,
+        Modality.LATLON.name,
+        Modality.SENTINEL1.name,
+        Modality.WORLDCOVER.name,
     ]
     if environ.get("USE_OUTPUT_FOLDER"):
         workdir = UPath(environ["USE_OUTPUT_FOLDER"]) / "helios" / "workdir"
     return CommonComponents(
         run_name=run_name,
         save_folder=workdir,
-        supported_modalities=SUPPORTED_MODALITIES,
+        supported_modality_names=SUPPORTED_MODALITIES,
     )
 
 

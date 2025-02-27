@@ -12,6 +12,7 @@ from olmo_core.config import Config
 from torch import Tensor, nn
 
 from helios.data.constants import Modality, ModalitySpec
+from helios.dataset.utils import get_modality_specs_from_names
 from helios.nn.attention import Block
 from helios.nn.encodings import (
     get_1d_sincos_pos_encoding,
@@ -1267,7 +1268,7 @@ class Predictor(FlexiHeliosBase):
 class EncoderConfig(Config):
     """Configuration for the Encoder."""
 
-    supported_modalities: list[ModalitySpec]
+    supported_modality_names: list[str]
     embedding_size: int = 16
     # This is the base patch size for the patch embedder
     max_patch_size: int = 8
@@ -1288,28 +1289,24 @@ class EncoderConfig(Config):
                 if modality not in Modality.values():
                     raise ValueError(f"Modality {modality} is not supported")
 
+    @property
+    def supported_modalities(self) -> list[ModalitySpec]:
+        """Get the supported modalities."""
+        return get_modality_specs_from_names(self.supported_modality_names)
+
     def build(self) -> "Encoder":
         """Build the encoder."""
         self.validate()
-        return Encoder(
-            embedding_size=self.embedding_size,
-            max_patch_size=self.max_patch_size,
-            num_heads=self.num_heads,
-            depth=self.depth,
-            mlp_ratio=self.mlp_ratio,
-            drop_path=self.drop_path,
-            supported_modalities=self.supported_modalities,
-            max_sequence_length=self.max_sequence_length,
-            use_channel_embs=self.use_channel_embs,
-            random_channel_embs=self.random_channel_embs,
-        )
+        kwargs = self.as_dict(exclude_none=True, recurse=False)
+        logger.info(f"kwargs: {kwargs}")
+        return Encoder(supported_modalities=self.supported_modalities, **kwargs)
 
 
 @dataclass
 class PredictorConfig(Config):
     """Configuration for the Predictor."""
 
-    supported_modalities: list[ModalitySpec]
+    supported_modality_names: list[str]
     encoder_embedding_size: int = 16
     decoder_embedding_size: int = 16
     depth: int = 2
@@ -1330,22 +1327,17 @@ class PredictorConfig(Config):
                 if modality not in Modality.values():
                     raise ValueError(f"Modality {modality} is not supported")
 
+    @property
+    def supported_modalities(self) -> list[ModalitySpec]:
+        """Get the supported modalities."""
+        return get_modality_specs_from_names(self.supported_modality_names)
+
     def build(self) -> "Predictor":
         """Build the predictor."""
         self.validate()
-        return Predictor(
-            encoder_embedding_size=self.encoder_embedding_size,
-            decoder_embedding_size=self.decoder_embedding_size,
-            depth=self.depth,
-            mlp_ratio=self.mlp_ratio,
-            num_heads=self.num_heads,
-            max_sequence_length=self.max_sequence_length,
-            drop_path=self.drop_path,
-            learnable_channel_embeddings=self.learnable_channel_embeddings,
-            random_channel_embeddings=self.random_channel_embeddings,
-            output_embedding_size=self.output_embedding_size,
-            supported_modalities=self.supported_modalities,
-        )
+        kwargs = self.as_dict(exclude_none=True, recurse=False)
+        logger.info(f"kwargs: {kwargs}")
+        return Predictor(supported_modalities=self.supported_modalities, **kwargs)
 
 
 # TODO: add multiple combo of variables for encoder and predictor, and being able to build them directly, no need to specify each parameter, e.g., encoder_tiny, encoder_small, encoder_base, encoder_large, etc.

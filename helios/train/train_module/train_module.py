@@ -55,8 +55,9 @@ class HeliosTrainModuleConfig(Config):
     """
 
     # Training settings
+
+    optim_config: OptimConfig
     rank_microbatch_size: int
-    optim: OptimConfig
 
     # Model settings
     compile_model: bool = False
@@ -136,7 +137,7 @@ class HeliosTrainModule(TrainModule):
     def __init__(
         self,
         model: Any,
-        optim: OptimConfig,
+        optim_config: OptimConfig,
         rank_microbatch_size: int,
         compile_model: bool = False,
         float8_config: Float8Config | None = None,
@@ -154,7 +155,7 @@ class HeliosTrainModule(TrainModule):
 
         Args:
             model: The transformer model to train.
-            optim: The corresponding optimizer config.
+            optim_config: The corresponding optimizer config.
             rank_microbatch_size: The rank batch size in instances.
             compile_model: Whether to compile to the model.
             float8_config: Float8 configuration for the model.
@@ -238,7 +239,7 @@ class HeliosTrainModule(TrainModule):
 
         # Build optimizer(s).
         logger.info("Building optimizer(s)...")
-        self.optimizer: Optimizer = optim.build(
+        self.optimizer: Optimizer = optim_config.build(
             self.model,
         )
 
