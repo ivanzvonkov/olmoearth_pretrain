@@ -152,6 +152,14 @@ class HeliosSample(NamedTuple):
         )
 
     @property
+    def batch_size(self) -> int:
+        """Get the batch size of the data."""
+        if len(self.sentinel2_l2a.shape) == 5:
+            return self.sentinel2_l2a.shape[0]
+        else:
+            return 1
+
+    @property
     def height(self) -> int:
         """Get the height of the data."""
         return self.sentinel2_l2a.shape[1]
@@ -233,7 +241,6 @@ class HeliosSample(NamedTuple):
             raise ValueError(
                 "max height/width allowed by sample smaller than values in hw_to_sample"
             )
-
         sampled_hw_p = choice(hw_to_sample)
         max_t = self._get_max_t_within_token_budget(
             sampled_hw_p, max_tokens_per_instance
