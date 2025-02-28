@@ -22,8 +22,9 @@ launching training runs on beaker
     - read:project
 
     Authorize this token for the allenai org. by clicking on the Configure SSO drop down in [here](https://github.com/settings/tokens) for the token you created.
-2. Set your default Beaker workspace
+2. Set your default Beaker workspace and budget:
     `beaker config set default_workspace ai2/earth-systems`
+    `beaker workspace set-budget ai2/earth-systems ai2/d5`
 3. Set the following Beaker Secrets:
     - `beaker secret write <your_beaker_username>_WANDB_API_KEY <your_key>`
     - `beaker secret write <your_beaker_username>_BEAKER_TOKEN <your_token>`

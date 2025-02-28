@@ -65,7 +65,7 @@ def build_launch_config(
         workspace=workspace,
         clusters=clusters if isinstance(clusters, list) else [clusters],
         weka_buckets=weka_buckets,
-        beaker_image=OLMoCoreBeakerImage.stable,
+        beaker_image=f"henryh/{OLMoCoreBeakerImage.stable}",  # we can all use the same image for now
         num_nodes=1,
         num_gpus=1,
         shared_filesystem=True,  # We only use Weka for now
