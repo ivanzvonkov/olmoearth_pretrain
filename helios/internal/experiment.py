@@ -4,7 +4,7 @@ import logging
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import cast
 
 import numpy as np
 from olmo_core.config import Config, StrEnum
@@ -72,10 +72,10 @@ class HeliosExperimentConfig(Config):
 
     run_name: str
     launch: BeakerLaunchConfig
-    model: Any
+    model: Config
     dataset: HeliosDatasetConfig  # will likely be fixed for us
     data_loader: HeliosDataLoaderConfig  # will likely be fixed for us
-    train_module: Any
+    train_module: Config
     trainer: TrainerConfig
     visualize_config: HeliosVisualizeConfig | None = None
     init_seed: int = 12536
