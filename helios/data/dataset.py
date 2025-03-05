@@ -520,7 +520,7 @@ class HeliosDataset(Dataset):
         latlons = np.vstack(latlons)
         return latlons
 
-    def get_sample_data_for_visualization(
+    def get_sample_data_for_histogram(
         self, num_samples: int = 100, num_values: int = 100
     ) -> dict[str, Any]:
         """Get the sample data per modality per band for showing the histogram.
