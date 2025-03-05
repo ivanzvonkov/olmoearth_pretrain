@@ -1,6 +1,7 @@
 """Loss functions for training."""
 
 import logging
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
@@ -265,6 +266,109 @@ class PatchDiscriminationLoss(Loss):
         loss_multiplier = self._expand_and_reciprocate(count)
         # can't use bs here since this is after the unsqueezing, so bs == 1
         loss = (loss * loss_multiplier).sum() / all_preds.shape[0]
+        return loss
+
+
+@LOSS_REGISTRY.register("adjusted_patch_discrimination")
+class AdjustedPatchDiscriminationLoss(Loss):
+    """Loss function for adjusted patch discrimination task.
+
+    Reference: https://proceedings.neurips.cc/paper_files/paper/2023/file/48aaa5ea741ae8430bd58e25917d267d-Paper-Conference.pdf
+    """
+
+    name = "Adjusted Patch Discrimination"
+
+    def __init__(
+        self,
+        tau: float = 0.1,
+        mu: float = 0.8,
+        sigma: float = 1.0,
+        pred2unit: bool = False,
+        mask_other_samples: bool = True,
+    ):
+        """Initialize adjusted patch discrimination loss.
+
+        Args:
+            tau: the softmax temperature
+            mu: the mean of the Gaussian distribution
+            sigma: the standard deviation of the Gaussian distribution
+            pred2unit: whether to standardize the predictions using batch statistics
+            mask_other_samples: whether to apply the contrastive loss drawing samples
+                from within a sample (True) or using all other instances in a batch (False).
+                If this is False, then this is the AllDisc loss from the Galileo paper
+        """
+        self.tau = tau
+        self.mu = mu
+        self.sigma = sigma
+        self.pred2unit = pred2unit
+        self.mask_other_samples = mask_other_samples
+
+    def compute(
+        self, predictions: TokensAndMasks, targets: TokensAndMasks, **kwargs: Any
+    ) -> Tensor:
+        """Compute adjusted patch discrimination loss between predictions and targets.
+
+        Args:
+            predictions: Model predictions.
+            targets: Ground truth targets.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            The computed loss value.
+        """
+        all_preds, all_masks = predictions.flatten_tokens_and_masks()
+        all_targets = targets.flatten_tokens_and_masks()[0]
+
+        pred = all_preds[all_masks == MaskValue.DECODER.value].unsqueeze(dim=0)
+        target = all_targets[all_masks == MaskValue.DECODER.value].unsqueeze(dim=0)
+        bs, nt, _ = pred.shape
+
+        if self.pred2unit:
+            pred_mu = pred.mean(1, keepdims=True)
+            pred_std = pred.std(1, keepdims=True)
+            pred = (pred - pred_mu) / (pred_std + 1e-4)
+
+        pred = F.normalize(pred, p=2, dim=-1)
+        target = F.normalize(target, p=2, dim=-1)
+
+        scores = torch.einsum("npd,nqd->npq", pred, target) / self.tau
+        count = (all_masks == MaskValue.DECODER.value).sum(dim=-1)
+
+        if self.mask_other_samples:
+            logit_mask = torch.full_like(scores, -torch.finfo(scores.dtype).max)
+            start = 0
+            for c in count:
+                end = start + c
+                logit_mask[:, start:end, start:end] = 0
+                start += c
+            logger.info(f"logit_mask: {logit_mask.shape}")
+            logger.info(f"scores: {scores.shape}")
+            scores = scores + logit_mask
+
+        # Extract the positive and negative scores
+        pos_scores = torch.diagonal(scores, dim1=1, dim2=2)
+        neg_scores = scores.clone().detach()
+        mask = torch.eye(
+            nt, device=pred.device, dtype=torch.bool
+        )  # Identity mask for positive pairs
+        neg_scores[:, mask] = -float(
+            "inf"
+        )  # Remove positive pairs from negative scores
+
+        # Compute the weight for negative samples
+        weight = (1.0 / (self.sigma * math.sqrt(2 * math.pi))) * torch.exp(
+            -((neg_scores - self.mu) ** 2) / (2 * self.sigma**2)
+        )
+        weight = weight / weight.mean(dim=-1, keepdim=True)
+
+        weighted_neg_sim = torch.sum(torch.exp(neg_scores) * weight.detach(), dim=-1)
+
+        pos_sim = torch.exp(pos_scores)
+        loss = -torch.log(pos_sim / (pos_sim + weighted_neg_sim))
+
+        loss_multiplier = self._expand_and_reciprocate(count)
+        loss = (loss * loss_multiplier).sum() / all_preds.shape[0]
+
         return loss
 
 
