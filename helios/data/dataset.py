@@ -652,6 +652,7 @@ class HeliosDataset(Dataset):
 
         norm_dict["total_n"] = len(self)
         norm_dict["sampled_n"] = len(indices_to_sample)
+        norm_dict["tile_path"] = self.tile_path
 
         return norm_dict
 
