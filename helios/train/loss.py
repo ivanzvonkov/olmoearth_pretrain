@@ -360,7 +360,6 @@ class AdjustedPatchDiscriminationLoss(Loss):
             -((neg_scores - self.mu) ** 2) / (2 * self.sigma**2)
         )
         weight = weight / weight.mean(dim=-1, keepdim=True)
-
         weighted_neg_sim = torch.sum(torch.exp(neg_scores) * weight.detach(), dim=-1)
 
         pos_sim = torch.exp(pos_scores)
