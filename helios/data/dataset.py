@@ -32,7 +32,7 @@ from helios.data.constants import (
     TimeSpan,
 )
 from helios.data.normalize import Normalizer, Strategy
-from helios.data.utils import convert_to_db
+from helios.data.utils import convert_to_db, update_streaming_stats
 from helios.dataset.parse import ModalityTile, parse_helios_dataset
 from helios.dataset.sample import (
     SampleInformation,
@@ -609,34 +609,13 @@ class HeliosDataset(Dataset):
                 # Compute the normalization stats for the modality
                 for idx, band in enumerate(modality_bands):
                     modality_band_data = modality_data[:, :, :, idx]  # (H, W, T, C)
-                    band_data_count = (
-                        modality_band_data.shape[-3]
-                        * modality_band_data.shape[-2]
-                        * modality_band_data.shape[-1]
+                    current_stats = norm_dict[modality][band]
+                    new_count, new_mean, new_var = update_streaming_stats(
+                        current_stats["count"],
+                        current_stats["mean"],
+                        current_stats["var"],
+                        modality_band_data,
                     )
-                    current_count, current_mean, current_var = (
-                        norm_dict[modality][band]["count"],
-                        norm_dict[modality][band]["mean"],
-                        norm_dict[modality][band]["var"],
-                    )
-
-                    # Compute updated mean and variance with the new batch of data
-                    # Reference: https://www.geeksforgeeks.org/expression-for-mean-and-variance-in-a-running-stream/
-                    new_count = current_count + band_data_count
-                    new_mean = (
-                        current_mean
-                        + (modality_band_data.mean() - current_mean)
-                        * band_data_count
-                        / new_count
-                    )
-                    new_var = (
-                        current_var
-                        + (
-                            (modality_band_data - current_mean)
-                            * (modality_band_data - new_mean)
-                        ).sum()
-                    )
-
                     # Update the normalization stats
                     norm_dict[modality][band]["count"] = new_count
                     norm_dict[modality][band]["mean"] = new_mean
