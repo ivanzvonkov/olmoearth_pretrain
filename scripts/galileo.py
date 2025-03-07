@@ -196,7 +196,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
         entity=WANDB_USERNAME,
         enabled=True,  # set to False to avoid wandb errors
     )
-    EVAL_INTERVAL_EPOCHS = 1
+    EVAL_INTERVAL_EPOCHS = 5
     EVAL_TASKS = [
         DownstreamTaskConfig(
             name="m-eurosat",
