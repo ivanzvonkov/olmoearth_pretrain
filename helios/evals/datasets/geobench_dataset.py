@@ -66,7 +66,13 @@ DATASET_TO_CONFIG = {
         imputes=[],
         num_classes=10,
         is_multilabel=False,
-    )
+    ),
+    "m-bigearthnet": GeoBenchConfig(
+        benchmark_name="classification_v1.0",
+        imputes=[],
+        num_classes=43,
+        is_multilabel=False,
+    ),
 }
 
 

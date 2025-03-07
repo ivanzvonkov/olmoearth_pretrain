@@ -35,7 +35,7 @@ from helios.train.train_module.galileo import GalileoTrainModuleConfig
 
 logger = logging.getLogger(__name__)
 # TODO: Need to use the dynamic computation from trainer for this
-STEPS_PER_EPOCH = 25
+STEPS_PER_EPOCH = 1
 
 
 def build_model_config(common: CommonComponents) -> GalileoConfig:
@@ -183,12 +183,12 @@ def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
 
 def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     """Build the trainer config for an experiment."""
-    MAX_DURATION = Duration.epochs(50)
+    MAX_DURATION = Duration.epochs(300)
     METRICS_COLLECT_INTERVAL = 1
     CANCEL_CHECK_INTERVAL = 1
     LOAD_STRATEGY = LoadStrategy.if_available
     WANDB_USERNAME = "eai-ai2"  # nosec
-    WANDB_PROJECT = "helios-debug"
+    WANDB_PROJECT = "helios-20250307-sweep"
     checkpointer_config = CheckpointerConfig(work_dir=common.save_folder)
     wandb_callback = HeliosWandBCallback(
         name=common.run_name,
@@ -200,6 +200,13 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     EVAL_TASKS = [
         DownstreamTaskConfig(
             name="m-eurosat",
+            batch_size=128,
+            num_workers=8,
+            pooling_type=PoolingType.MEAN,
+            norm_stats_from_pretrained=True,
+        ),
+        DownstreamTaskConfig(
+            name="m-bigearthnet",
             batch_size=128,
             num_workers=8,
             pooling_type=PoolingType.MEAN,
