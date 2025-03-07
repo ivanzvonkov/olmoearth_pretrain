@@ -35,20 +35,20 @@ WARMUP_EPOCHS = [2]  # , 10, 20, 30
 # Base command template
 BASE_COMMAND = (
     "python3 scripts/latent_mim.py launch {run_name} ai2/jupiter-cirrascale-2 "
-    "--model.encoder.embedding_size={encoder_embedding_size} "
-    "--model.encoder.depth={encoder_depth} "
-    "--model.encoder.num_heads={encoder_num_heads} "
-    "--model.encoder.mlp_ratio={mlp_ratio} "
-    "--model.decoder.encoder_embedding_size={encoder_embedding_size} "
-    "--model.decoder.decoder_embedding_size={decoder_embedding_size} "
-    "--model.decoder.depth={decoder_depth} "
-    "--model.decoder.num_heads={decoder_num_heads} "
-    "--model.decoder.mlp_ratio={mlp_ratio} "
+    "--model.encoder_config.embedding_size={encoder_embedding_size} "
+    "--model.encoder_config.depth={encoder_depth} "
+    "--model.encoder_config.num_heads={encoder_num_heads} "
+    "--model.encoder_config.mlp_ratio={mlp_ratio} "
+    "--model.decoder_config.encoder_embedding_size={encoder_embedding_size} "
+    "--model.decoder_config.decoder_embedding_size={decoder_embedding_size} "
+    "--model.decoder_config.depth={decoder_depth} "
+    "--model.decoder_config.num_heads={decoder_num_heads} "
+    "--model.decoder_config.mlp_ratio={mlp_ratio} "
     "--data_loader.num_workers={num_workers} "
-    "--train_module.optim.lr={lr} "
-    "--train_module.optim.weight_decay={wd} "
+    "--train_module.optim_config.lr={lr} "
+    "--train_module.optim_config.weight_decay={wd} "
     "--train_module.warmup_duration.value={warmup} "
-    "--train_module.warmup_duration.unit=epochs" + token_exit_args
+    "--train_module.warmup_duration.unit=epochs " + token_exit_args
 )
 
 # Iterate over all combinations of hyperparameters
@@ -75,4 +75,4 @@ for lr, wd, warmup in itertools.product(LEARNING_RATES, WEIGHT_DECAYS, WARMUP_EP
     print(f"Launching: {command}")
 
     # Execute the command
-    subprocess.run(command, check=True)  # nosec
+    subprocess.run(command, shell=True, check=True)  # nosec
