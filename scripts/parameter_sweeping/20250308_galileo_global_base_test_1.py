@@ -29,8 +29,8 @@ token_exit_args = " ".join(
     for key, value in TOKEN_EXIT_CFG.items()
 )
 
-# Evaluator tasks
-EVALUATOR_TASKS = '--trainer.callbacks.downstream_evaluator.tasks="[{name: m-eurosat, pooling_type: PoolingType.MAX}]"'
+# Evaluator tasks (escaped correctly)
+EVALUATOR_TASKS = '--trainer.callbacks.downstream_evaluator.tasks="[{{name: m-eurosat, pooling_type: PoolingType.MAX}}]"'
 
 # Sweep parameters
 LEARNING_RATES = [3e-4, 1e-3, 3e-3]
@@ -54,7 +54,7 @@ BASE_COMMAND = (
     "--train_module.optim_config.weight_decay={wd} "
     "--train_module.warmup_duration.value={warmup} "
     "--train_module.warmup_duration.unit=epochs "
-    f"{EVALUATOR_TASKS} " + token_exit_args  # Add evaluator tasks here
+    f"{EVALUATOR_TASKS} " + token_exit_args
 )
 
 # Iterate over all combinations of hyperparameters
