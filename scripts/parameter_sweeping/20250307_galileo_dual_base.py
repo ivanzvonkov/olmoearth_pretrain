@@ -16,13 +16,13 @@ DECODER_NUM_HEADS = 12
 MLP_RATIO = 4
 
 # Sweep parameters
-LEARNING_RATES = [1e-4, 3e-4, 1e-3, 2e-3, 3e-3]
+LEARNING_RATES = [3e-4, 1e-3, 2e-3, 3e-3]
 WEIGHT_DECAYS = [1e-2, 2e-2, 3e-2]
-WARMUP_EPOCHS = [10, 20, 30]
+WARMUP_EPOCHS = [10, 30]
 
 # Base command template
 BASE_COMMAND = (
-    "python3 scripts/galileo.py launch {run_name} ai2/saturn-cirrascale "
+    "python3 scripts/galileo.py launch {run_name} ai2/jupiter-cirrascale-2 "
     "--model.encoder_config.embedding_size={encoder_embedding_size} "
     "--model.encoder_config.depth={encoder_depth} "
     "--model.encoder_config.num_heads={encoder_num_heads} "
