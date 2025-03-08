@@ -1,5 +1,7 @@
 """This script is used to sweep the hyperparameters for the Galileo local tiny model."""
 
+# Test 1: disable token exit, use max pooling
+
 import itertools
 import subprocess  # nosec
 
@@ -56,7 +58,7 @@ BASE_COMMAND = (
 # Iterate over all combinations of hyperparameters
 for lr, wd, warmup in itertools.product(LEARNING_RATES, WEIGHT_DECAYS, WARMUP_EPOCHS):
     # Construct run name indicating hyperparameters
-    run_name = f"helios_test_1_lr_{lr}_wd_{wd}_warmup_{warmup}"
+    run_name = f"galileo_global_base_test_1_lr_{lr}_wd_{wd}_warmup_{warmup}"
 
     # Construct full command
     command = BASE_COMMAND.format(
