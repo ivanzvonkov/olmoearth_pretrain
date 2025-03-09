@@ -281,6 +281,15 @@ class GalileoTrainModule(HeliosTrainModule):
                 loss = loss / num_microbatches
                 loss_val = get_local_tensor(loss)
                 total_batch_loss += loss_val
+
+                # Skip bad batches# Skip bad batches
+                if torch.isnan(loss).any() or torch.isinf(loss).any():
+                    logger.warning(
+                        f"NaN or Inf detected in loss at microbatch {microbatch_idx}, stopping training for this batch."
+                    )
+                    del decoded, target_output
+                    break
+
                 del decoded, target_output
                 loss.backward()
 
