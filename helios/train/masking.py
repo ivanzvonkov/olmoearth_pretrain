@@ -461,9 +461,7 @@ class BandMaskingStrategy(MaskingStrategy):
         self._decode_ratio = decode_ratio
         self.generator = np.random.default_rng(0)
 
-    def apply_mask(
-        self, batch: HeliosSample, patch_size: int = 1, **kwargs: Any
-    ) -> MaskedHeliosSample:
+    def apply_mask(self, batch: HeliosSample, **kwargs: Any) -> MaskedHeliosSample:
         """Apply random masking to the input data.
 
         Masking happens in patchified form, with whole patches having the same mask. Non-spatial data is randomly masked.
@@ -542,6 +540,44 @@ class SpaceTimeMaskingStrategy(MaskingStrategy):
             return self.space_strategy.apply_mask(batch, patch_size, **kwargs)
         else:
             return self.time_strategy.apply_mask(batch, **kwargs)
+
+
+@MASKING_STRATEGY_REGISTRY.register("band_space_time")
+class BandSpaceTimeMaskingStrategy(MaskingStrategy):
+    """Randomly select space or time masking and apply it to the input data."""
+
+    def __init__(
+        self,
+        encode_ratio: float = 0.5,
+        decode_ratio: float = 0.5,
+    ) -> None:
+        """Initialize the masking strategy."""
+        self._encode_ratio = encode_ratio
+        self._decode_ratio = decode_ratio
+        self.generator = np.random.default_rng(0)
+
+        self.space_strategy = SpaceMaskingStrategy(encode_ratio, decode_ratio)
+        self.time_strategy = TimeMaskingStrategy(encode_ratio, decode_ratio)
+        self.band_strategy = BandMaskingStrategy(encode_ratio, decode_ratio)
+
+    def apply_mask(
+        self, batch: HeliosSample, patch_size: int = 1, **kwargs: Any
+    ) -> MaskedHeliosSample:
+        """Apply band or space or time masking to the input data."""
+        has_enough_timesteps = batch.time >= 3
+        has_enough_modalities = (len(batch.as_dict()) - 1) >= 2
+
+        possible_strategies: list[MaskingStrategy] = [self.space_strategy]
+        if has_enough_timesteps:
+            possible_strategies.append(self.time_strategy)
+        if has_enough_modalities:
+            possible_strategies.append(self.band_strategy)
+
+        selected_strategy: MaskingStrategy = self.generator.choice(possible_strategies)
+        if isinstance(selected_strategy, SpaceMaskingStrategy):
+            return selected_strategy.apply_mask(batch, patch_size, **kwargs)
+        else:
+            return selected_strategy.apply_mask(batch, **kwargs)
 
 
 @MASKING_STRATEGY_REGISTRY.register("random")
