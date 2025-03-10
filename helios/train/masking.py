@@ -447,6 +447,75 @@ class SpaceMaskingStrategy(MaskingStrategy):
         return MaskedHeliosSample(**output_dict)
 
 
+@MASKING_STRATEGY_REGISTRY.register("band")
+class BandMaskingStrategy(MaskingStrategy):
+    """Band structured random masking of the input data."""
+
+    def __init__(
+        self,
+        encode_ratio: float = 0.5,
+        decode_ratio: float = 0.5,
+    ) -> None:
+        """Initialize the masking strategy."""
+        self._encode_ratio = encode_ratio
+        self._decode_ratio = decode_ratio
+        self.generator = np.random.default_rng(0)
+
+    def apply_mask(
+        self, batch: HeliosSample, patch_size: int = 1, **kwargs: Any
+    ) -> MaskedHeliosSample:
+        """Apply random masking to the input data.
+
+        Masking happens in patchified form, with whole patches having the same mask. Non-spatial data is randomly masked.
+
+        Args:
+            batch: Input data of type HeliosSample
+            patch_size: patch size applied to sample
+            **kwargs: Additional arguments for maskings
+
+        Returns:
+            MaskedHeliosSample containing the masked data and mask
+        """
+        output_dict: dict[str, ArrayTensor | None] = {"timestamps": batch.timestamps}
+
+        present_bands = list(batch.as_dict(ignore_nones=True).keys())
+        present_bands = [b for b in present_bands if b != "timestamps"]
+
+        num_present_bands = len(present_bands)
+        encode_bands = max(1, int(self.encode_ratio * num_present_bands))
+        decode_bands = max(1, int(self.decode_ratio * num_present_bands))
+        target_bands = num_present_bands - encode_bands - decode_bands
+
+        band_mask_per_instance = np.concatenate(
+            (
+                np.ones(target_bands, dtype=np.int_)
+                * MaskValue.TARGET_ENCODER_ONLY.value,
+                np.ones(decode_bands, dtype=np.int_) * MaskValue.DECODER.value,
+                np.ones(encode_bands, dtype=np.int_) * MaskValue.ONLINE_ENCODER.value,
+            )
+        )
+        batch_mask = repeat(band_mask_per_instance, "x -> b x", b=batch.batch_size)
+        random_batch_mask = self.generator.permuted(batch_mask, axis=1)
+        for idx, modality in enumerate(present_bands):
+            instance = getattr(batch, modality)
+            output_dict[modality] = instance
+
+            if isinstance(instance, torch.Tensor):
+                device: torch.device | None = instance.device
+            else:
+                device = None
+
+            modality_mask = torch.tensor(random_batch_mask[:, idx], device=device)
+            shape = instance.shape
+            b_s = shape[-1]
+            b, h, w, t = list(shape[:-1]) + [1] * (4 - len(shape[:-1]))
+            mask = repeat(modality_mask, "b -> b h w t b_s", h=h, w=w, b_s=b_s, t=t)
+            mask = mask.view(*shape)
+            output_dict[MaskedHeliosSample.get_masked_modality_name(modality)] = mask
+
+        return MaskedHeliosSample(**output_dict)
+
+
 @MASKING_STRATEGY_REGISTRY.register("space_time")
 class SpaceTimeMaskingStrategy(MaskingStrategy):
     """Randomly select space or time masking and apply it to the input data."""
