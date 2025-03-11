@@ -968,7 +968,7 @@ class Encoder(FlexiHeliosBase):
         # TODO: Add step to validate the exit config is valid
         patchified_tokens_and_masks = self.patch_embeddings.forward(x, patch_size)
         logger.info(
-            f"patchified_tokens_and_masks: {patchified_tokens_and_masks['worldcover']}"
+            f"patchified_tokens_and_masks keys: {list(patchified_tokens_and_masks.keys())}"
         )
         if (exit_after_n_layers is None) or (exit_after_n_layers > 0):
             patchified_tokens_and_masks = self.apply_attn(
@@ -1059,7 +1059,19 @@ class Predictor(FlexiHeliosBase):
         )
         for modality in modalities_to_process:
             x_modality = x[modality]
-            mask_modality = x[MaskedHeliosSample.get_masked_modality_name(modality)]
+            mask_name = MaskedHeliosSample.get_masked_modality_name(modality)
+
+            # Check if the mask exists, if not, create a default mask with all zeros
+            if mask_name in x:
+                mask_modality = x[mask_name]
+            else:
+                # Create a default mask with all zeros (no tokens to be replaced)
+                mask_modality = torch.zeros(
+                    x_modality.shape[:-1],  # all dimensions except the last (embedding)
+                    dtype=torch.float32,
+                    device=x_modality.device,
+                    requires_grad=x_modality.requires_grad,
+                )
 
             # A boolean mask: True where tokens must be replaced by the mask token
             kept_mask = mask_modality == MaskValue.DECODER.value
@@ -1342,7 +1354,21 @@ class Predictor(FlexiHeliosBase):
         )
         for modality in modalities_to_process:
             masked_modality_name = MaskedHeliosSample.get_masked_modality_name(modality)
-            modality_mask = tokens_and_masks[masked_modality_name]
+            # Check if the mask exists, if not, create a default mask with all zeros
+            if masked_modality_name in tokens_and_masks:
+                modality_mask = tokens_and_masks[masked_modality_name]
+            else:
+                # Create a default mask with all zeros (no tokens to be replaced)
+                modality_data = tokens_and_masks[modality]
+                modality_mask = torch.zeros(
+                    modality_data.shape[
+                        :-1
+                    ],  # all dimensions except the last (embedding)
+                    dtype=torch.float32,
+                    device=modality_data.device,
+                    requires_grad=modality_data.requires_grad,
+                )
+
             # patchify masked data
             per_modality_output_tokens = []
             modality_data = tokens_and_masks[modality]

@@ -164,17 +164,17 @@ def masked_sample_dict(
         sentinel2_l2a_num_bands,
     )
     # Create dummy sentinel2_l2a data: shape (B, H, W, T, C)
-    sentinel2_l2a = torch.randn(B, H, W, T, C)
+    sentinel2_l2a = torch.randn(B, H, W, T, C, requires_grad=True)
     # Here we assume 0 (ONLINE_ENCODER) means the token is visible.
     sentinel2_l2a_mask = torch.full(
         (B, H, W, T, C), fill_value=MaskValue.ONLINE_ENCODER.value, dtype=torch.long
     )
     # Dummy latitude-longitude data.
-    latlon = torch.randn(B, latlon_num_bands)
+    latlon = torch.randn(B, latlon_num_bands, requires_grad=True)
     latlon_mask = torch.full(
         (B, latlon_num_bands), fill_value=MaskValue.DECODER.value, dtype=torch.float32
     )
-    worldcover = torch.randn(B, H, W, 1, 1)
+    worldcover = torch.randn(B, H, W, 1, 1, requires_grad=True)
     worldcover_mask = torch.full(
         (B, H, W, 1, 1), fill_value=MaskValue.DECODER.value, dtype=torch.float32
     )
