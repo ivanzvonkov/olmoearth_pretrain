@@ -50,9 +50,9 @@ class LatentMIMTrainModuleConfig(HeliosTrainModuleConfig):
     token_exit_cfg: dict[str, int] = field(
         default_factory=lambda: {modality: 0 for modality in Modality.names()}
     )
+    warmup_duration: Duration = field(default_factory=lambda: Duration.epochs(2))
     ema_decay: tuple[float, float] = (0.996, 1.0)
     max_grad_norm: float = 1.0
-    warmup_duration: Duration = Duration.epochs(2)
 
     def build(
         self,
@@ -208,6 +208,8 @@ class LatentMIMTrainModule(HeliosTrainModule):
         NOTE: For contrastive losses, the loss is invariant to the global batch size across GPUS as well
         """
         self.update_target_encoder()
+        # Set the model to train mode
+        self.model.train()
         # Set the maximum number of tokens
         token_budget = self.model.token_budget
         h_w_to_sample = list(
@@ -251,6 +253,15 @@ class LatentMIMTrainModule(HeliosTrainModule):
                 loss = loss / num_microbatches
                 loss_val = get_local_tensor(loss)
                 total_batch_loss += loss_val
+
+                # Skip bad batches
+                if torch.isnan(loss).any() or torch.isinf(loss).any():
+                    logger.warning(
+                        f"NaN or Inf detected in loss at microbatch {microbatch_idx}, stopping training for this batch."
+                    )
+                    del decoded, target_output
+                    break
+
                 del decoded, target_output
                 loss.backward()
 
