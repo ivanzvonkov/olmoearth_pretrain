@@ -647,6 +647,319 @@ class FlexiHeliosBase(nn.Module):
         return tokens_only_dict, original_masks_dict, modalities_to_dims_dict
 
     @staticmethod
+    def split_x_y(
+        tokens: Tensor, mask: Tensor
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+        """Splits tokens into three groups based on mask values.
+
+        This function:
+        1. Sorts tokens according to the mask and gathers them in order.
+        2. Chooses tokens to be decoded (x) based on the mask value DECODER.
+        3. Chooses tokens to be used as context (y) based on the mask value ONLINE_ENCODER.
+        4. Identifies missing tokens (z) based on the mask value MISSING.
+        5. Returns boolean masks for x, y, and z along with indices to revert to the original ordering.
+
+        Args:
+            tokens: Tokens to split of shape [B, T, D].
+            mask: Mask of shape [B, T].
+
+        Returns:
+            x: Tokens to be decoded of shape [B, X_len, D].
+            y: Tokens to be used as context of shape [B, Y_len, D].
+            z: Missing tokens of shape [B, Z_len, D].
+            x_mask: Binary mask for x tokens of shape [B, X_len].
+            y_mask: Binary mask for y tokens of shape [B, Y_len]. 1 means the token is used in the attention.
+            z_mask: Binary mask for z tokens of shape [B, Z_len].
+            indices: Indices for restoring the original token ordering of shape [B, T].
+        """
+        # Check if we can use the optimized version for fixed token counts
+        binarized_missing_mask = mask == MaskValue.MISSING.value
+        missing_counts = binarized_missing_mask.sum(dim=1)
+
+        # If no missing tokens and counts are consistent across batch
+        if missing_counts.sum() == 0:
+            binarized_decoder_mask = mask == MaskValue.DECODER.value
+            binarized_online_encoder_mask = mask == MaskValue.ONLINE_ENCODER.value
+
+            decoder_counts = binarized_decoder_mask.sum(dim=1)
+            encoder_counts = binarized_online_encoder_mask.sum(dim=1)
+
+            # Check if all batches have the same number of decoder and encoder tokens
+            if (decoder_counts == decoder_counts[0]).all() and (
+                encoder_counts == encoder_counts[0]
+            ).all():
+                return FlexiHeliosBase.split_x_y_fixed_counts(tokens, mask)
+
+        # Fall back to the hybrid approach if conditions aren't met
+        org_mask_dtype = mask.dtype
+        # Sort tokens by mask value (descending order)
+        sorted_mask, indices = torch.sort(
+            mask.int(), dim=1, descending=True, stable=True
+        )
+        tokens = tokens.gather(1, indices[:, :, None].expand_as(tokens))
+
+        # Create binary masks for each category
+        binarized_missing_mask = sorted_mask == MaskValue.MISSING.value
+        binarized_decoder_mask = sorted_mask == MaskValue.DECODER.value
+        binarized_online_encoder_mask = sorted_mask == MaskValue.ONLINE_ENCODER.value
+
+        # Calculate per-sample counts for each category
+        missing_counts = binarized_missing_mask.sum(dim=1)  # [B]
+        decoder_counts = binarized_decoder_mask.sum(dim=1)  # [B]
+        encoder_counts = binarized_online_encoder_mask.sum(dim=1)  # [B]
+
+        # Get maximum lengths for each category across the batch
+        max_length_to_be_decoded = decoder_counts.max().item()
+        max_length_of_unmasked_tokens = encoder_counts.max().item()
+        max_length_of_missing_tokens = missing_counts.max().item()
+
+        # Create padded tensors for each category
+        B, T, D = tokens.shape
+        x = torch.zeros(
+            (B, max_length_to_be_decoded, D), device=tokens.device, dtype=tokens.dtype
+        )
+        y = torch.zeros(
+            (B, max_length_of_unmasked_tokens, D),
+            device=tokens.device,
+            dtype=tokens.dtype,
+        )
+        z = torch.zeros(
+            (B, max_length_of_missing_tokens, D),
+            device=tokens.device,
+            dtype=tokens.dtype,
+        )
+
+        x_mask = torch.zeros(
+            (B, max_length_to_be_decoded), device=tokens.device, dtype=org_mask_dtype
+        )
+        y_mask = torch.zeros(
+            (B, max_length_of_unmasked_tokens),
+            device=tokens.device,
+            dtype=org_mask_dtype,
+        )
+        z_mask = torch.zeros(
+            (B, max_length_of_missing_tokens),
+            device=tokens.device,
+            dtype=org_mask_dtype,
+        )
+
+        # Use a hybrid approach - vectorized preparation but loop for filling
+        # This is still more efficient than the original implementation
+        for b in range(B):
+            # Get masks for this batch
+            b_missing_mask = binarized_missing_mask[b]
+            b_decoder_mask = binarized_decoder_mask[b]
+            b_encoder_mask = binarized_online_encoder_mask[b]
+
+            # Get counts for this batch
+            missing_count = missing_counts[b].item()
+            decoder_count = decoder_counts[b].item()
+            encoder_count = encoder_counts[b].item()
+
+            # Fill z (missing tokens)
+            if missing_count > 0:
+                missing_indices = torch.where(b_missing_mask)[0]
+                z[b, :missing_count] = tokens[b, missing_indices]
+                z_mask[b, :missing_count] = 1
+
+            # Fill x (decoder tokens)
+            if decoder_count > 0:
+                decoder_indices = torch.where(b_decoder_mask)[0]
+                x[b, :decoder_count] = tokens[b, decoder_indices]
+                x_mask[b, :decoder_count] = 1
+
+            # Fill y (encoder tokens)
+            if encoder_count > 0:
+                encoder_indices = torch.where(b_encoder_mask)[0]
+                y[b, :encoder_count] = tokens[b, encoder_indices]
+                y_mask[b, :encoder_count] = 1
+
+        return x, y, z, x_mask, y_mask, z_mask, indices
+
+    @staticmethod
+    def split_x_y_fixed_counts(
+        tokens: Tensor, mask: Tensor
+    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+        """Fully vectorized split_x_y for the case with fixed token counts and no missing tokens.
+
+        This specialized version is used when:
+        1. There are no missing tokens (MaskValue.MISSING) in any batch
+        2. All batches have the same number of decoder tokens (MaskValue.DECODER)
+        3. All batches have the same number of encoder tokens (MaskValue.ONLINE_ENCODER)
+
+        In this case, we can use direct slicing operations which are fully vectorized.
+
+        Args:
+            tokens: Tokens to split of shape [B, T, D].
+            mask: Mask of shape [B, T].
+
+        Returns:
+            x: Tokens to be decoded of shape [B, X_len, D].
+            y: Tokens to be used as context of shape [B, Y_len, D].
+            z: Empty tensor of shape [B, 0, D] (no missing tokens).
+            x_mask: Binary mask for x tokens of shape [B, X_len].
+            y_mask: Binary mask for y tokens of shape [B, Y_len].
+            z_mask: Empty tensor of shape [B, 0] (no missing tokens).
+            indices: Indices for restoring the original token ordering of shape [B, T].
+        """
+        B, T, D = tokens.shape
+
+        # Sort tokens by mask value (descending order)
+        sorted_mask, indices = torch.sort(
+            mask.int(), dim=1, descending=True, stable=True
+        )
+        tokens = tokens.gather(1, indices[:, :, None].expand_as(tokens))
+
+        # Create binary masks for each category
+        binarized_decoder_mask = sorted_mask == MaskValue.DECODER.value
+        binarized_online_encoder_mask = sorted_mask == MaskValue.ONLINE_ENCODER.value
+
+        # Calculate counts (should be the same for all batches)
+        decoder_count = binarized_decoder_mask.sum(dim=1)[
+            0
+        ].item()  # Take from first batch
+        encoder_count = binarized_online_encoder_mask.sum(dim=1)[0].item()
+
+        # Since we know exactly where the tokens are in the sorted tensor,
+        # we can directly slice them out
+        x = tokens[:, :decoder_count]
+        y = tokens[:, decoder_count : decoder_count + encoder_count]
+
+        # Create masks (all ones since all tokens are valid)
+        x_mask = torch.ones((B, decoder_count), device=tokens.device, dtype=mask.dtype)
+        y_mask = torch.ones((B, encoder_count), device=tokens.device, dtype=mask.dtype)
+
+        # No z tokens or z_mask needed since there are no missing tokens
+        z = tokens.new_zeros((B, 0, D))  # Empty tensor
+        z_mask = mask.new_zeros((B, 0))  # Empty tensor
+
+        return x, y, z, x_mask, y_mask, z_mask, indices
+
+    @staticmethod
+    def combine_x_y(
+        x: Tensor,
+        y: Tensor,
+        z: Tensor,
+        x_mask: Tensor,
+        y_mask: Tensor,
+        z_mask: Tensor,
+        indices: Tensor,
+    ) -> Tensor:
+        """Reintegrate the separated token sequences into their original order.
+
+        This function combines:
+        1. x tokens (to be decoded)
+        2. y tokens (used as context)
+        3. z tokens (missing tokens)
+
+        The token masks zero out positions which are not used/needed,
+        and the final scatter step re-applies the original ordering tracked in 'indices'.
+
+        Args:
+            x: Query tokens of shape [B, X_len, D].
+            y: Key/value tokens of shape [B, Y_len, D].
+            z: Missing tokens of shape [B, Z_len, D].
+            x_mask: Binary mask for x tokens of shape [B, X_len].
+            y_mask: Binary mask for y tokens of shape [B, Y_len].
+            z_mask: Binary mask for z tokens of shape [B, Z_len].
+            indices: Indices for restoring the original token ordering of shape [B, T].
+
+        Returns:
+            A merged tokens tensor of shape [B, T, D] with all tokens in their
+            original positions.
+        """
+        # Get dimensions
+        B, T = indices.shape[0], indices.shape[1]
+        D = (
+            x.shape[-1]
+            if x.shape[1] > 0
+            else (y.shape[-1] if y.shape[1] > 0 else z.shape[-1])
+        )
+
+        # Create empty tensor to hold all tokens
+        tokens = torch.zeros((B, T, D), dtype=x.dtype, device=x.device)
+
+        # Calculate counts for each category across all batches
+        z_counts = z_mask.sum(dim=1).int()  # [B]
+        x_counts = x_mask.sum(dim=1).int()  # [B]
+        y_counts = y_mask.sum(dim=1).int()  # [B]
+
+        # Create position indices for each token type
+        # For z tokens (missing tokens)
+        z_positions = (
+            torch.arange(z.shape[1], device=z.device).unsqueeze(0).expand(B, -1)
+        )
+        z_valid = z_positions < z_counts.unsqueeze(1)
+
+        # For x tokens (decoder tokens)
+        x_positions = (
+            torch.arange(x.shape[1], device=x.device).unsqueeze(0).expand(B, -1)
+        )
+        x_valid = x_positions < x_counts.unsqueeze(1)
+
+        # For y tokens (encoder tokens)
+        y_positions = (
+            torch.arange(y.shape[1], device=y.device).unsqueeze(0).expand(B, -1)
+        )
+        y_valid = y_positions < y_counts.unsqueeze(1)
+
+        # Calculate starting positions for each token type in the combined sequence
+        z_start = torch.zeros(B, dtype=torch.long, device=z.device)
+        x_start = z_counts
+        y_start = T - y_counts
+
+        # Create target indices for each token type
+        z_target_indices = z_start.unsqueeze(1) + z_positions
+        x_target_indices = x_start.unsqueeze(1) + x_positions
+        y_target_indices = y_start.unsqueeze(1) + y_positions
+
+        # Create batch indices for scatter operation
+        batch_indices = torch.arange(B, device=z.device).unsqueeze(1)
+
+        # Apply masks to tokens
+        z_masked = z * z_mask.unsqueeze(-1)
+        x_masked = x * x_mask.unsqueeze(-1)
+        y_masked = y * y_mask.unsqueeze(-1)
+
+        # Place z tokens (missing tokens)
+        z_valid_flat = z_valid.flatten()
+        if z_valid_flat.any():
+            batch_indices_z = batch_indices.expand(-1, z.shape[1]).flatten()[
+                z_valid_flat
+            ]
+            z_target_indices_flat = z_target_indices.flatten()[z_valid_flat]
+            tokens[batch_indices_z, z_target_indices_flat] = z_masked.reshape(-1, D)[
+                z_valid.reshape(-1)
+            ]
+
+        # Place x tokens (decoder tokens)
+        x_valid_flat = x_valid.flatten()
+        if x_valid_flat.any():
+            batch_indices_x = batch_indices.expand(-1, x.shape[1]).flatten()[
+                x_valid_flat
+            ]
+            x_target_indices_flat = x_target_indices.flatten()[x_valid_flat]
+            tokens[batch_indices_x, x_target_indices_flat] = x_masked.reshape(-1, D)[
+                x_valid.reshape(-1)
+            ]
+
+        # Place y tokens (encoder tokens)
+        y_valid_flat = y_valid.flatten()
+        if y_valid_flat.any():
+            batch_indices_y = batch_indices.expand(-1, y.shape[1]).flatten()[
+                y_valid_flat
+            ]
+            y_target_indices_flat = y_target_indices.flatten()[y_valid_flat]
+            tokens[batch_indices_y, y_target_indices_flat] = y_masked.reshape(-1, D)[
+                y_valid.reshape(-1)
+            ]
+
+        # Scatter tokens back to their original positions
+        tokens = tokens.scatter(1, indices[:, :, None].expand_as(tokens), tokens)
+
+        return tokens
+
+    @staticmethod
     def split_and_expand_per_modality(
         x: Tensor, modalities_to_dims_dict: dict[str, tuple]
     ) -> dict[str, Tensor]:
@@ -1092,190 +1405,6 @@ class Predictor(FlexiHeliosBase):
             output_dict[modality] = x_modality
 
         return output_dict
-
-    @staticmethod
-    def split_x_y(
-        tokens: Tensor, mask: Tensor
-    ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
-        """Splits tokens into three groups based on mask values.
-
-        This function:
-        1. Sorts tokens according to the mask and gathers them in order.
-        2. Chooses tokens to be decoded (x) based on the mask value DECODER.
-        3. Chooses tokens to be used as context (y) based on the mask value ONLINE_ENCODER.
-        4. Identifies missing tokens (z) based on the mask value MISSING.
-        5. Returns boolean masks for x, y, and z along with indices to revert to the original ordering.
-
-        Args:
-            tokens: Tokens to split of shape [B, T, D].
-            mask: Mask of shape [B, T].
-
-        Returns:
-            x: Tokens to be decoded of shape [B, X_len, D].
-            y: Tokens to be used as context of shape [B, Y_len, D].
-            z: Missing tokens of shape [B, Z_len, D].
-            x_mask: Binary mask for x tokens of shape [B, X_len].
-            y_mask: Binary mask for y tokens of shape [B, Y_len]. 1 means the token is used in the attention.
-            z_mask: Binary mask for z tokens of shape [B, Z_len].
-            indices: Indices for restoring the original token ordering of shape [B, T].
-        """
-        org_mask_dtype = mask.dtype
-        # Sort tokens by mask value (descending order)
-        sorted_mask, indices = torch.sort(
-            mask.int(), dim=1, descending=True, stable=True
-        )
-        tokens = tokens.gather(1, indices[:, :, None].expand_as(tokens))
-
-        # Create binary masks for each category
-        binarized_missing_mask = sorted_mask == MaskValue.MISSING.value
-        binarized_decoder_mask = sorted_mask == MaskValue.DECODER.value
-        binarized_online_encoder_mask = sorted_mask == MaskValue.ONLINE_ENCODER.value
-
-        # Calculate per-sample counts for each category
-        missing_counts = binarized_missing_mask.sum(dim=1)  # [B]
-        decoder_counts = binarized_decoder_mask.sum(dim=1)  # [B]
-        encoder_counts = binarized_online_encoder_mask.sum(dim=1)  # [B]
-
-        # Get maximum lengths for each category across the batch
-        max_length_to_be_decoded = decoder_counts.max().item()
-        max_length_of_unmasked_tokens = encoder_counts.max().item()
-        max_length_of_missing_tokens = missing_counts.max().item()
-
-        # Create padded tensors for each category
-        B, T, D = tokens.shape
-        x = torch.zeros(
-            (B, max_length_to_be_decoded, D), device=tokens.device, dtype=tokens.dtype
-        )
-        y = torch.zeros(
-            (B, max_length_of_unmasked_tokens, D),
-            device=tokens.device,
-            dtype=tokens.dtype,
-        )
-        z = torch.zeros(
-            (B, max_length_of_missing_tokens, D),
-            device=tokens.device,
-            dtype=tokens.dtype,
-        )
-
-        # Create masks for each category
-        x_mask = torch.zeros(
-            (B, max_length_to_be_decoded), device=tokens.device, dtype=org_mask_dtype
-        )
-        y_mask = torch.zeros(
-            (B, max_length_of_unmasked_tokens),
-            device=tokens.device,
-            dtype=org_mask_dtype,
-        )
-        z_mask = torch.zeros(
-            (B, max_length_of_missing_tokens),
-            device=tokens.device,
-            dtype=org_mask_dtype,
-        )
-
-        # Extract tokens for each sample individually
-        for b in range(B):
-            # Calculate start positions for this sample
-            missing_start = 0
-            missing_end = missing_counts[b].item()
-            decoder_start = missing_end
-            decoder_end = decoder_start + decoder_counts[b].item()
-
-            # Extract tokens for this sample
-            if missing_end > 0:
-                z[b, :missing_end] = tokens[b, missing_start:missing_end]
-                z_mask[b, :missing_end] = 1
-
-            if decoder_counts[b] > 0:
-                x[b, : decoder_counts[b]] = tokens[b, decoder_start:decoder_end]
-                x_mask[b, : decoder_counts[b]] = 1
-
-            if encoder_counts[b] > 0:
-                # Encoder tokens are at the end
-                encoder_start = T - encoder_counts[b].item()
-                y[b, : encoder_counts[b]] = tokens[b, encoder_start:T]
-                y_mask[b, : encoder_counts[b]] = 1
-
-        return x, y, z, x_mask, y_mask, z_mask, indices
-
-    @staticmethod
-    def combine_x_y(
-        x: Tensor,
-        y: Tensor,
-        z: Tensor,
-        x_mask: Tensor,
-        y_mask: Tensor,
-        z_mask: Tensor,
-        indices: Tensor,
-    ) -> Tensor:
-        """Reintegrate the separated token sequences into their original order.
-
-        This function combines:
-        1. x tokens (to be decoded)
-        2. y tokens (used as context)
-        3. z tokens (missing tokens)
-
-        The token masks zero out positions which are not used/needed,
-        and the final scatter step re-applies the original ordering tracked in 'indices'.
-
-        Args:
-            x: Query tokens of shape [B, X_len, D].
-            y: Key/value tokens of shape [B, Y_len, D].
-            z: Missing tokens of shape [B, Z_len, D].
-            x_mask: Binary mask for x tokens of shape [B, X_len].
-            y_mask: Binary mask for y tokens of shape [B, Y_len].
-            z_mask: Binary mask for z tokens of shape [B, Z_len].
-            indices: Indices for restoring the original token ordering of shape [B, T].
-
-        Returns:
-            A merged tokens tensor of shape [B, T, D] with all tokens in their
-            original positions.
-        """
-        # Get dimensions
-        B, T = indices.shape[0], indices.shape[1]
-        D = (
-            x.shape[-1]
-            if x.shape[1] > 0
-            else (y.shape[-1] if y.shape[1] > 0 else z.shape[-1])
-        )
-
-        # Create empty tensor to hold all tokens
-        tokens = torch.zeros((B, T, D), dtype=x.dtype, device=x.device)
-
-        # Calculate per-sample counts for each category
-        z_counts = z_mask.sum(dim=1).int()  # [B]
-        x_counts = x_mask.sum(dim=1).int()  # [B]
-        y_counts = y_mask.sum(dim=1).int()  # [B]
-
-        # Place tokens for each sample individually
-        for b in range(B):
-            # Calculate start positions for this sample
-            missing_start = 0
-            missing_end = z_counts[b].item()
-            decoder_start = missing_end
-            decoder_end = decoder_start + x_counts[b].item()
-
-            # Place tokens for this sample
-            if missing_end > 0:
-                tokens[b, missing_start:missing_end] = z[b, :missing_end] * z_mask[
-                    b, :missing_end
-                ].unsqueeze(-1)
-
-            if x_counts[b] > 0:
-                tokens[b, decoder_start:decoder_end] = x[b, : x_counts[b]] * x_mask[
-                    b, : x_counts[b]
-                ].unsqueeze(-1)
-
-            if y_counts[b] > 0:
-                # Encoder tokens are at the end
-                encoder_start = T - y_counts[b].item()
-                tokens[b, encoder_start:T] = y[b, : y_counts[b]] * y_mask[
-                    b, : y_counts[b]
-                ].unsqueeze(-1)
-
-        # Scatter tokens back to their original positions
-        tokens = tokens.scatter(1, indices[:, :, None].expand_as(tokens), tokens)
-
-        return tokens
 
     def apply_attn(
         self,
