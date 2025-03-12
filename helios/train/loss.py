@@ -128,6 +128,7 @@ class PatchDiscriminationLoss(Loss):
                 ) * (self.tau * 2)
                 # loss_multiplier = self._expand_and_reciprocate(c)
                 # loss = (loss * loss_multiplier).sum() / c
+                loss = loss.mean()
                 losses.append(loss)
                 start = end
 
