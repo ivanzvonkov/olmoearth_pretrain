@@ -510,7 +510,7 @@ class HeliosDataset(Dataset):
         logger.info("Distribution of samples after filtering:")
         self._log_modality_distribution(filtered_samples)
         # random select 1/3 of the samples
-        filtered_samples = random.sample(filtered_samples, k=len(filtered_samples) // 3)
+        filtered_samples = random.sample(filtered_samples, k=len(filtered_samples) // 2)
         return filtered_samples
 
     def get_latlon(self, sample: SampleInformation) -> np.ndarray:
