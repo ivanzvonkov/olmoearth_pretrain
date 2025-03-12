@@ -1240,10 +1240,6 @@ class Predictor(FlexiHeliosBase):
     def apply_attn(
         self,
         x: dict[str, Tensor],
-        # THESE ARE NOT USED
-        timestamps: Tensor,
-        patch_size: int,
-        input_res: int,
     ) -> dict[str, Tensor]:
         """Apply attention to the tokens."""
         tokens_only_dict, original_masks_dict, modalities_to_dims_dict = (
@@ -1271,17 +1267,11 @@ class Predictor(FlexiHeliosBase):
     def forward(
         self,
         x: TokensAndMasks,
-        timestamps: Tensor,
-        patch_size: int,
-        input_res: int = BASE_GSD,
     ) -> TokensAndMasks:
         """Generate predictions from encoded token representations.
 
         Args:
             x: TokensAndMasks containing the encoded tokens to make predictions from
-            timestamps: Timestamps of the input data
-            patch_size: Size of patches to divide the input into
-            input_res: Resolution of the input data (in meters)
 
         Returns:
             TokensAndMasks containing the predicted tokens and their masks
@@ -1305,9 +1295,7 @@ class Predictor(FlexiHeliosBase):
 
         tokens_only_dict = self.add_masks(decoder_emedded_dict)
         decoder_emedded_dict.update(tokens_only_dict)
-        tokens_and_masks = self.apply_attn(
-            decoder_emedded_dict, timestamps, patch_size, input_res
-        )
+        tokens_and_masks = self.apply_attn(decoder_emedded_dict)
         # TODO: Factor this out into a more readable function
         output_dict = {}
         available_modalities = return_modalities_from_dict(tokens_and_masks)
