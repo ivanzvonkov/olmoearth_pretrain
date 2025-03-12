@@ -3,7 +3,6 @@
 import os
 from pathlib import Path
 from types import MethodType
-from typing import NamedTuple
 
 import geobench
 import matplotlib.pyplot as plt
@@ -17,35 +16,11 @@ from helios.data.constants import Modality
 from helios.data.dataset import HeliosSample
 from helios.train.masking import MaskedHeliosSample
 
+from .configs import DATASET_TO_CONFIG
 from .constants import EVAL_S2_BAND_NAMES, EVAL_TO_HELIOS_S2_BANDS
 from .normalize import impute_normalization_stats, normalize_bands
 
 torch.multiprocessing.set_sharing_strategy("file_system")
-
-
-class GeoBenchConfig(NamedTuple):
-    """GeoBench configs."""
-
-    benchmark_name: str
-    imputes: list[tuple[str, str]]
-    num_classes: int
-    is_multilabel: bool
-
-
-DATASET_TO_CONFIG = {
-    "m-eurosat": GeoBenchConfig(
-        benchmark_name="classification_v1.0",
-        imputes=[],
-        num_classes=10,
-        is_multilabel=False,
-    ),
-    "m-brick-kiln": GeoBenchConfig(
-        benchmark_name="classification_v1.0",
-        imputes=[],
-        num_classes=2,
-        is_multilabel=False,
-    ),
-}
 
 
 class GeobenchDataset(Dataset):
@@ -95,15 +70,18 @@ class GeobenchDataset(Dataset):
             self.normalizer_computed = Normalizer(Strategy.COMPUTED)
 
         for task in geobench.task_iterator(
-            benchmark_name=config.benchmark_name,
-            benchmark_dir=geobench_dir / config.benchmark_name,
+            # e.g. "classification_v1.0"
+            benchmark_name=f"{config.task_type.value}_v1.0",
+            benchmark_dir=geobench_dir / f"{config.task_type.value}_v1.0",
         ):
             if task.dataset_name == dataset:
                 break
 
         # hack: https://github.com/ServiceNow/geo-bench/issues/22
         task.get_dataset_dir = MethodType(
-            lambda self: geobench_dir / config.benchmark_name / self.dataset_name,
+            lambda self: geobench_dir
+            / f"{config.task_type.value}_v1.0"
+            / self.dataset_name,
             task,
         )
 
