@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 import torch
 from olmo_core.optim.adamw import AdamWConfig
@@ -27,20 +28,14 @@ def samples_with_missing_modalities() -> list[HeliosSample]:
     s2_H, s2_W, s2_T, s2_C = 16, 16, 12, 13
     s1_H, s1_W, s1_T, s1_C = 16, 16, 12, 2
     wc_H, wc_W, wc_T, wc_C = 16, 16, 1, 10
-    example_s2_data = torch.randn(
-        s2_H, s2_W, s2_T, s2_C, device="cpu", dtype=torch.float32
-    )
-    example_s1_data = torch.randn(
-        s1_H, s1_W, s1_T, s1_C, device="cpu", dtype=torch.float32
-    )
-    example_wc_data = torch.randn(
-        wc_H, wc_W, wc_T, wc_C, device="cpu", dtype=torch.float32
-    )
-    example_latlon_data = torch.randn(2, device="cpu", dtype=torch.float32)
-    timestamps = torch.tensor(
+
+    example_s2_data = np.random.randn(s2_H, s2_W, s2_T, s2_C).astype(np.float32)
+    example_s1_data = np.random.randn(s1_H, s1_W, s1_T, s1_C).astype(np.float32)
+    example_wc_data = np.random.randn(wc_H, wc_W, wc_T, wc_C).astype(np.float32)
+    example_latlon_data = np.random.randn(2).astype(np.float32)
+    timestamps = np.array(
         [[15, 7, 2023], [15, 8, 2023], [15, 9, 2023]],
-        dtype=torch.int32,
-        device="cpu",
+        dtype=np.int32,
     )
 
     sample1 = HeliosSample(
