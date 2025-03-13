@@ -4,7 +4,6 @@ Extended from: https://github.com/huggingface/pytorch-image-models/blob/main/tim
 by https://github.com/bwconrad/flexivit/
 """
 
-import logging
 from collections.abc import Iterable, Sequence
 from typing import Any
 
@@ -14,8 +13,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 from torch import Tensor, vmap
-
-logger = logging.getLogger(__name__)
 
 
 class FlexiPatchEmbed(nn.Module):
@@ -200,13 +197,8 @@ class FlexiPatchEmbed(nn.Module):
         else:
             weight = self.resize_patch_embed(self.proj.weight, patch_size)
         # Apply conv with resized weights
-        if weight.isnan().any():
-            logger.info(f"weight is nan: {weight[weight.isnan()]}")
-        if x.isnan().any():
-            logger.info(f"x is nan: {x[x.isnan()]}")
+
         x = F.conv2d(x, weight, bias=self.proj.bias, stride=patch_size)
-        if x.isnan().any():
-            logger.info(f"x is nan: {x[x.isnan()]}")
         # At this point x has embedding dim sized channel dimension
         if has_time_dimension:
             x = rearrange(x, "(b t) d h w -> b h w t d", b=batch_size, t=num_timesteps)

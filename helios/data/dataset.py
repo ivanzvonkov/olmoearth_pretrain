@@ -267,7 +267,6 @@ class HeliosSample(NamedTuple):
                 "max height/width allowed by sample smaller than values in hw_to_sample"
             )
         sampled_hw_p = choice(hw_to_sample)
-        logger.info(f"sampled_hw_p: {sampled_hw_p}")
         max_t = self._get_max_t_within_token_budget(
             sampled_hw_p, max_tokens_per_instance
         )
@@ -275,7 +274,6 @@ class HeliosSample(NamedTuple):
         start_h = np.random.choice(self.height - sampled_hw + 1)
         start_w = np.random.choice(self.width - sampled_hw + 1)
         start_t = np.random.choice(self.time - max_t + 1)
-        logger.info(f"start_h: {start_h}, start_w: {start_w}, start_t: {start_t}")
         new_data_dict: dict[str, ArrayTensor] = {}
         for attribute, modality in self.as_dict(ignore_nones=True).items():
             assert modality is not None
@@ -330,8 +328,6 @@ def collate_helios(
 
         for i, sample in enumerate(batch):
             modality_data = getattr(sample, field)
-            if field == "sentinel1" and i == 2:
-                modality_data = None
             if modality_data is not None:
                 modality_data = torch.from_numpy(modality_data)
                 if expected_shape is None:
@@ -350,7 +346,6 @@ def collate_helios(
 
         # Second pass: fill in missing data with empty tensors of the right shape and dtype
         dtype_to_use = found_dtype if found_dtype is not None else reference_dtype
-        logger.info(f"expected_shape: {expected_shape}, dtype_to_use: {dtype_to_use}")
         for i in missing_data_indices:
             modality_data_stack[i] = torch.zeros(
                 expected_shape,
