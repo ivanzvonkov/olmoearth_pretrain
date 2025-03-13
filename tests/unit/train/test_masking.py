@@ -623,6 +623,7 @@ def test_modality_mask_and_unmask() -> None:
 
     mask_per_modality: list[torch.Tensor] = []  # each tensor will have shape [b, 1]
     for modality_name in masked_sample._fields:
+        logger.info(f"Modality name: {modality_name}")
         if modality_name.endswith("mask"):
             mask = getattr(masked_sample, modality_name)
             logger.info(f"Mask name: {modality_name}")
