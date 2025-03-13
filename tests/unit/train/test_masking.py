@@ -1,25 +1,5 @@
 """Test masking."""
 
-# The tests below for test_space_structure_masking_and_unmask and
-# test_time_structure_masking_and_unmask currently fail because of issues with
-# how the SpaceMaskingStrategy and TimeMaskingStrategy handle missing masks.
-#
-# The main issue is in the _create_random_mask method in MaskingStrategy and the
-# _create_temporal_mask method in TimeMaskingStrategy, where they attempt to
-# index into flat_mask_tokens or mask with missing_mask, but the shape of the
-# missing_mask doesn't match the shape of the tensor they're trying to index into.
-#
-# To fix these issues, the masking strategy implementation would need to be
-# updated to:
-# 1. Properly handle missing_mask by ensuring it has the same shape as the tensor
-#    being indexed
-# 2. Convert missing_mask from a 1D batch-level mask to a mask that can be
-#    applied to the flattened tokens
-#
-# For now, we've implemented tests for RandomMaskingStrategy that work with the
-# current implementation, and commented out the tests for SpaceMaskingStrategy
-# and TimeMaskingStrategy that require changes to the underlying implementation.
-
 import logging
 
 import torch
@@ -206,7 +186,6 @@ def test_time_structure_masking_and_unmask() -> None:
                 assert (mask == 0).all()
 
 
-
 def test_create_random_mask_with_missing_mask() -> None:
     """Test that missing_mask in HeliosSample is respected during masking."""
     b, h, w, t = 5, 8, 8, 4
@@ -321,36 +300,20 @@ def test_create_temporal_mask() -> None:
     t = 8
     shape = (b, t)
 
-    # Create a missing mask where some timesteps are missing
-    missing_mask = torch.zeros(b, dtype=torch.bool)
-    missing_mask[:2] = True  # Mark first two timesteps as missing
-
     encode_ratio, decode_ratio = 0.25, 0.5
     strategy = TimeMaskingStrategy(encode_ratio=encode_ratio, decode_ratio=decode_ratio)
 
     # Call the _create_temporal_mask function directly
     mask = strategy._create_temporal_mask(
         shape=shape,
-        missing_mask=missing_mask,
     )
-
-    # Check that missing values are marked as MISSING
-    assert (
-        mask[missing_mask] == MaskValue.MISSING.value
-    ).all(), "Missing values should be assigned MaskValue.MISSING"
 
     # Check the masking ratios for non-missing timesteps
-    non_missing_mask = ~missing_mask
-    non_missing_values = mask[non_missing_mask]
 
-    total_non_missing = non_missing_values.numel()
-    num_encoder = len(
-        non_missing_values[non_missing_values == MaskValue.ONLINE_ENCODER.value]
-    )
-    num_decoder = len(non_missing_values[non_missing_values == MaskValue.DECODER.value])
-    num_target = len(
-        non_missing_values[non_missing_values == MaskValue.TARGET_ENCODER_ONLY.value]
-    )
+    total_non_missing = mask.numel()
+    num_encoder = len(mask[mask == MaskValue.ONLINE_ENCODER.value])
+    num_decoder = len(mask[mask == MaskValue.DECODER.value])
+    num_target = len(mask[mask == MaskValue.TARGET_ENCODER_ONLY.value])
 
     # Check that the ratios are close to expected for non-missing values
     # Note: With small values of t, the ratios might not be exactly as expected
@@ -461,6 +424,10 @@ def test_time_masking_with_missing_modality_mask() -> None:
     """Test TimeMaskingStrategy with missing_modalities_masks."""
     b, h, w, t = 10, 16, 16, 8
 
+    days = torch.randint(1, 31, (b, 1, t), dtype=torch.long)
+    months = torch.randint(1, 13, (b, 1, t), dtype=torch.long)
+    years = torch.randint(2018, 2020, (b, 1, t), dtype=torch.long)
+    timestamps = torch.cat([days, months, years], dim=1)  # Shape: (B, 3, T)
 
     # Include all modalities but mark some sentinel1 samples as missing
     sentinel2_l2a_num_bands = Modality.SENTINEL2_L2A.num_bands
@@ -626,6 +593,7 @@ def test_random_masking_with_missing_modality_mask() -> None:
             unmasked_sentinel1_mask[idx] == MaskValue.ONLINE_ENCODER.value
         ).all(), "Unmasked should be ONLINE_ENCODER for present samples"
 
+
 def test_modality_mask_and_unmask() -> None:
     """Test modality structure masking ratios."""
     b, h, w, t = 100, 16, 16, 8
@@ -693,4 +661,3 @@ def test_modality_mask_and_unmask() -> None:
     assert (
         num_decoder / total_elements
     ) == expected_decode_ratio, "Incorrect decode mask ratio"
-

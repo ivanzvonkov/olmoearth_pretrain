@@ -495,8 +495,7 @@ class ModalityMaskingStrategy(MaskingStrategy):
         """
         output_dict: dict[str, ArrayTensor | None] = {"timestamps": batch.timestamps}
         missing_mask_dict = batch.missing_modalities_masks
-        present_modalities = list(batch.as_dict(ignore_nones=True).keys())
-        present_modalities = [b for b in present_modalities if b != "timestamps"]
+        present_modalities = [b for b in batch.modalities if b != "timestamps"]
 
         num_present_modalities = len(present_modalities)
         encode_modalities = max(1, int(self.encode_ratio * num_present_modalities))

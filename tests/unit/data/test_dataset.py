@@ -1,5 +1,6 @@
 """Unit tests for the dataset module."""
 
+import numpy as np
 import pytest
 import torch
 
@@ -13,13 +14,12 @@ def samples_with_missing_modalities() -> list[HeliosSample]:
     s2_H, s2_W, s2_T, s2_C = 16, 16, 12, 13
     s1_H, s1_W, s1_T, s1_C = 16, 16, 12, 2
     wc_H, wc_W, wc_T, wc_C = 16, 16, 1, 10
-    example_s2_data = torch.randn(s2_H, s2_W, s2_T, s2_C)
-    example_s1_data = torch.randn(s1_H, s1_W, s1_T, s1_C)
-    example_wc_data = torch.randn(wc_H, wc_W, wc_T, wc_C)
-    example_latlon_data = torch.randn(2)
-    timestamps = torch.tensor(
-        [[15, 7, 2023], [15, 8, 2023], [15, 9, 2023]], dtype=torch.int32
-    )
+
+    example_s2_data = np.random.randn(s2_H, s2_W, s2_T, s2_C)
+    example_s1_data = np.random.randn(s1_H, s1_W, s1_T, s1_C)
+    example_wc_data = np.random.randn(wc_H, wc_W, wc_T, wc_C)
+    example_latlon_data = np.random.randn(2)
+    timestamps = np.array([[15, 7, 2023], [15, 8, 2023], [15, 9, 2023]], dtype=np.int32)
 
     sample1 = HeliosSample(
         sentinel2_l2a=example_s2_data,
