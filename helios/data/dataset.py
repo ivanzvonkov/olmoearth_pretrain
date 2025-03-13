@@ -343,9 +343,7 @@ class HeliosDataset(Dataset):
         self.samples = self._filter_samples(samples)  # type: ignore
         self.dtype = dtype
         self.normalize = normalize
-        import tempfile
-
-        self.h5py_dir = UPath(tempfile.gettempdir()) / h5py_folder
+        self.h5py_dir = self.tile_path / h5py_folder / str(len(self.samples))
         os.makedirs(self.h5py_dir, exist_ok=True)
 
         if self.normalize:
@@ -686,9 +684,6 @@ class HeliosDataset(Dataset):
                 # Convert Sentinel1 data to dB
                 if modality == Modality.SENTINEL1:
                     image = convert_to_db(image)
-                # Normalize data and convert to dtype
-                if self.normalize:
-                    image = self.normalize_image(modality, image)
                 sample_dict[modality.name] = image.astype(self.dtype)
                 # Get latlon and timestamps from Sentinel2 data
                 if modality == Modality.SENTINEL2_L2A:
@@ -700,6 +695,14 @@ class HeliosDataset(Dataset):
         else:
             with h5py.File(h5_file_path, "r") as f:
                 sample_dict = {k: v[()] for k, v in f.items()}
+        # Apply normalization
+        if self.normalize:
+            for modality in sample.modalities:
+                if modality == "timestamps" or modality == "latlon":
+                    continue
+                sample_dict[modality.name] = self.normalize_image(
+                    modality, sample_dict[modality.name]
+                )
         return HeliosSample(**sample_dict)
 
 
