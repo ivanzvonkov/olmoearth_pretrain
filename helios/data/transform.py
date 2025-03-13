@@ -95,6 +95,8 @@ class FlipAndRotateSpace(Transform):
         for attribute, modality_data in batch.as_dict(ignore_nones=True).items():
             if attribute == "timestamps":
                 new_data_dict[attribute] = modality_data
+            elif attribute == "missing_modalities_masks":
+                new_data_dict[attribute] = modality_data
             else:
                 modality_spec = Modality.get(attribute)
                 # Apply the transformation to the space varying data

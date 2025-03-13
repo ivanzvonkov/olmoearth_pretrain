@@ -3,6 +3,7 @@
 import logging
 import os
 from pathlib import Path
+from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 from olmo_core.distributed.utils import get_rank
@@ -14,7 +15,7 @@ from helios.data.utils import plot_latlon_distribution, plot_modality_data_distr
 
 logger = logging.getLogger(__name__)
 
-
+@dataclass
 class HeliosWandBCallback(WandBCallback):
     """Helios specific wandb callback."""
 

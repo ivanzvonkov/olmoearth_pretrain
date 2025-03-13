@@ -317,7 +317,6 @@ def collate_helios(
     # First, find a reference sample to get dtypes from
     # We'll use sentinel2_l2a as our reference since it's always required
     reference_dtype = batch[0].sentinel2_l2a.dtype
-    reference_device = batch[0].sentinel2_l2a.device
     sample_fields = set(batch[0].modalities).union(
         modality.name for modality in supported_modalities
     )
@@ -330,7 +329,7 @@ def collate_helios(
         found_dtype = None
 
         for i, sample in enumerate(batch):
-            modality_data = getattr(sample, field)
+            modality_data = torch.from_numpy(getattr(sample, field))
             if modality_data is not None:
                 if expected_shape is None:
                     expected_shape = modality_data.shape
@@ -350,11 +349,11 @@ def collate_helios(
 
         for i in missing_data_indices:
             modality_data_stack[i] = torch.empty(
-                expected_shape, dtype=dtype_to_use, device=reference_device
+                expected_shape, dtype=dtype_to_use,
             )
         if missing_data_indices:
             missing_modalities_masks[field] = torch.zeros(
-                len(batch), dtype=torch.bool, device=reference_device
+                len(batch), dtype=torch.bool,
             )
             missing_modalities_masks[field][missing_data_indices] = True
         collated_dict[field] = torch.stack(modality_data_stack, dim=0)

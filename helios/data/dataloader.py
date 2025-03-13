@@ -385,9 +385,9 @@ class _IterableDatasetWrapper(torch.utils.data.IterableDataset[HeliosSample]):
             instance_iterator = (
                 self.data_loader._get_dataset_item(int(idx)) for idx in indices
             )
-
+        # collator should be an instantiated class that has the supported modalities as attributes
         return (
-            self.data_loader.collator(batch)
+            self.data_loader.collator(batch, self.dataset.supported_modalities)
             for batch in iter_batched(
                 instance_iterator,
                 self.data_loader.rank_batch_size,

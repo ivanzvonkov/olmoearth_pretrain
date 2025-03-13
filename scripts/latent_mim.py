@@ -132,9 +132,9 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
     # things should be set during building
     # TODO: Include collate function here
 
-    NUM_WORKERS = 8
+    NUM_WORKERS = 0
     NUM_THREADS = 0
-    GLOBAL_BATCH_SIZE = 128
+    GLOBAL_BATCH_SIZE = 32
 
     dataloader_config = HeliosDataLoaderConfig(
         global_batch_size=GLOBAL_BATCH_SIZE,
@@ -170,6 +170,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
         name=common.run_name,
         project=WANDB_PROJECT,
         entity=WANDB_USERNAME,
+        upload_dataset_distribution_pre_train=False,
         enabled=True,  # set to False to avoid wandb errors
     )
     EVAL_INTERVAL_EPOCHS = 5
