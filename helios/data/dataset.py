@@ -343,7 +343,9 @@ class HeliosDataset(Dataset):
         self.samples = self._filter_samples(samples)  # type: ignore
         self.dtype = dtype
         self.normalize = normalize
-        self.h5py_dir = UPath("/root") / h5py_folder
+        import tempfile
+
+        self.h5py_dir = UPath(tempfile.gettempdir()) / h5py_folder
         os.makedirs(self.h5py_dir, exist_ok=True)
 
         if self.normalize:
