@@ -548,7 +548,7 @@ class TestPredictor:
         embedding_dim = predictor.encoder_to_decoder_embed.in_features
 
         sentinel2_l2a_tokens = torch.randn(
-            B, H, W, T, sentinel2_l2a_num_band_sets, embedding_dim, requires_grad=True
+            B, H, W, T, sentinel2_l2a_num_band_sets, embedding_dim, requires_grad=False
         )
 
         sentinel2_l2a_mask = torch.full(
@@ -558,7 +558,9 @@ class TestPredictor:
         )
         sentinel2_l2a_mask[:, :, :, :, 0] = MaskValue.ONLINE_ENCODER.value
         # Create dummy latitude and longitude data (and its mask)
-        latlon = torch.randn(B, latlon_num_band_sets, embedding_dim, requires_grad=True)
+        latlon = torch.randn(
+            B, latlon_num_band_sets, embedding_dim, requires_grad=False
+        )
         latlon_mask = torch.zeros(B, latlon_num_band_sets, dtype=torch.float32)
 
         encoded_tokens = TokensAndMasks(
@@ -606,18 +608,17 @@ class TestPredictor:
             predictor.output_embedding_size,
         )
         assert output.latlon_mask.shape == (B, latlon_num_band_sets)
-        # Skip backward pass test for now
-        # output.sentinel2_l2a.sum().backward()
-        # for name, param in predictor.named_parameters():
-        #     if not any(
-        #         x in name
-        #         for x in [
-        #             "pos_embed",
-        #             "month_embed",
-        #             "composite_encodings.per_modality_channel_embeddings.latlon",
-        #         ]
-        #     ):
-        #         assert param.grad is not None, name
+        output.sentinel2_l2a.sum().backward()
+        for name, param in predictor.named_parameters():
+            if not any(
+                x in name
+                for x in [
+                    "pos_embed",
+                    "month_embed",
+                    "composite_encodings.per_modality_channel_embeddings.latlon",
+                ]
+            ):
+                assert param.grad is not None, name
 
     def test_predictor_forward(
         self,
@@ -697,7 +698,6 @@ class TestPredictor:
             predictor.output_embedding_size,
         )
         assert output.latlon_mask.shape == (B, latlon_num_band_sets)
-        # Skip backward pass test for now
         output.sentinel2_l2a.sum().backward()
         for name, param in predictor.named_parameters():
             if not any(
@@ -914,7 +914,6 @@ def test_end_to_end_with_exit_config(
         1,
         1,
     )
-    # Skip backward pass test for now
     output.worldcover.sum().backward()
     for name, param in predictor.named_parameters():
         if not any(
