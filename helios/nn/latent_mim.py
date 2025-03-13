@@ -1,6 +1,5 @@
 """Simple set up of latent predictor."""
 
-import logging
 from copy import deepcopy
 from dataclasses import dataclass
 
@@ -11,8 +10,6 @@ from helios.data.transform import Transform, TransformConfig
 from helios.nn.flexihelios import EncoderConfig, PredictorConfig, TokensAndMasks
 from helios.nn.utils import DistributedMixins
 from helios.train.masking import MaskedHeliosSample
-
-logger = logging.getLogger(__name__)
 
 
 class LatentMIM(nn.Module, DistributedMixins):
