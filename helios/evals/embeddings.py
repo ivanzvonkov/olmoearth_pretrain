@@ -44,15 +44,10 @@ def get_embeddings(
                 batch_embeddings = model(
                     masked_helios_sample, patch_size=patch_size
                 )  # (bsz, dim)
-            if task_type == TaskType.CLASSIFICATION:
-                averaged_embeddings = batch_embeddings.pool_unmasked_tokens(
-                    pooling_type
-                )
-            else:
-                # hackey way to take a mean across T and Band sets for S2
-                averaged_embeddings = torch.mean(
-                    batch_embeddings.sentinel2_l2a, dim=(-2, -3)
-                )
+            spatial_pool = True if task_type == TaskType.SEGMENTATION else False
+            averaged_embeddings = batch_embeddings.pool_unmasked_tokens(
+                pooling_type, spatial_pool=spatial_pool
+            )
             embeddings.append(averaged_embeddings.cpu())
             labels.append(label)
 
