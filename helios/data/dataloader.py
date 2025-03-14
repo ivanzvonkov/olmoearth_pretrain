@@ -21,7 +21,7 @@ from olmo_core.distributed.utils import (
     get_rank,
     get_world_size,
 )
-from olmo_core.utils import roundrobin, threaded_generator
+from olmo_core.utils import get_default_device, roundrobin, threaded_generator
 from torch.utils.data import default_collate
 from upath import UPath
 
@@ -407,7 +407,7 @@ class HeliosDataLoaderConfig(Config):
     num_threads: int | None = None
     num_workers: int = 0
     prefetch_factor: int | None = None
-    target_device_type: str = "cuda"
+    target_device_type: str = get_default_device().type
     drop_last: bool = True
 
     def validate(self) -> None:
