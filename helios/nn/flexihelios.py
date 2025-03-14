@@ -1242,6 +1242,7 @@ class Predictor(FlexiHeliosBase):
         )
         tokens_dict.update(original_masks_dict)
         x, mask = self.collapse_and_combine_hwtc(tokens_dict)
+        # X contains the tokens to decode, Y contains the tokens to attend to for context
         x, y, x_mask, y_mask, indices = self.split_x_y(x, mask)
         for blk in self.blocks:
             # note that we are not taking the inverse of the mask, since split_x_y gives us
