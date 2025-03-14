@@ -1094,10 +1094,9 @@ class Predictor(FlexiHeliosBase):
             mask: Mask of shape [B, T].
 
         Returns:
-            unmasked_tokens: Tokens to be used as context of shape [B, Y_len, D].
             tokens_to_decode: Tokens to be decoded of shape [B, X_len, D].
+            unmasked_tokens: Tokens to be used as context of shape [B, Y_len, D].
             unmasked_tokens_mask: Binary mask for y tokens of shape [B, Y_len].
-            tokens_to_decode_mask: Binary mask for x tokens of shape [B, X_len].
             indices: Indices for restoring the original token ordering of shape [B, T].
         """
         org_mask_dtype = mask.dtype
@@ -1181,19 +1180,19 @@ class Predictor(FlexiHeliosBase):
             ]
 
         return (
-            unmasked_tokens,
             tokens_to_decode,
-            unmasked_tokens_mask,
+            unmasked_tokens,
             tokens_to_decode_mask,
+            unmasked_tokens_mask,
             indices,
         )
 
     @staticmethod
     def combine_x_y(
-        unmasked_tokens: Tensor,
         tokens_to_decode: Tensor,
-        unmasked_tokens_mask: Tensor,
+        unmasked_tokens: Tensor,
         tokens_to_decode_mask: Tensor,
+        unmasked_tokens_mask: Tensor,
         indices: Tensor,
     ) -> Tensor:
         """Reintegrate the separated token sequences into their original order.
@@ -1202,10 +1201,10 @@ class Predictor(FlexiHeliosBase):
         and the final scatter step re-applies the original ordering tracked in 'indices'.
 
         Args:
-            unmasked_tokens: Query tokens of shape [B, X_len, D].
-            tokens_to_decode: Key/value tokens of shape [B, Y_len, D].
-            unmasked_tokens_mask: Binary mask for unmasked tokens of shape [B, X_len].
-            tokens_to_decode_mask: Binary mask for tokens to decode of shape [B, Y_len].
+            tokens_to_decode: Key/value tokens of shape [B, X_len, D].
+            unmasked_tokens: Query tokens of shape [B, Y_len, D].
+            tokens_to_decode_mask: Binary mask for tokens to decode of shape [B, X_len].
+            unmasked_tokens_mask: Binary mask for unmasked tokens of shape [B, Y_len].
             indices: Indices for restoring the original token ordering of shape [B, T].
 
         Returns:
@@ -1248,7 +1247,13 @@ class Predictor(FlexiHeliosBase):
             # note that we are not taking the inverse of the mask, since split_x_y gives us
             # true values for values we want to take part in attention
             x = blk(x=x, y=y, attn_mask=y_mask.bool())
-        x = self.combine_x_y(x, y, x_mask, y_mask, indices)
+        x = self.combine_x_y(
+            tokens_to_decode=x,
+            unmasked_tokens=y,
+            tokens_to_decode_mask=x_mask,
+            unmasked_tokens_mask=y_mask,
+            indices=indices,
+        )
         tokens_per_modality_dict = self.split_and_expand_per_modality(
             x, modalities_to_dims_dict
         )
@@ -1425,5 +1430,7 @@ class PredictorConfig(Config):
         logger.info(f"Predictor kwargs: {kwargs}")
         return Predictor(**kwargs)
 
+
+# TODO: add multiple combo of variables for encoder and predictor, and being able to build them directly, no need to specify each parameter, e.g., encoder_tiny, encoder_small, encoder_base, encoder_large, etc.
 
 # TODO: add multiple combo of variables for encoder and predictor, and being able to build them directly, no need to specify each parameter, e.g., encoder_tiny, encoder_small, encoder_base, encoder_large, etc.
