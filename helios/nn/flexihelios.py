@@ -172,8 +172,7 @@ class TokensAndMasks(NamedTuple):
         else:
             spatial_average = []
             for attr_name in self.modalities:
-                if Modality.get(attr_name).get_tile_resolution() > 0:
-                    # then its spatial
+                if Modality.get(attr_name).is_spatial:
                     mask_attr_name = self.get_masked_modality_name(attr_name)
                     masked_attr = getattr(self, mask_attr_name)
                     if masked_attr is None:
