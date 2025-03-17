@@ -44,6 +44,7 @@ BASE_COMMAND = (
     "--trainer.max_duration.value={num_epochs} "
     "--trainer.max_duration.unit=epochs "
     "--data_loader.num_threads={num_threads}"
+    "--launch.num_gpus={num_gpus}"
 )
 
 # Iterate over all combinations of hyperparameters
@@ -71,6 +72,7 @@ for global_batch_size, num_workers, num_threads in itertools.product(
         warmup=WARMUP,
         num_epochs=NUM_EPOCHS,
         num_threads=num_threads,
+        num_gpus=1,
     )
 
     print(f"Launching: {command}")
