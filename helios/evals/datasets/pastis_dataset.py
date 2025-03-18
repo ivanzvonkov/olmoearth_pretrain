@@ -1,55 +1,10 @@
 """PASTIS dataset class."""
 
-# # Dataset is between September 2018 to November 2019
-
-# # load this torch object: /weka/dfive-default/presto_eval_sets/pastis/pastis_train.pt
-# # print out the shape of the object inside
-
-# import torch
-
-# pastis_train = torch.load("/weka/dfive-default/presto_eval_sets/pastis/pastis_train.pt")
-
-# unique_months = set()
-
-# for item in pastis_train:
-#     print(item, pastis_train[item].shape)
-#     if item == "months":
-#         for item2 in pastis_train[item]:
-#             unique_months.add("_".join(str(item2)))
-
-# print(unique_months)
-
-# # for item in pastis_train:
-# #     if item == "images":
-# #         for item2 in pastis_train[item]:
-# #             # print min and max of the tensor at dimension 1
-# #             print(item2.min(), item2.max())
-# # range -1 to 18
-
-# target_set = set()
-
-# for item in pastis_train:
-#     if item == "targets":
-#         for item2 in pastis_train[item]:
-#             target_set.add(int(item2.max()))
-
-# print(target_set)  #
-
-# # tensor(-132.6000) tensor(14567.)
-
-# # # images torch.Size([5820, 12, 13, 64, 64])
-# # # months torch.Size([5820, 12])
-# # # targets torch.Size([5820, 64, 64])
-
-# # # already subset to 64 * 64 images
-
-# # # tensor([ 9, 10, 11, 12,  1,  2,  3,  4,  5,  6,  7,  8])
-# # # tensor([ 9, 10, 11, 12,  1,  2,  3,  4,  5,  6,  7,  8])
-
 import json
 from pathlib import Path
 
 import einops
+import numpy as np
 import torch
 import torch.multiprocessing
 from torch.utils.data import Dataset
@@ -59,9 +14,29 @@ from helios.data.constants import Modality
 from helios.data.dataset import HeliosSample
 from helios.train.masking import MaskedHeliosSample
 
+from .constants import EVAL_S2_BAND_NAMES
+from .normalize import normalize_bands
+
 torch.multiprocessing.set_sharing_strategy("file_system")
 
 PASTIS_DIR = UPath("/weka/dfive-default/presto_eval_sets/pastis")
+
+
+BAND_STATS = {
+    "01 - Coastal aerosol": {"mean": 1201.6458740234375, "std": 1254.5341796875},
+    "02 - Blue": {"mean": 1201.6458740234375, "std": 1254.5341796875},
+    "03 - Green": {"mean": 1398.6396484375, "std": 1200.8133544921875},
+    "04 - Red": {"mean": 1452.169921875, "std": 1260.5355224609375},
+    "05 - Vegetation Red Edge": {"mean": 1783.147705078125, "std": 1188.0682373046875},
+    "06 - Vegetation Red Edge": {"mean": 2698.783935546875, "std": 1163.632080078125},
+    "07 - Vegetation Red Edge": {"mean": 3022.353271484375, "std": 1220.4384765625},
+    "08 - NIR": {"mean": 3164.72802734375, "std": 1237.6727294921875},
+    "08A - Vegetation Red Edge": {"mean": 3270.47412109375, "std": 1232.5126953125},
+    "09 - Water vapour": {"mean": 3270.47412109375, "std": 1232.5126953125},
+    "10 - SWIR - Cirrus": {"mean": 2392.800537109375, "std": 930.82861328125},
+    "11 - SWIR": {"mean": 2392.800537109375, "std": 930.82861328125},
+    "12 - SWIR": {"mean": 1632.4835205078125, "std": 829.1475219726562},
+}
 
 
 class PASTISDataset(Dataset):
@@ -88,6 +63,7 @@ class PASTISDataset(Dataset):
         if split == "valid":
             split = "val"
 
+        self.means, self.stds = self._get_norm_stats(BAND_STATS)
         self.split = split
         self.norm_method = norm_method
 
@@ -111,6 +87,18 @@ class PASTISDataset(Dataset):
             self.labels = self.labels[subset_indices]
             self.months = self.months[subset_indices]
 
+    @staticmethod
+    def _get_norm_stats(
+        imputed_band_info: dict[str, dict[str, float]],
+    ) -> tuple[np.ndarray, np.ndarray]:
+        means = []
+        stds = []
+        for band_name in EVAL_S2_BAND_NAMES:
+            assert band_name in imputed_band_info, f"{band_name} not found in band_info"
+            means.append(imputed_band_info[band_name]["mean"])  # type: ignore
+            stds.append(imputed_band_info[band_name]["std"])  # type: ignore
+        return np.array(means), np.array(stds)
+
     def __len__(self) -> int:
         """Length of the dataset."""
         return self.images.shape[0]
@@ -118,18 +106,25 @@ class PASTISDataset(Dataset):
     def __getitem__(self, idx: int) -> tuple[MaskedHeliosSample, torch.Tensor]:
         """Return a single PASTIS data instance."""
         image = self.images[idx]  # (12, 13, 64, 64)
+        image = einops.rearrange(image, "t c h w -> h w t c")  # (64, 64, 12, 13)
+
         labels = self.labels[idx]  # (64, 64)
         months = self.months[idx]  # (12)
 
-        image = einops.rearrange(image, "t c h w -> h w t c")
+        if not self.norm_stats_from_pretrained:
+            image = normalize_bands(
+                image.numpy(), self.means, self.stds, self.norm_method
+            )
+
         if self.norm_stats_from_pretrained:
             image = self.normalizer_computed.normalize(Modality.SENTINEL2_L2A, image)
 
         timestamps = []
+        # A little hack to get the correct year for the timestamps
+        # Pastis months are mostly 2018-09 to 2019-08
+        year = 2018
         for month in months:
-            if month != 1:
-                year = 2018
-            else:
+            if month == 1:
                 year = 2019
             timestamps.append(torch.tensor([1, month, year], dtype=torch.long))
         timestamps = torch.stack(timestamps)
