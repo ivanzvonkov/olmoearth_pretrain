@@ -258,9 +258,10 @@ class GalileoTrainModule(HeliosTrainModule):
                     )
                 )
                 microbatch = self.model.transform.apply(microbatch)
-                subsampled_batch = microbatch.subset(
-                    patch_size, token_budget, h_w_to_sample
-                )
+                # subsampled_batch = microbatch.subset(
+                #     patch_size, token_budget, h_w_to_sample
+                # )
+                subsampled_batch = microbatch
                 subsampled_batch = subsampled_batch.to_device(self.device)
                 # Each microbatch should have about the same number of encoded tokens if
                 # we mask here

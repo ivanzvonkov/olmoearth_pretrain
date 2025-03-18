@@ -282,7 +282,7 @@ class HeliosSample(NamedTuple):
         return HeliosSample(**new_data_dict)
 
 
-def collate_helios(batch: list[HeliosSample]) -> HeliosSample:
+def collate_helios(batch: list[HeliosSample], hw_to_sample: list[int]) -> HeliosSample:
     """Collate function that automatically handles any modalities present in the samples."""
 
     # Stack tensors while handling None values
@@ -298,8 +298,10 @@ def collate_helios(batch: list[HeliosSample]) -> HeliosSample:
     sample_fields = batch[0].modalities
 
     # Create a dictionary of stacked tensors for each field
+    hw_to_sample = list(range(5, 13))
     collated_dict = {field: stack_or_none(field) for field in sample_fields}
-    return HeliosSample(**collated_dict)
+    patch_size = np.random.choice(np.arange(1, 8))
+    return HeliosSample(**collated_dict).subset(patch_size, 1500, hw_to_sample)
 
 
 class HeliosDataset(Dataset):
