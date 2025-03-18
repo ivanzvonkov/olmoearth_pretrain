@@ -12,7 +12,7 @@ from olmo_core.distributed.parallel.data_parallel import (
 )
 from olmo_core.optim import AdamWConfig
 from olmo_core.optim.scheduler import CosWithWarmup
-from olmo_core.train.callbacks import ConfigSaverCallback, GPUMemoryMonitorCallback
+from olmo_core.train.callbacks import ConfigSaverCallback, GPUMemoryMonitorCallback, GarbageCollectorCallback
 from olmo_core.train.checkpoint import CheckpointerConfig
 from olmo_core.train.common import Duration, LoadStrategy
 from olmo_core.train.config import TrainerConfig
@@ -204,6 +204,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
         upload_dataset_distribution_pre_train=False,
         enabled=True,  # set to False to avoid wandb errors
     )
+    garbage_collector_callback = GarbageCollectorCallback(enabled=False)
     logger.warning("WANDB Distribution Uploads are disabled for Debugging")
     EVAL_INTERVAL_EPOCHS = 1
     EVAL_TASKS = [
@@ -246,6 +247,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
                 eval_duration=Duration.epochs(EVAL_INTERVAL_EPOCHS),
             ),
         )
+        .with_callback("garbage_collector", garbage_collector_callback)
     )
     return trainer_config
 

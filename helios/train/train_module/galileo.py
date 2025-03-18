@@ -251,12 +251,13 @@ class GalileoTrainModule(HeliosTrainModule):
                 # Gallileo does this subsetting at the microbatch level so we follow that for now
                 # Smallest h /w must be bigger than the smallest patch size
 
-                patch_size = np.random.choice(
-                    np.arange(
-                        self.model.encoder.min_patch_size,
-                        self.model.encoder.max_patch_size,
-                    )
-                )
+                # patch_size = np.random.choice(
+                #     np.arange(
+                #         self.model.encoder.min_patch_size,
+                #         self.model.encoder.max_patch_size,
+                #     )
+                # )
+                patch_size = 2
                 microbatch = self.model.transform.apply(microbatch)
                 # subsampled_batch = microbatch.subset(
                 #     patch_size, token_budget, h_w_to_sample
