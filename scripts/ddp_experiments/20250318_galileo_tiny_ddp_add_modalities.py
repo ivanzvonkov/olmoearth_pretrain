@@ -64,7 +64,7 @@ BASE_COMMAND = (
 # Iterate over all combinations of hyperparameters
 for lr, wd, warmup in itertools.product(LEARNING_RATES, WEIGHT_DECAYS, WARMUP_EPOCHS):
     # Construct run name indicating hyperparameters
-    run_name = f"galileo_tiny_ddp_add_osm_lr_{lr}_wd_{wd}_warmup_{warmup}"
+    run_name = f"galileo_tiny_ddp_more_modalities_lr_{lr}_wd_{wd}_warmup_{warmup}"
 
     # Construct full command
     command = BASE_COMMAND.format(
