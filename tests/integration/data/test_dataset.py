@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 
 from helios.data.constants import Modality
-from helios.data.dataset import HeliosDataset, HeliosSample
+from helios.data.dataset import GetItemArgs, HeliosDataset, HeliosSample
 from helios.dataset.parse import ModalityTile
 from helios.dataset.sample import SampleInformation
 
@@ -16,9 +16,8 @@ def test_helios_dataset(
 ) -> None:
     """Test the HeliosDataset class."""
     prepare_samples, supported_modalities = prepare_samples_and_supported_modalities
-    samples = prepare_samples(tmp_path)
+    prepare_samples(tmp_path)
     dataset = HeliosDataset(
-        samples=samples,
         tile_path=tmp_path,
         supported_modalities=supported_modalities,
         dtype="float32",
@@ -26,12 +25,19 @@ def test_helios_dataset(
     dataset.prepare()
 
     assert len(dataset) == 1
-    assert isinstance(dataset[0], HeliosSample)
-    assert dataset[0].sentinel2_l2a.shape == (256, 256, 12, 12)  # type: ignore
-    assert dataset[0].sentinel1.shape == (256, 256, 12, 2)  # type: ignore
-    assert dataset[0].worldcover.shape == (256, 256, 1, 1)  # type: ignore
-    assert dataset[0].latlon.shape == (2,)  # type: ignore
-    assert dataset[0].timestamps.shape == (12, 3)  # type: ignore
+    args = GetItemArgs(
+        idx=0,
+        patch_size=1,
+        sampled_hw_p=256,
+        token_budget=1000000,
+    )
+    item = dataset[args]
+    assert isinstance(item, HeliosSample)
+    assert item.sentinel2_l2a.shape == (256, 256, 12, 12)  # type: ignore
+    assert item.sentinel1.shape == (256, 256, 12, 2)  # type: ignore
+    assert item.worldcover.shape == (256, 256, 1, 1)  # type: ignore
+    assert item.latlon.shape == (2,)  # type: ignore
+    assert item.timestamps.shape == (12, 3)  # type: ignore
 
 
 class TestHeliosDataset:
