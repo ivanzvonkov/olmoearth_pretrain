@@ -33,16 +33,11 @@ from helios.train.masking import MaskingConfig
 from helios.train.train_module.latent_mim import LatentMIMTrainModuleConfig
 
 logger = logging.getLogger(__name__)
-
+MAX_PATCH_SIZE = 8
+MIN_PATCH_SIZE = 1
 
 def build_model_config(common: CommonComponents) -> LatentMIMConfig:
     """Build the model config for an experiment."""
-    MAX_PATCH_SIZE = 8  # NOTE: actual patch_size <= max_patch_size
-    TOKEN_BUDGET = 1500
-    # IF HW MIN is too small , then we cna have microbatches with very uneven token budgets
-    # which may cause issues
-    H_W_TO_SAMPLE_MIN = 5
-    H_W_TO_SAMPLE_MAX = 13
     ENCODER_EMBEDDING_SIZE = 128
     DECODER_EMBEDDING_SIZE = 128
     ENCODER_DEPTH = 4
@@ -76,9 +71,6 @@ def build_model_config(common: CommonComponents) -> LatentMIMConfig:
         encoder_config=encoder_config,
         decoder_config=decoder_config,
         transform_type=TRANSFORM_TYPE,
-        token_budget=TOKEN_BUDGET,
-        h_w_to_sample_min=H_W_TO_SAMPLE_MIN,
-        h_w_to_sample_max=H_W_TO_SAMPLE_MAX,
     )
     return model_config
 
