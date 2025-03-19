@@ -266,7 +266,6 @@ class HeliosSample(NamedTuple):
             sampled_hw_p, max_tokens_per_instance
         )
         sampled_hw = sampled_hw_p * patch_size
-        logger.info(f"self.time: {self.time}")
         start_h = np.random.choice(self.height - sampled_hw + 1)
         start_w = np.random.choice(self.width - sampled_hw + 1)
         start_t = np.random.choice(self.time - max_t + 1)
@@ -308,7 +307,6 @@ def collate_helios(batch: list[HeliosSample]) -> HeliosSample:
         stacked_tensor = torch.stack(
             [torch.from_numpy(getattr(sample, attr)) for _, sample in batch], dim=0
         )
-        logger.info(f"Stacked tensor shape: {stacked_tensor.shape} for attribute: {attr}")
         return stacked_tensor
 
     # TODO: Gets all non-None modalities ASSUMES ALL SAMPLES HAVE THE SAME MODALITIES
@@ -317,8 +315,6 @@ def collate_helios(batch: list[HeliosSample]) -> HeliosSample:
 
     # Create a dictionary of stacked tensors for each field
     collated_dict = {field: stack_or_none(field) for field in sample_fields}
-    # patch_size = 2
-    logger.info(f"patch size type in collate: {type(patch_size)}")
     return patch_size, HeliosSample(**collated_dict)
 
 

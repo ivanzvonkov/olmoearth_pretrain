@@ -330,11 +330,6 @@ class GalileoTrainModule(HeliosTrainModule):
         total_batch_loss = torch.tensor(0.0, device=self.device)
         # Split into micro-batches.
         patch_size, batch = batch
-        for modality_name in batch.modalities:
-            # log all the shapes of the modalities
-            modality_data = getattr(batch, modality_name)
-            logger.info(f"Modality: {modality_name}, shape: {modality_data.shape}")
-        logger.info(f"timestamps shape: {batch.timestamps.shape}")
         microbatches = split_batch(batch, self.rank_microbatch_size)
         num_microbatches = len(microbatches)
         for microbatch_idx, microbatch in enumerate(microbatches, start=1):
@@ -350,8 +345,6 @@ class GalileoTrainModule(HeliosTrainModule):
 
                 # Each microbatch should have about the same number of encoded tokens if
                 # we mask here
-                logger.info(f"Patch size: {patch_size}")
-                logger.info(f"patch size type: {type(patch_size)}")
                 if microbatch_idx % 2 == 0:
                     masked_batch = self.masking_strategy_a.apply_mask(
                         microbatch, patch_size=patch_size
