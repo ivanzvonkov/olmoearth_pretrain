@@ -323,6 +323,7 @@ class HeliosDataset(Dataset):
     """Helios dataset."""
 
     PROJECTION_CRS = PROJECTION_CRS
+    h5py_folder: str = "h5py_data"
 
     def __init__(
         self,
@@ -331,7 +332,7 @@ class HeliosDataset(Dataset):
         h5py_dir: UPath | None = None,
         tile_path: UPath | None = None,
         normalize: bool = True,
-        h5py_folder: str = "h5py_data",
+        multiprocessed_h5_creation: bool = True,
     ):
         """Initialize the dataset.
 
@@ -351,6 +352,7 @@ class HeliosDataset(Dataset):
             h5py_dir: The path to the h5py directory containing preprocessed data. If None, the dataset will be created from raw data. Mutually exclusive with tile_path.
 
             h5py_folder: The folder name to store the h5py files when creating from raw data.
+            multiprocessed_h5_creation: If True, create the h5py files in parallel using multiprocessing.
 
         Returns:
             None
@@ -375,8 +377,8 @@ class HeliosDataset(Dataset):
             self.tile_path = tile_path
             self.h5py_dir: Path | None = None  # type: ignore
 
+        self.multiprocessed_h5_creation = multiprocessed_h5_creation
         self.supported_modalities = supported_modalities
-        self.h5py_folder = h5py_folder
         self.dtype = dtype
         self.normalize = normalize
         if self.normalize:
@@ -459,17 +461,21 @@ class HeliosDataset(Dataset):
         """Create a dataset of the samples in h5 format in a shared weka directory under the given fingerprint."""
         total_sample_indices = len(samples)
 
-        num_processes = max(1, mp.cpu_count() - 2)
-        logger.info(f"Creating H5 dataset using {num_processes} processes")
-        with mp.Pool(processes=num_processes) as pool:
-            # Process samples in parallel and track progress with tqdm
-            _ = list(
-                tqdm(
-                    pool.imap(self.process_sample_into_h5, enumerate(samples)),
-                    total=total_sample_indices,
-                    desc="Creating H5 files",
+        if self.multiprocessed_h5_creation:
+            num_processes = max(1, mp.cpu_count() - 2)
+            logger.info(f"Creating H5 dataset using {num_processes} processes")
+            with mp.Pool(processes=num_processes) as pool:
+                # Process samples in parallel and track progress with tqdm
+                _ = list(
+                    tqdm(
+                        pool.imap(self.process_sample_into_h5, enumerate(samples)),
+                        total=total_sample_indices,
+                        desc="Creating H5 files",
+                    )
                 )
-            )
+        else:
+            for i, sample in enumerate(samples):
+                self.process_sample_into_h5((i, sample))
 
     def set_h5py_dir(self, num_samples: int) -> None:
         """Set the h5py directory.
@@ -504,7 +510,6 @@ class HeliosDataset(Dataset):
         if self.is_dataset_prepared:
             logger.info("Dataset is already prepared")
             return
-        samples = []
         if self.h5py_dir is None:
             logger.warning(
                 "h5py_dir is not set, Generating H5 files from raw tile directory"
@@ -523,6 +528,8 @@ class HeliosDataset(Dataset):
             logger.info("H5 files already exist, skipping creation")
             logger.info(f"H5 files exist in {self.h5py_dir}")
             num_samples = int(self.h5py_dir.name)
+        if samples is None:
+            samples = []
         self.latlon_distribution = self.get_geographic_distribution(samples)
         self.sample_indices = np.arange(num_samples)
 
