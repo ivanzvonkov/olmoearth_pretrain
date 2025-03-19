@@ -208,34 +208,19 @@ class MaskingStrategy:
     ) -> ArrayTensor:
         mask_shape = list(shape)
         mask_shape[-1] = modality.num_band_sets
-        zoom_factor = modality.zoom_factor
         if modality.is_spatial:
-            mask_shape[1] //= patch_size * zoom_factor
-            mask_shape[2] //= patch_size * zoom_factor
+            mask_shape[1] //= patch_size
+            mask_shape[2] //= patch_size
 
-        b = shape[0]
-        num_tokens = np.prod(mask_shape[1:])
-
-        if num_tokens > 1:
-            encode_tokens = int(num_tokens * self.encode_ratio)
-            decode_tokens = int(num_tokens * self.decode_ratio)
-            target_tokens = int(num_tokens - (encode_tokens + decode_tokens))
+        if modality.is_spatial or modality.is_multitemporal:
+            b = shape[0]
+            num_tokens = np.prod(mask_shape[1:])
         else:
-            # If there's only one token, we assign it to online encoder or decoder based on ratios
-            encoder_only = self.generator.random() < self.encode_ratio
-            decoder_only = self.generator.random() < self.decode_ratio
-            if encoder_only:
-                encode_tokens = num_tokens
-                decode_tokens = 0
-                target_tokens = 0
-            elif decoder_only:
-                encode_tokens = 0
-                decode_tokens = num_tokens
-                target_tokens = 0
-            else:
-                encode_tokens = 0
-                decode_tokens = 0
-                target_tokens = num_tokens
+            num_tokens = np.prod(mask_shape[:-1])
+
+        encode_tokens = int(num_tokens * self.encode_ratio)
+        decode_tokens = int(num_tokens * self.decode_ratio)
+        target_tokens = int(num_tokens - (encode_tokens + decode_tokens))
 
         # we do this as a numpy array to take advantage of
         # numpy's permuted function
@@ -247,17 +232,17 @@ class MaskingStrategy:
                 np.ones(encode_tokens, dtype=np.int_) * MaskValue.ONLINE_ENCODER.value,
             )
         )
-        flat_mask_tokens = repeat(flat_mask_tokens, "t -> b t", b=b)
-        flat_mask_tokens = self.generator.permuted(flat_mask_tokens, axis=1)
+        if modality.is_spatial or modality.is_multitemporal:
+            flat_mask_tokens = repeat(flat_mask_tokens, "t -> b t", b=b)
+            flat_mask_tokens = self.generator.permuted(flat_mask_tokens, axis=1)
+        else:
+            flat_mask_tokens = self.generator.permuted(flat_mask_tokens)
 
         mask = torch.as_tensor(flat_mask_tokens, device=device)
         mask = mask.view(*mask_shape)
         if modality.is_spatial:
             mask = repeat(
-                mask,
-                "b h w ... -> b (h hp) (w wp) ...",
-                hp=patch_size * zoom_factor,
-                wp=patch_size * zoom_factor,
+                mask, "b h w ... -> b (h hp) (w wp) ...", hp=patch_size, wp=patch_size
             )
         return mask
 
@@ -404,11 +389,10 @@ class SpaceMaskingStrategy(MaskingStrategy):
             raise ValueError("Non-spatial modality {modality}")
 
         b, h, w = shape[:3]
-        zoom_factor = modality.zoom_factor
 
         assert (h % patch_size == 0) and (w % patch_size == 0)
-        h_p = h // (patch_size * zoom_factor)
-        w_p = w // (patch_size * zoom_factor)
+        h_p = h // patch_size
+        w_p = w // patch_size
 
         patches = h_p * w_p
         encode_patches = int(self.encode_ratio * patches)
@@ -429,8 +413,8 @@ class SpaceMaskingStrategy(MaskingStrategy):
         random_batch_mask = self.generator.permuted(batch_mask, axis=1)
         patch_mask = rearrange(random_batch_mask, "b (h w) -> b h w", h=h_p, w=w_p)
 
-        mask = np.repeat(patch_mask, repeats=patch_size * zoom_factor, axis=1)
-        mask = np.repeat(mask, repeats=patch_size * zoom_factor, axis=2)
+        mask = np.repeat(patch_mask, repeats=patch_size, axis=1)
+        mask = np.repeat(mask, repeats=patch_size, axis=2)
         mask = torch.as_tensor(mask, device=device)
         return mask
 

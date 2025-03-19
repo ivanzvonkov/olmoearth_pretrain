@@ -277,7 +277,6 @@ class HeliosSample(NamedTuple):
                 new_data_dict[attribute] = modality[start_t : start_t + max_t]
                 continue
             modality_spec = Modality.get(attribute)
-            zoom_factor = modality_spec.zoom_factor
             if modality_spec.is_spacetime_varying:
                 # for now, lets assume fixed resolution
                 new_data_dict[attribute] = modality[

@@ -303,7 +303,7 @@ class HeliosDataLoader(DataLoaderBase):
             mock_latlon = rng.random((2,), dtype=np.float32)
             output_dict["latlon"] = mock_latlon
         if Modality.OPENSTREETMAP_RASTER in self.dataset.supported_modalities:
-            mock_openstreetmap_raster = torch.rand(1, 256, 256, 1, 30)
+            mock_openstreetmap_raster = torch.rand(1, 1024, 1024, 1, 30)
             output_dict["openstreetmap_raster"] = mock_openstreetmap_raster
         days = torch.randint(0, 25, (1, 1, 12), dtype=torch.long)
         months = torch.randint(0, 12, (1, 1, 12), dtype=torch.long)
