@@ -18,6 +18,7 @@ def get_eval_dataset(
     split: str,
     norm_stats_from_pretrained: bool = False,
     partition: str = "default",
+    is_multimodal: bool = False,
 ) -> Dataset:
     """Retrieve an eval dataset from the dataset name."""
     if eval_dataset not in ALL_DATASETS:
@@ -56,6 +57,7 @@ def get_eval_dataset(
             split=split,
             partition=partition,
             norm_stats_from_pretrained=norm_stats_from_pretrained,
+            is_multimodal=is_multimodal,
         )
 <<<<<<< HEAD
     else:
