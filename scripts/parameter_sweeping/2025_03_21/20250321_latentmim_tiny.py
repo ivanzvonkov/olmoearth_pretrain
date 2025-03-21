@@ -3,8 +3,6 @@
 import itertools
 import subprocess  # nosec
 
-
-
 # Masking configurations
 MASKING_TYPES = [
     "random",
@@ -63,8 +61,8 @@ TOKEN_EXIT_ARGS = [
     (ZERO_ENCODER_TOKEN_EXIT_ARGS, "zero"),
 ]
 
-# Loss function
-LOSS_TYPES = ["patch_discrimination", "l2"]
+# Loss function new is the memory efficient loss function
+LOSS_TYPES = ["patch_discrimination_new", "l2"]
 
 
 # Sweep parameters
@@ -73,19 +71,10 @@ WEIGHT_DECAYS = [2e-2]
 WARMUP_EPOCHS = [10]
 
 # Base command template
-# swithc back for non debugging
+# NEED TO CHANGE TO a separate project for these new runs
+# swithc back for non debugging to launch and jupiter-cirrascale-2 and python3
 BASE_COMMAND = (
-    "python3 scripts/parameter_sweeping/2025_03_21/latent_mim_base_script.py train {run_name} ai2/jupiter-cirrascale-2 "
-    "--model.encoder_config.embedding_size={encoder_embedding_size} "
-    "--model.encoder_config.depth={encoder_depth} "
-    "--model.encoder_config.num_heads={encoder_num_heads} "
-    "--model.encoder_config.mlp_ratio={mlp_ratio} "
-    "--model.decoder_config.encoder_embedding_size={encoder_embedding_size} "
-    "--model.decoder_config.decoder_embedding_size={decoder_embedding_size} "
-    "--model.decoder_config.depth={decoder_depth} "
-    "--model.decoder_config.num_heads={decoder_num_heads} "
-    "--model.decoder_config.mlp_ratio={mlp_ratio} "
-    "--data_loader.num_workers={num_workers} "
+    "torchrun scripts/parameter_sweeping/2025_03_21/latent_mim_base_script.py train {run_name} local "
     "--train_module.masking_config.strategy_config.type={masking_type} "
     "--train_module.loss_config.loss_config.type={loss_type} "
     "--train_module.optim_config.lr={lr} "
@@ -110,14 +99,6 @@ for lr, wd, warmup, masking_type, loss_type, token_exit_args in itertools.produc
     # Construct full command
     command = BASE_COMMAND.format(
         run_name=run_name,
-        encoder_embedding_size=ENCODER_EMBEDDING_SIZE,
-        decoder_embedding_size=DECODER_EMBEDDING_SIZE,
-        encoder_depth=ENCODER_DEPTH,
-        decoder_depth=DECODER_DEPTH,
-        encoder_num_heads=ENCODER_NUM_HEADS,
-        decoder_num_heads=DECODER_NUM_HEADS,
-        mlp_ratio=MLP_RATIO,
-        num_workers=NUM_WORKERS,
         masking_type=masking_type,
         loss_type=loss_type,
         lr=lr,

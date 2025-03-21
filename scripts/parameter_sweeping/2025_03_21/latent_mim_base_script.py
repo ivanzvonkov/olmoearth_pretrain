@@ -160,16 +160,23 @@ def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
 def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     """Build the trainer config for an experiment."""
     MAX_DURATION = Duration.epochs(300)
-    METRICS_COLLECT_INTERVAL = 1
+    METRICS_COLLECT_INTERVAL = 10
     CANCEL_CHECK_INTERVAL = 1
     LOAD_STRATEGY = LoadStrategy.if_available
     WANDB_USERNAME = "eai-ai2"  # nosec
     WANDB_PROJECT = "helios-debug"
-    checkpointer_config = CheckpointerConfig(work_dir=common.save_folder)
+    PERMANENT_SAVE_INTERVAL = 5000
+    EPHERMERAL_SAVE_INTERVAL = 250
+    checkpointer_config = CheckpointerConfig(
+        work_dir=common.save_folder,
+        save_interval=PERMANENT_SAVE_INTERVAL,
+        ephemeral_save_interval=EPHERMERAL_SAVE_INTERVAL,
+    )
     wandb_callback = HeliosWandBCallback(
         name=common.run_name,
         project=WANDB_PROJECT,
         entity=WANDB_USERNAME,
+        cancel_check_interval=100, # checks for cancel tag on wandb
         enabled=True,  # set to False to avoid wandb errors
     )
     # Safe to collect everys tep for now
