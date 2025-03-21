@@ -430,23 +430,24 @@ class Reconstructor(nn.Module):
         modality_tokens, modality_masks = [], []
         for idx, channel_set_indices in enumerate(modality_spec.bandsets_as_indices()):
             print(f"{idx} {channel_set_indices} {modality}")
-            print(modality_data.shape)
-            print(modality_mask.shape)
+            print(f'data {modality_data.shape}')
+            print(f'mask {modality_mask.shape}')
             data = modality_data[..., idx, :]
-            print(data.shape)
+            print(f'bs data {data.shape}')
             masks = modality_mask[..., idx]
-            print(masks.shape)
             data = self.per_modality_reconstructions[modality][
                 self._get_reconstruction_module_name(modality, idx)
             ](data, patch_size=patch_size)
             modality_tokens.append(data)
-            print(data.shape)
+            print(f'reconstructed {data.shape}')
+            print(f'bs mask {masks.shape}')
             masks = repeat(
                 masks,
                 "b h w ... -> b (h p_h) (w p_w) ...",
                 p_h=patch_size,
                 p_w=patch_size,
             )
+            print(f'reconstructed mask {masks.shape}')
             modality_masks.append(masks)
         return torch.cat(modality_tokens, dim=-1), torch.cat(modality_masks, dim=-1)
 
