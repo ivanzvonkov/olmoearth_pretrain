@@ -29,6 +29,7 @@ class DownstreamEvaluator:
         self,
         dataset: str,
         trainer: Trainer,
+        eval_interval: Duration,
         batch_size: int = 128,
         num_workers: int = 8,
         patch_size: int = 4,
@@ -40,6 +41,7 @@ class DownstreamEvaluator:
         """Initialize the downstream evaluator."""
         self.dataset = dataset
         self.config = DATASET_TO_CONFIG[dataset]
+        self.eval_interval = eval_interval
         self.trainer = trainer
         self.device = device
         self.batch_size = batch_size
@@ -79,8 +81,8 @@ class DownstreamEvaluator:
         """Validate the model on the downstream task."""
         # try:
         train_loader = self._get_data_loader("train")
-        print("train loader loaded")
-        print(len(train_loader.dataset))
+        logger.debug("train loader loaded")
+        logger.debug(len(train_loader.dataset))
         val_loader = self._get_data_loader("valid")
 
         train_embeddings, train_labels = self._get_embeddings(train_loader)
@@ -138,16 +140,13 @@ class DownstreamEvaluatorCallback(Callback):
     """Runs in-loop evaluations periodically during training."""
 
     evaluators: list[DownstreamEvaluator] = field(default_factory=list)
-    eval_duration: Duration = field(default_factory=lambda: Duration.epochs(1))
 
     def post_step(self) -> None:
         """Run the evaluators."""
-        # Compute the evaluation interval in steps.
-        eval_interval_steps = self.trainer.convert_duration_to_steps(self.eval_duration)
-        if self.step <= 1 or self.step % eval_interval_steps != 0:
-            return
-
         for evaluator in self.evaluators:
+            eval_interval_steps = self.trainer.convert_duration_to_steps(evaluator.eval_interval)
+            if self.step <= 1 or self.step % eval_interval_steps != 0:
+                continue
             logger.info(f"Running {evaluator.dataset} evaluations...")
             start_time = time.monotonic()
             val_result = evaluator.val()
@@ -173,14 +172,14 @@ class DownstreamTaskConfig:
     # ViT-base = 0.01
     probe_lr: float | None = None
     patch_size: int = 4
+    eval_interval: Duration = field(default_factory=lambda: Duration.epochs(1))
 
 
 @dataclass
 class DownstreamEvaluatorCallbackConfig(CallbackConfig):
     """Config for the downstream evaluator callback."""
 
-    tasks: list[DownstreamTaskConfig]
-    eval_duration: Duration = field(default_factory=lambda: Duration.epochs(1))
+    tasks: dict[str, DownstreamTaskConfig]
     enabled: bool = True
 
     def build(self, trainer: Trainer) -> Callback | None:
@@ -188,27 +187,25 @@ class DownstreamEvaluatorCallbackConfig(CallbackConfig):
         if not self.enabled:
             return None
 
-        evaluators: list[Evaluator] = []
+        evaluators: list[DownstreamEvaluator] = []
         # check that probe_lr is set for segmentation tasks
-        for task in self.tasks:
+        for evaluation_name, task in self.tasks.items():
             config = DATASET_TO_CONFIG[task.dataset]
             if config.task_type == TaskType.SEGMENTATION:
                 if task.probe_lr is None:
                     raise ValueError(f"probe_lr cannot be None for {task.dataset}")
-            evaluators.append(
-                DownstreamEvaluator(
-                    dataset=task.dataset,
-                    trainer=trainer,
-                    batch_size=task.batch_size,
-                    num_workers=task.num_workers,
-                    pooling_type=task.pooling_type,
+            evaluators.append(DownstreamEvaluator(
+                dataset=task.dataset,
+                trainer=trainer,
+                batch_size=task.batch_size,
+                num_workers=task.num_workers,
+                pooling_type=task.pooling_type,
                     norm_stats_from_pretrained=task.norm_stats_from_pretrained,
                     device=trainer.device,
                     probe_lr=task.probe_lr,
                     patch_size=task.patch_size,
+                    eval_interval=task.eval_interval,
                 )
-            )
         return DownstreamEvaluatorCallback(
             evaluators=evaluators,
-            eval_duration=self.eval_duration,
         )

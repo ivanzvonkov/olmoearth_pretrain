@@ -180,24 +180,34 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     )
     # Safe to collect everys tep for now
     garbage_collector_callback = GarbageCollectorCallback(gc_interval=1)
-    EVAL_INTERVAL_EPOCHS = 5
-    EVAL_TASKS = [
-        DownstreamTaskConfig(
+    EVAL_TASKS = {
+        "m-eurosat": DownstreamTaskConfig(
             dataset="m-eurosat",
             batch_size=128,
             num_workers=8,
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
+            eval_interval=Duration.epochs(5),
         ),
-        DownstreamTaskConfig(
+        "mados": DownstreamTaskConfig(
             dataset="mados",
             batch_size=128,
             num_workers=8,
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=False,
             probe_lr=0.1,
+            eval_interval=Duration.epochs(20),
         ),
-    ]
+        "sen1floods11": DownstreamTaskConfig(
+            dataset="sen1floods11",
+            batch_size=128,
+            num_workers=8,
+            pooling_type=PoolingType.MEAN,
+            norm_stats_from_pretrained=True,
+            probe_lr=0.1,
+            eval_interval=Duration.epochs(20),
+        ),
+    }
     trainer_config = (
         TrainerConfig(
             work_dir=common.save_folder,
@@ -216,7 +226,6 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             "downstream_evaluator",
             DownstreamEvaluatorCallbackConfig(
                 tasks=EVAL_TASKS,
-                eval_duration=Duration.epochs(EVAL_INTERVAL_EPOCHS),
             ),
         )
         .with_callback("garbage_collector", garbage_collector_callback)

@@ -3,17 +3,13 @@
 import logging
 
 from olmo_core.config import DType
-from olmo_core.distributed.parallel.data_parallel import (
-    DataParallelConfig,
-    DataParallelType,
-)
+from olmo_core.distributed.parallel.data_parallel import (DataParallelConfig,
+                                                          DataParallelType)
 from olmo_core.optim import AdamWConfig
 from olmo_core.optim.scheduler import CosWithWarmup
-from olmo_core.train.callbacks import (
-    ConfigSaverCallback,
-    GarbageCollectorCallback,
-    GPUMemoryMonitorCallback,
-)
+from olmo_core.train.callbacks import (ConfigSaverCallback,
+                                       GarbageCollectorCallback,
+                                       GPUMemoryMonitorCallback)
 from olmo_core.train.checkpoint import CheckpointerConfig
 from olmo_core.train.common import Duration, LoadStrategy
 from olmo_core.train.config import TrainerConfig
@@ -23,14 +19,13 @@ from helios.data.dataloader import HeliosDataLoaderConfig
 from helios.data.dataset import HeliosDatasetConfig
 from helios.data.normalize import Strategy
 from helios.internal.common import build_common_components
-from helios.internal.experiment import CommonComponents, HeliosVisualizeConfig, main
+from helios.internal.experiment import (CommonComponents,
+                                        HeliosVisualizeConfig, main)
 from helios.nn.flexihelios import EncoderConfig, PoolingType, PredictorConfig
 from helios.nn.latent_mim import LatentMIMConfig
-from helios.train.callbacks import (
-    DownstreamEvaluatorCallbackConfig,
-    HeliosSpeedMonitorCallback,
-    HeliosWandBCallback,
-)
+from helios.train.callbacks import (DownstreamEvaluatorCallbackConfig,
+                                    HeliosSpeedMonitorCallback,
+                                    HeliosWandBCallback)
 from helios.train.callbacks.evaluator_callback import DownstreamTaskConfig
 from helios.train.loss import LossConfig
 from helios.train.masking import MaskingConfig
@@ -179,15 +174,15 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     # Safe to collect everys tep for now
     garbage_collector_callback = GarbageCollectorCallback(gc_interval=1)
     EVAL_INTERVAL_EPOCHS = 5
-    EVAL_TASKS = [
-        DownstreamTaskConfig(
+    EVAL_TASKS = {
+        "m-eurosat": DownstreamTaskConfig(
             dataset="m-eurosat",
             batch_size=128,
             num_workers=8,
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
         ),
-        DownstreamTaskConfig(
+        "mados": DownstreamTaskConfig(
             dataset="mados",
             batch_size=128,
             num_workers=8,
@@ -195,7 +190,15 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             norm_stats_from_pretrained=False,
             probe_lr=0.1,
         ),
-    ]
+        "sen1floods11": DownstreamTaskConfig(
+            dataset="sen1floods11",
+            batch_size=128,
+            num_workers=8,
+            pooling_type=PoolingType.MEAN,
+            norm_stats_from_pretrained=True,
+            probe_lr=0.1,
+        ),
+    }
     trainer_config = (
         TrainerConfig(
             work_dir=common.save_folder,
