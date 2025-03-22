@@ -5,12 +5,12 @@ import subprocess  # nosec
 
 # Masking configurations
 MASKING_TYPES = [
-    # "random",
-    # "time",
-    # "space",
-    "modality",
-    # "space_time",
-    "modality_space_time",
+    "random",
+    "time",
+    "space",
+    # "modality",
+    "space_time",
+    # "modality_space_time",
 ]
 
 # Token exit configurations
