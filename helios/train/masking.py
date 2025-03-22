@@ -574,8 +574,10 @@ class SpaceTimeMaskingStrategy(MaskingStrategy):
         """Apply space or time masking to the input data."""
         has_enough_timesteps = batch.time >= 3
         if (self.generator.random() < 0.5) or (not has_enough_timesteps):
+            logger.info("Applying space masking")
             return self.space_strategy.apply_mask(batch, patch_size, **kwargs)
         else:
+            logger.info("Applying time masking")
             return self.time_strategy.apply_mask(batch, patch_size, **kwargs)
 
 

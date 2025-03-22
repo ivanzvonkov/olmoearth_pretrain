@@ -84,6 +84,9 @@ for masking_type, loss_type, token_exit_args in itertools.product(
     if loss_type == "all_discrimination":
         # Need to reduce rank microbatch size for all discrimination to avoid OOM
         rank_microbatch_size = 32
+    elif "modality" in masking_type:
+        # Sometimes we pick both S1 and S2 and the number of tokens is a little too much for 128
+        rank_microbatch_size = 64
     else:
         rank_microbatch_size = 128
 

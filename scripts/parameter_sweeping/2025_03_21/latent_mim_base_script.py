@@ -205,7 +205,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
             probe_lr=0.1,
-            eval_interval=Duration.steps(10),
+            eval_interval=Duration.epochs(10),
         ),
     }
     trainer_config = (
