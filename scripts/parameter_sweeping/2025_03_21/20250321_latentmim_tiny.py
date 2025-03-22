@@ -3,18 +3,6 @@
 import itertools
 import subprocess  # nosec
 
-# Fixed training parameters
-NUM_WORKERS = 8
-
-# Fixed model parameters
-ENCODER_EMBEDDING_SIZE = 192
-DECODER_EMBEDDING_SIZE = 192
-ENCODER_DEPTH = 12
-DECODER_DEPTH = 12
-ENCODER_NUM_HEADS = 3
-DECODER_NUM_HEADS = 3
-MLP_RATIO = 4.0
-
 # Masking configurations
 MASKING_TYPES = [
     "random",
@@ -73,42 +61,19 @@ TOKEN_EXIT_ARGS = [
     (ZERO_ENCODER_TOKEN_EXIT_ARGS, "zero"),
 ]
 
-# Loss function
-LOSS_TYPES = ["patch_discrimination", "l2"]
-
-
-# Sweep parameters
-LEARNING_RATES = [2e-3]
-WEIGHT_DECAYS = [2e-2]
-WARMUP_EPOCHS = [10]
+# Loss function new is the memory efficient loss function
+LOSS_TYPES = ["patch_discrimination_new", "l2", "all_discrimination"]
 
 # Base command template
 BASE_COMMAND = (
-    "python3 scripts/latent_mim.py launch {run_name} ai2/jupiter-cirrascale-2 "
-    "--model.encoder_config.embedding_size={encoder_embedding_size} "
-    "--model.encoder_config.depth={encoder_depth} "
-    "--model.encoder_config.num_heads={encoder_num_heads} "
-    "--model.encoder_config.mlp_ratio={mlp_ratio} "
-    "--model.decoder_config.encoder_embedding_size={encoder_embedding_size} "
-    "--model.decoder_config.decoder_embedding_size={decoder_embedding_size} "
-    "--model.decoder_config.depth={decoder_depth} "
-    "--model.decoder_config.num_heads={decoder_num_heads} "
-    "--model.decoder_config.mlp_ratio={mlp_ratio} "
-    "--data_loader.num_workers={num_workers} "
+    "python3 scripts/parameter_sweeping/2025_03_21/latent_mim_base_script.py train {run_name} ai2/jupiter-cirrascale-2 "
     "--train_module.masking_config.strategy_config.type={masking_type} "
-    "--train_module.loss_config.loss_config.type={loss_type} "
-    "--train_module.optim_config.lr={lr} "
-    "--train_module.optim_config.weight_decay={wd} "
-    "--train_module.warmup_duration.value={warmup} "
-    "--train_module.warmup_duration.unit=epochs "
+    "--train_module.loss_config.loss_config.type={loss_type} --train_module.rank_microbatch_size={rank_microbatch_size} "
     "{token_exit_args}"
 )
 
 # Iterate over all combinations of hyperparameters
-for lr, wd, warmup, masking_type, loss_type, token_exit_args in itertools.product(
-    LEARNING_RATES,
-    WEIGHT_DECAYS,
-    WARMUP_EPOCHS,
+for masking_type, loss_type, token_exit_args in itertools.product(
     MASKING_TYPES,
     LOSS_TYPES,
     TOKEN_EXIT_ARGS,
@@ -116,23 +81,19 @@ for lr, wd, warmup, masking_type, loss_type, token_exit_args in itertools.produc
     # Construct run name indicating hyperparameters
     run_name = f"latentmim_tiny_masking_{masking_type}_loss_{loss_type}_token_exit_{token_exit_args[1]}"
 
+    if loss_type == "all_discrimination":
+        # Need to reduce rank microbatch size for all discrimination to avoid OOM
+        rank_microbatch_size = 32
+    else:
+        rank_microbatch_size = 128
+
     # Construct full command
     command = BASE_COMMAND.format(
         run_name=run_name,
-        encoder_embedding_size=ENCODER_EMBEDDING_SIZE,
-        decoder_embedding_size=DECODER_EMBEDDING_SIZE,
-        encoder_depth=ENCODER_DEPTH,
-        decoder_depth=DECODER_DEPTH,
-        encoder_num_heads=ENCODER_NUM_HEADS,
-        decoder_num_heads=DECODER_NUM_HEADS,
-        mlp_ratio=MLP_RATIO,
-        num_workers=NUM_WORKERS,
         masking_type=masking_type,
         loss_type=loss_type,
-        lr=lr,
-        wd=wd,
-        warmup=warmup,
         token_exit_args=token_exit_args[0],
+        rank_microbatch_size=rank_microbatch_size,
     )
 
     print(f"Launching: {command}")
