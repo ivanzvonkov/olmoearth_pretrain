@@ -183,8 +183,8 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     EVAL_TASKS = [
         DownstreamTaskConfig(
             dataset="pastis",
-            batch_size=4,
-            num_workers=2,
+            batch_size=1,
+            num_workers=0,
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
             probe_lr=0.1,
@@ -192,8 +192,8 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
         ),
         DownstreamTaskConfig(
             dataset="pastis-r",
-            batch_size=4,
-            num_workers=2,
+            batch_size=1,
+            num_workers=0,
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
             probe_lr=0.1,
