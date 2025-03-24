@@ -25,6 +25,18 @@ LEARNING_RATES = [2e-3]
 WEIGHT_DECAYS = [3e-2]
 WARMUP_EPOCHS = [10]
 
+# Fixed token exit
+TOKEN_EXIT_CFG = {
+    "sentinel2_l2a": 12,
+    "sentinel1": 12,
+    "latlon": 12,
+    "worldcover": 0,
+}
+token_exit_args = " ".join(
+    f"--train_module.token_exit_cfg.{key}={value}"
+    for key, value in TOKEN_EXIT_CFG.items()
+)
+
 # Base command template
 BASE_COMMAND = (
     "python3 scripts/galileo.py launch {run_name} ai2/jupiter-cirrascale-2 "
@@ -44,7 +56,7 @@ BASE_COMMAND = (
     "--train_module.optim_config.lr={lr} "
     "--train_module.optim_config.weight_decay={wd} "
     "--train_module.warmup_duration.value={warmup} "
-    "--train_module.warmup_duration.unit=epochs "
+    "--train_module.warmup_duration.unit=epochs " + token_exit_args + " "
     "--launch.num_gpus=8"
 )
 
