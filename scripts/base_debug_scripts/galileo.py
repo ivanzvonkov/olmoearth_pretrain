@@ -113,13 +113,11 @@ def build_train_module_config(
     loss_config_a = LossConfig(
         loss_config={
             "type": "patch_discrimination",
-            "tau": 1,
         }
     )
     loss_config_b = LossConfig(
         loss_config={
             "type": "patch_discrimination",
-            "tau": 1,
         }
     )
     token_exit_cfg_a = {
