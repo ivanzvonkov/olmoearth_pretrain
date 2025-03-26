@@ -8,7 +8,6 @@ import torch
 import torch.distributed.checkpoint.state_dict as dist_cp_sd
 from olmo_core.distributed.parallel import DataParallelConfig
 from olmo_core.distributed.utils import get_full_tensor, get_local_tensor
-
 from olmo_core.optim import OptimConfig
 from olmo_core.optim.scheduler import Scheduler
 from olmo_core.train.common import Duration, ReduceType
@@ -251,6 +250,8 @@ class GalileoTrainModule(HeliosTrainModule):
                 )
                 # IN FSDP because we use a NAMED TUPLE WE NEED TO MANUALLY MOVE THE TENSORS TO THE DEVICE
                 microbatch = self.model.transform.apply(microbatch)
+                microbatch = microbatch.distribute_tensors(self.world_mesh)
+
 
                 if microbatch_idx % 2 == 0:
                     masked_batch = self.masking_strategy_a.apply_mask(
