@@ -139,7 +139,6 @@ class DownstreamEvaluatorCallback(Callback):
     def post_step(self) -> None:
         """Run the evaluators."""
         for evaluator in self.evaluators:
-
             eval_interval_steps = self.trainer.convert_duration_to_steps(
                 evaluator.eval_interval
             )
@@ -178,7 +177,6 @@ class DownstreamTaskConfig:
 class DownstreamEvaluatorCallbackConfig(CallbackConfig):
     """Config for the downstream evaluator callback."""
 
-
     tasks: dict[str, DownstreamTaskConfig]
 
     enabled: bool = True
@@ -207,7 +205,6 @@ class DownstreamEvaluatorCallbackConfig(CallbackConfig):
                     probe_lr=task.probe_lr,
                     patch_size=task.patch_size,
                     eval_interval=task.eval_interval,
-
                 )
             )
         return DownstreamEvaluatorCallback(

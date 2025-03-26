@@ -208,7 +208,6 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     logger.warning("WANDB Distribution Uploads are disabled for Debugging")
     EVAL_TASKS = {
         "m-eurosat": DownstreamTaskConfig(
-
             dataset="m-eurosat",
             batch_size=128,
             num_workers=8,
@@ -232,7 +231,6 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
             probe_lr=0.1,
-
             eval_interval=Duration.epochs(20),
         ),
         "pastis": DownstreamTaskConfig(
