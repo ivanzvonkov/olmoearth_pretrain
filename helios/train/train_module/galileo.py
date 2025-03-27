@@ -23,6 +23,7 @@ from helios.train.masking import MaskedHeliosSample, MaskingConfig
 from helios.train.train_module.train_module import (HeliosTrainModule,
                                                     HeliosTrainModuleConfig)
 from helios.train.utils import split_batch
+from torch.distributed.fsdp import register_fsdp_forward_method
 
 logger = getLogger(__name__)
 
@@ -178,6 +179,8 @@ class GalileoTrainModule(HeliosTrainModule):
         self.token_exit_cfg_b = token_exit_cfg_b
         self.base_loss_b = loss_config_b.build()
         self.masking_strategy_b = masking_config_b.build()
+        register_fsdp_forward_method(self.model, "forward_a")
+        register_fsdp_forward_method(self.model, "forward_b")
 
     def loss_fn_a(self, pred: Any, targets: Any) -> torch.Tensor:
         """Compute the loss between the predicted and target tensors."""
@@ -313,6 +316,7 @@ class GalileoTrainModule(HeliosTrainModule):
             decoded = self.model.forward_a(batch, patch_size)
             with torch.no_grad():
                 logger.info("target encoder running here")
+                logger.info(f"target encoder type:{type(self.model.target_encoder)}")
                 target_output = self.model.target_encoder.forward(
                     batch.unmask(),
                     patch_size=patch_size,
@@ -328,6 +332,7 @@ class GalileoTrainModule(HeliosTrainModule):
             decoded = self.model.forward_b(batch, patch_size)
             with torch.no_grad():
                 logger.info("target encoder running here")
+                logger.info(f"target encoder type:{type(self.model.target_encoder)}")
                 target_output = self.model.target_encoder.forward(
                     batch.unmask(),
                     patch_size=patch_size,

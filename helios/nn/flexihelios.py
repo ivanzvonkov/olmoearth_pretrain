@@ -300,14 +300,17 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
             patchified_dims = token_mask.shape[1:]
             # Now apply the embedding to
             if self.is_any_data_seen_by_encoder(token_mask):
-                logger.info(f"modality data type:{type(modality_data)}")
-                # channel_set_indices = DTensor.from_local(torch.tensor(channel_set_indices), self.mesh)
-                logger.info(f"channel set indices:{type(channel_set_indices)}")
                 patchified_data = modality_data[..., channel_set_indices]
 
-                patchified_data = self.per_modality_embeddings[modality][
+                embedding_module = self.per_modality_embeddings[modality][
                     self._get_embedding_module_name(modality, idx)
-                ](patchified_data, **modality_specific_kwargs)
+                ]
+                logger.info(f"embedding module type:{type(embedding_module)}")
+                logger.info(f"embedding module parameters types:")
+                for name, param in list(embedding_module.named_parameters())[:3]:
+                    logger.info(f"  {name}: {type(param)}")
+                logger.info(f"patchified data type:{type(patchified_data)}")
+                patchified_data = embedding_module(patchified_data, **modality_specific_kwargs)
             else:
                 patchified_data = torch.empty(
                     modality_data.shape[0],
@@ -1180,8 +1183,8 @@ class Encoder(FlexiHeliosBase):
         Returns:
             TokensAndMasks containing the encoded representations and their masks
         """
+        logger.info(f"x type:{type(self.patch_embeddings)}")
         # TODO: Add step to validate the exit config is valid
-        logger.info(f"x type:{type(x.sentinel2_l2a)}")
         patchified_tokens_and_masks = self.patch_embeddings.forward(x, patch_size)
         if (exit_after_n_layers is None) or (exit_after_n_layers > 0):
             patchified_tokens_and_masks = self.apply_attn(

@@ -155,6 +155,8 @@ class FlexiPatchEmbed(nn.Module):
         pinv = self.pinvs[new_patch_size]
         pinv = pinv.to(patch_embed.device)
         # # I don't know if this will work without FSDP
+        logger.info(f"pinv type:{type(pinv)}")
+        logger.info(f"patch embed type:{type(patch_embed)}")
         pinv = distribute_like(patch_embed, pinv)
 
         def resample_patch_embed(patch_embed: Tensor) -> Tensor:
@@ -179,7 +181,6 @@ class FlexiPatchEmbed(nn.Module):
         """
         # x has input shape [b, h, w, (t), c]
         batch_size = x.shape[0]
-        logger.info(f"x shape: {x.shape}")
         has_time_dimension = False
         num_timesteps = 0  # ignored if has_time_dimension is False
         # Is this correct?
@@ -198,31 +199,21 @@ class FlexiPatchEmbed(nn.Module):
         assert (
             isinstance(patch_size, tuple) and len(patch_size) == 2
         ), "patch_size must be a 2-tuple"
-        logger.info(f"device: {x.device}")
         # Resize conv weights
-        # THIS SEEMS REALLY WRONG AND NOT HANDFUL
-        logger.info(f" proj weight device: {self.proj.weight.device}")
+        logger.info(f"type proj weight:{type(self.proj.weight)}")
         if patch_size == self.patch_size:
             weight = self.proj.weight
         else:
             weight = self.resize_patch_embed(self.proj.weight, patch_size)
         # Apply conv with resized weights
-        logger.info(f"type of x: {type(x)}")
+        logger.info(f"weight type:{type(weight)}")
+        logger.info(f"x type:{type(x)}")
         x = F.conv2d(x, weight, bias=self.proj.bias, stride=patch_size)
         # At this point x has embedding dim sized channel dimension
-        logger.info(f"x shape after conv: {x.shape}")
         if has_time_dimension:
-            logger.info("has time dimension")
             _, d, h, w = x.shape
-            logger.info(f"type of x: {type(x)}")
-            logger.info(f"batch size: {batch_size}")
-            logger.info(f"num timesteps: {num_timesteps}")
-            logger.info(f"d: {d}")
-            logger.info(f"h: {h}")
-            logger.info(f"w: {w}")
             x = rearrange(x, "(b t) d h w -> b h w t d", b=batch_size, t=num_timesteps, d=d, h=h, w=w)
         else:
-            logger.info("no time dimension")
             x = rearrange(x, "b d h w -> b h w d")
 
         x = self.norm(x)

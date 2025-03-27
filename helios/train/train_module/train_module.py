@@ -27,7 +27,6 @@ from torch.distributed.checkpoint.metadata import Metadata
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
-from torch.distributed.fsdp import register_fsdp_forward_method
 # move to another file
 from helios.nn.galileo import Galileo
 from helios.nn.latent_mim import LatentMIM
@@ -209,8 +208,6 @@ class HeliosTrainModule(TrainModule):
                     dp_mesh=dp_mesh,
                 )
                 logger.info("Applied FSDP to the model")
-                register_fsdp_forward_method(self.model, "forward_a")
-                register_fsdp_forward_method(self.model, "forward_b")
             elif dp_config.name == DataParallelType.ddp:
                 self.model.apply_ddp(dp_mesh=dp_mesh, compile_enabled=compile_model)
                 logger.info("Applied DDP to the model")

@@ -87,6 +87,7 @@ class Galileo(nn.Module, DistributedMixins):
         fully_shard(self.target_encoder, **fsdp_config)
         # TODO: More finegrained wrapping next time
         fully_shard(self, **fsdp_config)
+        register_fsdp_forward_method(self.target_encoder, "forward")
         register_fsdp_forward_method(self, "forward_a")
         register_fsdp_forward_method(self, "forward_b")
 
