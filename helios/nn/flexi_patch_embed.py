@@ -181,7 +181,7 @@ class FlexiPatchEmbed(nn.Module):
         batch_size = x.shape[0]
         has_time_dimension = False
         num_timesteps = 0  # ignored if has_time_dimension is False
-        # Is this correct?
+
         if len(x.shape) == 5:
             has_time_dimension = True
             num_timesteps = x.shape[3]

@@ -323,7 +323,7 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
     @staticmethod
     def is_any_data_seen_by_encoder(modality_mask: Tensor) -> bool:
         """Check if any data is seen by the encoder."""
-        return (modality_mask == MaskValue.ONLINE_ENCODER.value).any()
+        return modality_mask.min() == MaskValue.ONLINE_ENCODER.value
 
     def forward(
         self,
