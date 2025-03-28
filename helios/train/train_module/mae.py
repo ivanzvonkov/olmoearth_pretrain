@@ -235,9 +235,3 @@ class MAETrainModule(HeliosTrainModule):
 
         del batch  # In case this helps with memory utilization.
         del masked_batch
-
-    def eval_batch(
-        self, batch: dict[str, Any], labels: torch.Tensor | None = None
-    ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
-        """Evaluate a batch."""
-        raise NotImplementedError("eval batch not implemented")
