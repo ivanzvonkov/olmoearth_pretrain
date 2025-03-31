@@ -46,7 +46,7 @@ BASE_COMMAND = (
     "--model.decoder_config.mlp_ratio={mlp_ratio} "
     '--train_module.ema_decay="[{ema_decay}, {ema_decay}]" '
     "--train_module.optim_config.lr={lr} "
-    "--data_loader.rank_microbatch_size={rank_microbatch_size} "
+    "--train_module.rank_microbatch_size={rank_microbatch_size} "
     "--launch.num_gpus={num_gpus}"
 )
 # Iterate over all combinations of hyperparameters
