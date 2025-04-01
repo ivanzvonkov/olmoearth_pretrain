@@ -114,6 +114,7 @@ class MAETrainModule(HeliosTrainModule):
         state_dict_save_opts: dist_cp_sd.StateDictOptions | None = None,
         state_dict_load_opts: dist_cp_sd.StateDictOptions | None = None,
         warmup_duration: Duration = Duration.epochs(2),
+        regularizer_config: LossConfig | None = None,
     ):
         """Initialize the training module.
 
@@ -136,6 +137,7 @@ class MAETrainModule(HeliosTrainModule):
             state_dict_load_opts: Override state dict options for loading.
             token_exit_cfg: The token exit configuration for the model.
             warmup_duration: The warmup duration for the model.
+            regularizer_config: An optional regularizer configuration for the model.
         """
         super().__init__(
             model=model,
@@ -156,10 +158,24 @@ class MAETrainModule(HeliosTrainModule):
         self.token_exit_cfg = token_exit_cfg
         self.base_loss = loss_config.build()
         self.masking_strategy = masking_config.build()
+        self.regularizer = (
+            regularizer_config.build() if regularizer_config is not None else None
+        )
+        self.metric_name = self.base_loss.name
+        if self.regularizer is not None:
+            self.metric_name = f"{self.base_loss.name}+{self.regularizer.name}"
 
     def loss_fn(self, pred: Any, targets: Any) -> torch.Tensor:
         """Compute the loss between the predicted and target tensors."""
         return self.base_loss.compute(pred, targets)
+
+    def add_regularizer_to_loss(
+        self, loss: torch.Tensor, latent: TokensAndMasks
+    ) -> torch.Tensor:
+        """If a regularizer is present, add it to the loss."""
+        if self.regularizer is None:
+            return loss
+        return loss + self.regularizer.compute(latent, None)
 
     def eval_loss_fn(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
         """Compute the loss between the predicted and target tensors."""
@@ -202,12 +218,12 @@ class MAETrainModule(HeliosTrainModule):
                 )
 
                 # Run Encoder and decoder on the augmented input
-                reconstructed = self.model(masked_batch, patch_size)
+                latent, reconstructed = self.model(masked_batch, patch_size)
                 labels_dict = masked_batch.as_dict()
                 labels_dict.pop("timestamps", None)
                 labels = TokensAndMasks(**labels_dict)
                 loss = self.loss_fn(reconstructed, labels)
-
+                self.add_regularizer_to_loss(loss, latent)
                 # Scale loss by number of microbatches
                 loss = loss / num_microbatches
                 loss_val = get_local_tensor(loss)
@@ -225,7 +241,7 @@ class MAETrainModule(HeliosTrainModule):
                 loss.backward()
 
         self.trainer.record_metric(
-            f"train/{self.base_loss.name}",
+            f"train/{self.metric_name}",
             total_batch_loss / get_world_size(self.dp_process_group),
             ReduceType.mean,
         )
