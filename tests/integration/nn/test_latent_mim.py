@@ -124,7 +124,7 @@ def test_latentmim_with_loss(
     )
     transform = TransformConfig(transform_type="no_transform").build()
     latentmim = LatentMIM(encoder, predictor, transform)
-    output = latentmim.forward(x, patch_size)
+    _, output = latentmim.forward(x, patch_size)
     output = predictor.forward(output, timestamps, patch_size, input_res)
     patched_H = H // patch_size
     patched_W = W // patch_size
