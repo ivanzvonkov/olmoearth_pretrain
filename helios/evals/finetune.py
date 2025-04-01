@@ -122,6 +122,7 @@ def finetune_cls(
 
     loss_function = nn.CrossEntropyLoss()
 
+    # TODO: handle possible preemption
     for epoch in range(epochs):
         print(f"Epoch {epoch} of {epochs}")
         for i, batch in enumerate(data_loader):
