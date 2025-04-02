@@ -193,7 +193,7 @@ class MAETrainModule(HeliosTrainModule):
         self.model.train()
         # Set the maximum number of tokens
         total_batch_loss = torch.tensor(0.0, device=self.device)
-
+        total_batch_reg = torch.tensor(0.0, device=self.device)
         # Split into micro-batches.
         microbatches = split_batch(batch, self.rank_microbatch_size)
         num_microbatches = len(microbatches)
@@ -213,7 +213,10 @@ class MAETrainModule(HeliosTrainModule):
                 labels_dict.pop("timestamps", None)
                 labels = TokensAndMasks(**labels_dict)
                 loss = self.loss_fn(reconstructed, labels)
-                self.add_regularizer_to_loss(loss, latent)
+                reg_term = self.compute_regularization(latent)
+                if reg_term is not None:
+                    loss = loss + reg_term
+                    total_batch_reg += get_local_tensor(reg_term) / num_microbatches
                 # Scale loss by number of microbatches
                 loss = loss / num_microbatches
                 loss_val = get_local_tensor(loss)
@@ -235,6 +238,7 @@ class MAETrainModule(HeliosTrainModule):
             total_batch_loss / get_world_size(self.dp_process_group),
             ReduceType.mean,
         )
+        self.log_regularization(total_batch_reg)
 
         if dry_run:
             return

@@ -200,6 +200,7 @@ class LatentMIMTrainModule(HeliosTrainModule):
         # Set the model to train mode
         self.model.train()
         total_batch_loss = torch.tensor(0.0, device=self.device)
+        total_batch_reg = torch.tensor(0.0, device=self.device)
         patch_size, batch_data = batch
         # Split into micro-batches.
         microbatches = split_batch(batch_data, self.rank_microbatch_size)
@@ -218,9 +219,12 @@ class LatentMIMTrainModule(HeliosTrainModule):
                     masked_batch, patch_size, self.token_exit_cfg
                 )
                 loss = self.loss_fn(decoded, target_output)
+                reg_term = self.compute_regularization(latent)
+                if reg_term is not None:
+                    loss = loss + reg_term
+                    total_batch_reg += get_local_tensor(reg_term) / num_microbatches
                 # Scale loss by number of microbatches
                 loss = loss / num_microbatches
-                loss = self.add_regularizer_to_loss(loss, latent)
 
                 loss_val = get_local_tensor(loss)
                 total_batch_loss += loss_val
@@ -241,6 +245,7 @@ class LatentMIMTrainModule(HeliosTrainModule):
             total_batch_loss,
             ReduceType.mean,
         )
+        self.log_regularization(total_batch_reg)
 
         if dry_run:
             return

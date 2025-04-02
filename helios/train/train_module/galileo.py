@@ -221,13 +221,9 @@ class GalileoTrainModule(HeliosTrainModule):
         # Set the model to train mode
         self.model.train()
 
-        # This is a clear loss buffer
-        if not hasattr(self, "total_batch_loss"):
-            self.total_batch_loss = torch.zeros(1, device=self.device)
-        else:
-            self.total_batch_loss.fill_(0.0)
         # Set the maximum number of tokens
         total_batch_loss = torch.tensor(0.0, device=self.device)
+        total_batch_reg = torch.tensor(0.0, device=self.device)
         # Split into micro-batches.
         patch_size, batch_data = batch
         microbatches = split_batch(batch_data, self.rank_microbatch_size)
@@ -261,7 +257,11 @@ class GalileoTrainModule(HeliosTrainModule):
                     )
                     loss = self.loss_fn_b(decoded, target_output)
                 # Scale loss by number of microbatches
-                self.add_regularizer_to_loss(loss, latent)
+                reg_term = self.compute_regularization(latent)
+                reg_term = self.compute_regularization(latent)
+                if reg_term is not None:
+                    loss = loss + reg_term
+                    total_batch_reg += get_local_tensor(reg_term) / num_microbatches
                 loss = loss / num_microbatches
                 loss_val = get_local_tensor(loss)
                 total_batch_loss += loss_val
@@ -285,6 +285,7 @@ class GalileoTrainModule(HeliosTrainModule):
             total_batch_loss,
             ReduceType.mean,
         )
+        self.log_regularization(total_batch_reg)
         del masked_batch, batch, microbatch, batch_data
 
     def model_forward_a(

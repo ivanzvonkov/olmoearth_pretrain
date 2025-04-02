@@ -489,11 +489,20 @@ class HeliosTrainModule(TrainModule):
         """Evaluate a batch."""
         raise NotImplementedError("eval batch not implemented")
 
-    def add_regularizer_to_loss(
-        self, loss: torch.Tensor, latent: TokensAndMasks
-    ) -> torch.Tensor:
-        """If a regularizer is present, add it to the loss."""
+    def compute_regularization(self, latent: TokensAndMasks) -> torch.Tensor | None:
+        """If a regularizer is present, compute it."""
         regularizer = getattr(self, "regularizer", None)
         if regularizer is None:
-            return loss
-        return loss + regularizer.compute(latent, None)
+            return None
+        return regularizer.compute(latent, None)
+
+    def log_regularization(self, total_batch_reg: torch.Tensor) -> None:
+        """If a regularizer is present, log its values."""
+        regularizer = getattr(self, "regularizer", None)
+        if regularizer is None:
+            return None
+        self.trainer.record_metric(
+            f"train/{regularizer.name}",
+            total_batch_reg,
+            ReduceType.mean,
+        )
