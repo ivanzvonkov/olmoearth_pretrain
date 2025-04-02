@@ -21,7 +21,7 @@ from helios.data.transform import TransformConfig
 from helios.nn.flexihelios import TokensAndMasks
 from helios.nn.mae import MAE
 from helios.train.loss import LossConfig
-from helios.train.masking import MaskingConfig
+from helios.train.masking import MaskedHeliosSample, MaskingConfig
 from helios.train.train_module.train_module import (
     HeliosTrainModule,
     HeliosTrainModuleConfig,
@@ -63,7 +63,7 @@ class MAETrainModuleConfig(HeliosTrainModuleConfig):
             model: The model to train.
             device: The device to train on.
         """
-        kwargs = self.as_dict(exclude_none=True, recurse=False)
+        kwargs = self.prepare_kwargs()
         return MAETrainModule(
             model=model,
             device=device,
@@ -165,6 +165,18 @@ class MAETrainModule(HeliosTrainModule):
         """Compute the loss between the predicted and target tensors."""
         return self.base_loss.compute(pred, targets)
 
+    def model_forward(
+        self, masked_batch: MaskedHeliosSample, patch_size: int
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Forward pass of the model."""
+        with self._model_forward_context():
+            reconstructed = self.model(masked_batch, patch_size)
+            labels_dict = masked_batch.as_dict()
+            labels_dict.pop("timestamps", None)
+            labels = TokensAndMasks(**labels_dict)
+            loss = self.loss_fn(reconstructed, labels)
+            return loss, reconstructed, labels
+
     def train_batch(
         self, patch_batch: tuple[int, HeliosSample], dry_run: bool = False
     ) -> None:
@@ -200,11 +212,9 @@ class MAETrainModule(HeliosTrainModule):
                 )
 
                 # Run Encoder and decoder on the augmented input
-                reconstructed = self.model(masked_batch, patch_size)
-                labels_dict = masked_batch.as_dict()
-                labels_dict.pop("timestamps", None)
-                labels = TokensAndMasks(**labels_dict)
-                loss = self.loss_fn(reconstructed, labels)
+                loss, reconstructed, labels = self.model_forward(
+                    masked_batch, patch_size
+                )
 
                 # Scale loss by number of microbatches
                 loss = loss / num_microbatches
