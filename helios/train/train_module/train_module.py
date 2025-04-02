@@ -189,6 +189,11 @@ class HeliosTrainModule(TrainModule):
             "Number of encoder parameters: %d",
             sum(p.numel() for p in self.model.encoder.parameters()),
         )
+        if hasattr(self.model, "decoder"):
+            logger.info(
+                "Number of decoder parameters: %d",
+                sum(p.numel() for p in self.model.decoder.parameters()),
+            )
 
         self.device = device or get_default_device()
         self.world_mesh = build_world_mesh(dp=dp_config, device_type=self.device.type)
