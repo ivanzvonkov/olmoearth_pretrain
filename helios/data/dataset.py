@@ -26,7 +26,7 @@ from torch.distributed.tensor import distribute_tensor
 from torch.utils.data import Dataset
 from tqdm import tqdm
 from upath import UPath
-import time
+
 from helios.data.constants import (
     BASE_RESOLUTION,
     IMAGE_TILE_SIZE,
@@ -551,7 +551,8 @@ class HeliosDataset(Dataset):
     def save_latlon_distribution(self, latlons: np.ndarray) -> None:
         """Save the latlon distribution to a file."""
         logger.info(f"Saving latlon distribution to {self.latlon_distribution_path}")
-        np.save(self.latlon_distribution_path, latlons)
+        with self.latlon_distribution_path.open("wb") as f:
+            np.save(f, latlons)
 
     def _log_modality_distribution(self, samples: list[SampleInformation]) -> None:
         """Log the modality distribution."""
@@ -673,7 +674,8 @@ class HeliosDataset(Dataset):
             coordinates for each of the N samples in the dataset.
         """
         if self.latlon_distribution_path.exists():
-            return np.load(self.latlon_distribution_path)
+            with self.latlon_distribution_path.open("rb") as f:
+                return np.load(f)
         if len(samples) == 0:
             raise ValueError("No samples provided")
         latlons = []
@@ -858,9 +860,10 @@ class HeliosDataset(Dataset):
                 sample_dict["latlon"] = self.get_latlon(sample).astype(self.dtype)
                 sample_dict["timestamps"] = self._get_timestamps(sample)
         # Save h5 file on WEKA
-        with h5py.File(h5_file_path, "w") as f:
-            for modality_name, image in sample_dict.items():
-                f.create_dataset(modality_name, data=image)
+        with h5_file_path.open("wb") as f:
+            with h5py.File(f, "w") as h5file:
+                for modality_name, image in sample_dict.items():
+                    h5file.create_dataset(modality_name, data=image)
         return sample_dict
 
     def __getitem__(self, args: GetItemArgs) -> tuple[int, HeliosSample]:
@@ -873,48 +876,9 @@ class HeliosDataset(Dataset):
             )
         # We are currently reading the entire h5 file into memory this can be made faster by chunking the dataset appropriately and only reading in the optimal chunks
         # THis io is the current bottleneck of the getitem operation
-        # Measure time to read the h5 file
-        start_read_time = time.time()
-        with h5py.File(h5_file_path, "r") as f:
-            sample_dict = {k: v[()] for k, v in f.items()}
-        read_time = time.time() - start_read_time
-        logger.info(f"Time to read h5 file: {read_time:.4f}s")
-
-        # Create sample object
-        sample = HeliosSample(**sample_dict)
-
-        # Process sample based on token budget
-        if args.token_budget is not None:
-            result = sample.subset(
-                patch_size=args.patch_size,
-                max_tokens_per_instance=args.token_budget,
-                sampled_hw_p=args.sampled_hw_p,
-            )
-        else:
-            result = sample
-        sample_dict = result.as_dict(ignore_nones=True)
-
-        # Sample modalities should be written into the metadata of the h5 dataset
-        sample_modalities = list(
-            [Modality.get(key) for key in sample_dict.keys() if key != "timestamps"]
-        )
-
-        # Measure time to normalize
-        start_normalize_time = time.time()
-        if self.normalize:
-            for modality in sample_modalities:
-                sample_dict[modality.name] = self.normalize_image(
-                    modality, sample_dict[modality.name]
-                )
-                sample_dict[modality.name] = sample_dict[modality.name].astype(
-                    self.dtype
-                )
-        normalize_time = time.time() - start_normalize_time
-        logger.info(f"Time to normalize: {normalize_time:.4f}s")
-
-        return args.patch_size, HeliosSample(**sample_dict)
-        with h5py.File(h5_file_path, "r") as f:
-            sample_dict = {k: v[()] for k, v in f.items()}
+        with h5_file_path.open("rb") as f:
+            with h5py.File(f, "r") as h5file:
+                sample_dict = {k: v[()] for k, v in h5file.items()}
         sample = HeliosSample(**sample_dict)
         if args.token_budget is not None:
             result = sample.subset(
