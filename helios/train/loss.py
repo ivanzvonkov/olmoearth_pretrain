@@ -530,10 +530,16 @@ class KoLeoLoss(Loss):
 
     name = "KoLeo"
 
-    def __init__(self, eps: float = 1e-8, mode: str = "instance") -> None:
+    def __init__(
+        self,
+        weight: float = 0.1,
+        mode: str = "instance",
+        eps: float = 1e-8,
+    ) -> None:
         """Initialize KoLeo regularizer.
 
         Args:
+            weight: a weight to apply to the regularization value. Default value follows Dinov2
             eps: small value to avoid division by zero.
             mode: one of "instance" or "patch" - whether to compute
                 nearest neighbourst at the instance or patch level
@@ -543,6 +549,7 @@ class KoLeoLoss(Loss):
         if mode not in ["instance", "patch"]:
             raise ValueError(f"Unsupported mode {mode}")
         self.mode = mode
+        self.weight = weight
 
     @staticmethod
     def pairwise_nearest_neighbours(x: torch.Tensor) -> torch.Tensor:
@@ -591,7 +598,7 @@ class KoLeoLoss(Loss):
         online_encodings = F.normalize(online_encodings, eps=self.eps, p=2, dim=-1)
         idx_of_nn = self.pairwise_nearest_neighbours(online_encodings)
         distances_to_nn = self.pdist(online_encodings, online_encodings[idx_of_nn])
-        return -torch.log(distances_to_nn + self.eps).mean()
+        return self.weight * -torch.log(distances_to_nn + self.eps).mean()
 
 
 @dataclass
