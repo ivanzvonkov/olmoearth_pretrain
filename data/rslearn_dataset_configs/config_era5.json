@@ -17,10 +17,12 @@
         }
       ],
       "data_source": {
+        "duration": "365d",
         "name": "rslearn.data_sources.climate_data_store.ERA5LandMonthlyMeans",
         "query_config": {
           "max_matches": 12
-        }
+        },
+        "time_offset": "-180d"
       },
       "type": "raster"
     }
