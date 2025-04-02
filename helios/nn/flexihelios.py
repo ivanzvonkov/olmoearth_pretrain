@@ -299,7 +299,7 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
                 modality_specific_kwargs = {"patch_size": patch_size}
             patchified_dims = token_mask.shape[1:]
             # Now apply the embedding to the patchified data
-            if self.is_any_data_seen_by_encoder(token_mask):
+            if 1:
                 patchified_data = modality_data[..., channel_set_indices]
                 embedding_module = self.per_modality_embeddings[modality][
                     self._get_embedding_module_name(modality, idx)
@@ -308,14 +308,23 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
                     patchified_data, **modality_specific_kwargs
                 )
             else:
-                patchified_data = torch.empty(
-                    modality_data.shape[0],
-                    *patchified_dims,
-                    self.embedding_size,
-                    dtype=modality_data.dtype,
-                    device=modality_data.device,
-                )
-                logger.info(f"{modality} is assigned empty embedding!")
+                if self.is_any_data_seen_by_encoder(token_mask):
+                    patchified_data = modality_data[..., channel_set_indices]
+                    embedding_module = self.per_modality_embeddings[modality][
+                        self._get_embedding_module_name(modality, idx)
+                    ]
+                    patchified_data = embedding_module(
+                        patchified_data, **modality_specific_kwargs
+                    )
+                else:
+                    patchified_data = torch.empty(
+                        modality_data.shape[0],
+                        *patchified_dims,
+                        self.embedding_size,
+                        dtype=modality_data.dtype,
+                        device=modality_data.device,
+                    )
+                    logger.info(f"{modality} is assigned empty embedding!")
             modality_tokens.append(patchified_data)
             modality_masks.append(token_mask)
         return torch.stack(modality_tokens, dim=-2), torch.stack(modality_masks, dim=-1)
