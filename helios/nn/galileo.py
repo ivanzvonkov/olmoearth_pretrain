@@ -9,9 +9,9 @@ import torch.nn as nn
 from olmo_core.config import Config
 from torch.distributed import DeviceMesh
 from torch.distributed.fsdp import (
+    MixedPrecisionPolicy,
     fully_shard,
     register_fsdp_forward_method,
-    MixedPrecisionPolicy,
 )
 
 from helios.nn.flexihelios import EncoderConfig, PredictorConfig, TokensAndMasks
