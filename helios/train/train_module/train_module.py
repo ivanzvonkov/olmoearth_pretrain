@@ -33,6 +33,8 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Optimizer
 
 from helios.data.transform import TransformConfig
+from helios.nn.flexihelios import TokensAndMasks
+from helios.train.loss import LossConfig
 
 logger = getLogger(__name__)
 
@@ -82,6 +84,7 @@ class HeliosTrainModuleConfig(Config):
     # Checkpoint settings
     state_dict_save_opts: dict[str, Any] | None = None
     state_dict_load_opts: dict[str, Any] | None = None
+    regularizer_config: LossConfig | None = None
 
     def prepare_kwargs(self) -> dict[str, Any]:
         """Prepare the kwargs for the train module."""
@@ -486,3 +489,21 @@ class HeliosTrainModule(TrainModule):
     ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
         """Evaluate a batch."""
         raise NotImplementedError("eval batch not implemented")
+
+    def compute_regularization(self, latent: TokensAndMasks) -> torch.Tensor | None:
+        """If a regularizer is present, compute it."""
+        regularizer = getattr(self, "regularizer", None)
+        if regularizer is None:
+            return None
+        return regularizer.compute(latent, None)
+
+    def log_regularization(self, total_batch_reg: torch.Tensor) -> None:
+        """If a regularizer is present, log its values."""
+        regularizer = getattr(self, "regularizer", None)
+        if regularizer is None:
+            return None
+        self.trainer.record_metric(
+            f"train/{regularizer.name}",
+            total_batch_reg,
+            ReduceType.mean,
+        )
