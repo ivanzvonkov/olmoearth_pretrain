@@ -19,7 +19,7 @@ from helios.data.constants import Modality
 from helios.data.dataset import HeliosSample
 from helios.data.transform import TransformConfig
 from helios.nn.flexihelios import TokensAndMasks
-from helios.nn.latent_mim import LatentMIM
+from helios.nn.galileo import Galileo
 from helios.train.loss import LossConfig
 from helios.train.masking import MaskedHeliosSample, MaskingConfig
 from helios.train.train_module.train_module import (
@@ -65,7 +65,7 @@ class GalileoTrainModuleConfig(HeliosTrainModuleConfig):
 
     def build(
         self,
-        model: LatentMIM,
+        model: Galileo,
         device: torch.device | None = None,
     ) -> "GalileoTrainModule":
         """Build the corresponding :class:`LatentMIMTrainModule`.
@@ -74,7 +74,7 @@ class GalileoTrainModuleConfig(HeliosTrainModuleConfig):
             model: The model to train.
             device: The device to train on.
         """
-        kwargs = self.as_dict(exclude_none=True, recurse=False)
+        kwargs = self.prepare_kwargs()
         return GalileoTrainModule(
             model=model,
             device=device,
@@ -112,7 +112,7 @@ class GalileoTrainModule(HeliosTrainModule):
 
     def __init__(
         self,
-        model: LatentMIM,
+        model: Galileo,
         optim_config: OptimConfig,
         transform_config: TransformConfig,
         masking_config_a: MaskingConfig,
@@ -242,22 +242,20 @@ class GalileoTrainModule(HeliosTrainModule):
                     )
 
                     # Run Encoder and decoder on the augmented input
-                    latent, decoded, target_output = self.model_forward_a(
+                    loss, latent, decoded, target_output = self.model_forward_a(
                         masked_batch, patch_size, self.token_exit_cfg_a
                     )
-                    loss = self.loss_fn_a(decoded, target_output)
                 else:
                     masked_batch = self.masking_strategy_b.apply_mask(
                         microbatch, patch_size=patch_size
                     )
 
                     # Run Encoder and decoder on the augmented input
-                    latent, decoded, target_output = self.model_forward_b(
+                    loss, latent, decoded, target_output = self.model_forward_b(
                         masked_batch, patch_size, self.token_exit_cfg_b
                     )
-                    loss = self.loss_fn_b(decoded, target_output)
+
                 # Scale loss by number of microbatches
-                reg_term = self.compute_regularization(latent)
                 reg_term = self.compute_regularization(latent)
                 if reg_term is not None:
                     loss = loss + reg_term
@@ -290,7 +288,7 @@ class GalileoTrainModule(HeliosTrainModule):
 
     def model_forward_a(
         self, batch: MaskedHeliosSample, patch_size: int, token_exit_cfg: dict[str, int]
-    ) -> tuple[TokensAndMasks, TokensAndMasks, TokensAndMasks]:
+    ) -> tuple[torch.Tensor, TokensAndMasks, TokensAndMasks, TokensAndMasks]:
         """Run a forward pass."""
         with self._model_forward_context():
             latent, decoded = self.model.forward_a(batch, patch_size)
@@ -301,11 +299,12 @@ class GalileoTrainModule(HeliosTrainModule):
                     patch_size=patch_size,
                     token_exit_cfg=token_exit_cfg,
                 )
-            return latent, decoded, target_output
+            loss = self.loss_fn_a(decoded, target_output)
+            return loss, latent, decoded, target_output
 
     def model_forward_b(
         self, batch: MaskedHeliosSample, patch_size: int, token_exit_cfg: dict[str, int]
-    ) -> tuple[TokensAndMasks, TokensAndMasks, TokensAndMasks]:
+    ) -> tuple[torch.Tensor, TokensAndMasks, TokensAndMasks, TokensAndMasks]:
         """Run a forward pass."""
         with self._model_forward_context():
             latent, decoded = self.model.forward_b(batch, patch_size)
@@ -316,4 +315,5 @@ class GalileoTrainModule(HeliosTrainModule):
                     patch_size=patch_size,
                     token_exit_cfg=token_exit_cfg,
                 )
-            return latent, decoded, target_output
+            loss = self.loss_fn_b(decoded, target_output)
+            return loss, latent, decoded, target_output

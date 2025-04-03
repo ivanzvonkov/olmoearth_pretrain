@@ -7,7 +7,7 @@ from typing import Any
 import torch
 import torch.distributed.checkpoint.state_dict as dist_cp_sd
 from olmo_core.distributed.parallel import DataParallelConfig
-from olmo_core.distributed.utils import get_local_tensor, get_world_size
+from olmo_core.distributed.utils import get_local_tensor
 from olmo_core.optim import OptimConfig
 from olmo_core.optim.scheduler import Scheduler
 from olmo_core.train.common import Duration, ReduceType
@@ -21,7 +21,7 @@ from helios.data.transform import TransformConfig
 from helios.nn.flexihelios import TokensAndMasks
 from helios.nn.mae import MAE
 from helios.train.loss import LossConfig
-from helios.train.masking import MaskingConfig
+from helios.train.masking import MaskedHeliosSample, MaskingConfig
 from helios.train.train_module.train_module import (
     HeliosTrainModule,
     HeliosTrainModuleConfig,
@@ -63,7 +63,7 @@ class MAETrainModuleConfig(HeliosTrainModuleConfig):
             model: The model to train.
             device: The device to train on.
         """
-        kwargs = self.as_dict(exclude_none=True, recurse=False)
+        kwargs = self.prepare_kwargs()
         return MAETrainModule(
             model=model,
             device=device,
@@ -173,6 +173,18 @@ class MAETrainModule(HeliosTrainModule):
         """Compute the loss between the predicted and target tensors."""
         return self.base_loss.compute(pred, targets)
 
+    def model_forward(
+        self, masked_batch: MaskedHeliosSample, patch_size: int
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Forward pass of the model."""
+        with self._model_forward_context():
+            reconstructed = self.model(masked_batch, patch_size)
+            labels_dict = masked_batch.as_dict()
+            labels_dict.pop("timestamps", None)
+            labels = TokensAndMasks(**labels_dict)
+            loss = self.loss_fn(reconstructed, labels)
+            return loss, reconstructed, labels
+
     def train_batch(
         self, patch_batch: tuple[int, HeliosSample], dry_run: bool = False
     ) -> None:
@@ -208,11 +220,10 @@ class MAETrainModule(HeliosTrainModule):
                 )
 
                 # Run Encoder and decoder on the augmented input
-                latent, reconstructed = self.model(masked_batch, patch_size)
+                loss, latent, reconstructed = self.model(masked_batch, patch_size)
                 labels_dict = masked_batch.as_dict()
                 labels_dict.pop("timestamps", None)
                 labels = TokensAndMasks(**labels_dict)
-                loss = self.loss_fn(reconstructed, labels)
                 reg_term = self.compute_regularization(latent)
                 if reg_term is not None:
                     loss = loss + reg_term
@@ -235,7 +246,7 @@ class MAETrainModule(HeliosTrainModule):
 
         self.trainer.record_metric(
             f"train/{self.total_loss_name}",
-            total_batch_loss / get_world_size(self.dp_process_group),
+            total_batch_loss,
             ReduceType.mean,
         )
         self.log_regularization(total_batch_reg)

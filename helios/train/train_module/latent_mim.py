@@ -65,7 +65,7 @@ class LatentMIMTrainModuleConfig(HeliosTrainModuleConfig):
             model: The model to train.
             device: The device to train on.
         """
-        kwargs = self.as_dict(exclude_none=True, recurse=False)
+        kwargs = self.prepare_kwargs()
         return LatentMIMTrainModule(
             model=model,
             device=device,
@@ -215,10 +215,9 @@ class LatentMIMTrainModule(HeliosTrainModule):
                     microbatch, patch_size=patch_size
                 )
                 # Run Encoder and decoder on the augmented input
-                latent, decoded, target_output = self.model_forward(
+                loss, latent, decoded, target_output = self.model_forward(
                     masked_batch, patch_size, self.token_exit_cfg
                 )
-                loss = self.loss_fn(decoded, target_output)
                 reg_term = self.compute_regularization(latent)
                 if reg_term is not None:
                     loss = loss + reg_term
@@ -255,7 +254,7 @@ class LatentMIMTrainModule(HeliosTrainModule):
 
     def model_forward(
         self, batch: MaskedHeliosSample, patch_size: int, token_exit_cfg: dict[str, int]
-    ) -> tuple[TokensAndMasks, TokensAndMasks, TokensAndMasks]:
+    ) -> tuple[torch.Tensor, TokensAndMasks, TokensAndMasks, TokensAndMasks]:
         """Run a forward pass."""
         with self._model_forward_context():
             latent, decoded = self.model.forward(batch, patch_size)
@@ -266,4 +265,5 @@ class LatentMIMTrainModule(HeliosTrainModule):
                     patch_size=patch_size,
                     token_exit_cfg=token_exit_cfg,
                 )
-            return latent, decoded, target_output
+            loss = self.loss_fn(decoded, target_output)
+            return loss, latent, decoded, target_output
