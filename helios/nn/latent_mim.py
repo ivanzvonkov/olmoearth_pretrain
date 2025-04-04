@@ -72,7 +72,7 @@ class LatentMIM(nn.Module, DistributedMixins):
         self.decoder.apply_compile()
         logger.info("Applied torch.compile to the decoder")
         self.target_encoder.apply_compile()
-        # logger.info("Applied torch.compile to the target encoder")
+        logger.info("Applied torch.compile to the target encoder")
 
 
 @dataclass
