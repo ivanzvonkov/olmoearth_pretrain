@@ -81,7 +81,6 @@ class HeliosDataLoader(DataLoaderBase):
         self.patch_sizes = np.arange(min_patch_size, max_patch_size + 1)
         self.sampled_hw_p_list = sampled_hw_p_list
         self.collator = collator
-
         self.seed = seed
         self.shuffle = shuffle
         self.num_workers = num_workers
@@ -440,6 +439,7 @@ class _IterableDatasetWrapper(torch.utils.data.IterableDataset[HeliosSample]):
                 self.data_loader.rank_batch_size,
             )
         )
+
         return (
             self.data_loader.collator(batch)
             for batch in iter_batched(

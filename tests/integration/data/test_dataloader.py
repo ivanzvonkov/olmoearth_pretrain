@@ -52,7 +52,3 @@ def test_helios_dataloader(
     assert dataloader.batches_processed == batches_processed
 
     assert batches_processed == 1
-
-
-# TODO: Add test for global indices
-# TODO: Add test for multi-threading
