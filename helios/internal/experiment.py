@@ -17,7 +17,6 @@ from olmo_core.train import (
 )
 from olmo_core.train.callbacks import ConfigSaverCallback, WandBCallback
 from olmo_core.utils import get_default_device, prepare_cli_environment, seed_all
-from torch.utils.viz._cycles import warn_tensor_cycles
 
 from helios.data.constants import Modality
 from helios.data.dataloader import HeliosDataLoaderConfig
@@ -163,7 +162,6 @@ def train(config: HeliosExperimentConfig) -> None:
     config_dict = config.as_config_dict()
     cast(WandBCallback, trainer.callbacks["wandb"]).config = config_dict
     cast(ConfigSaverCallback, trainer.callbacks["config_saver"]).config = config_dict
-    warn_tensor_cycles()
     trainer.fit()
 
 

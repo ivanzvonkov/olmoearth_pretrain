@@ -1,5 +1,6 @@
 """Simple set up of latent predictor."""
 
+import logging
 from copy import deepcopy
 from dataclasses import dataclass
 
@@ -16,6 +17,8 @@ from torch.distributed.fsdp import (
 from helios.nn.flexihelios import EncoderConfig, PredictorConfig, TokensAndMasks
 from helios.nn.utils import DistributedMixins
 from helios.train.masking import MaskedHeliosSample
+
+logger = logging.getLogger(__name__)
 
 
 class LatentMIM(nn.Module, DistributedMixins):
@@ -67,6 +70,16 @@ class LatentMIM(nn.Module, DistributedMixins):
         # TODO: More finegrained wrapping of the encoder transformer layers next time
         fully_shard(self, **fsdp_config)
         register_fsdp_forward_method(self.target_encoder, "forward")
+
+    def apply_compile(self) -> None:
+        """Apply torch.compile to the model."""
+        logger.info("Applying torch.compile to the model")
+        self.encoder.apply_compile()
+        logger.info("Applied torch.compile to the encoder")
+        self.decoder.apply_compile()
+        logger.info("Applied torch.compile to the decoder")
+        self.target_encoder.apply_compile()
+        logger.info("Applied torch.compile to the target encoder")
 
 
 @dataclass
