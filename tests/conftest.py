@@ -270,11 +270,34 @@ def samples_with_missing_modalities() -> list[HeliosSample]:
     example_s1_data = np.random.randn(s1_H, s1_W, s1_T, s1_C)
     example_wc_data = np.random.randn(wc_H, wc_W, wc_T, wc_C)
     example_latlon_data = np.random.randn(2)
-    timestamps = np.array([[15, 7, 2023], [15, 8, 2023], [15, 9, 2023]], dtype=np.int32)
+    timestamps = np.array(
+        [
+            [15, 7, 2023],
+            [15, 8, 2023],
+            [15, 9, 2023],
+            [15, 10, 2023],
+            [15, 11, 2023],
+            [15, 11, 2023],
+            [15, 1, 2024],
+            [15, 2, 2024],
+            [15, 3, 2024],
+            [15, 4, 2024],
+            [15, 5, 2024],
+            [15, 6, 2024],
+        ],
+        dtype=np.int32,
+    )
     missing_s1_data = np.random.randn(s1_H, s1_W, s1_T, s1_C)
     missing_s1_data[:] = MISSING_VALUE
     missing_wc_data = np.random.randn(wc_H, wc_W, wc_T, wc_C)
     missing_wc_data[:] = MISSING_VALUE
+    example_s2_data = example_s2_data.astype(np.float32)
+    example_s1_data = example_s1_data.astype(np.float32)
+    example_wc_data = example_wc_data.astype(np.float32)
+    example_latlon_data = example_latlon_data.astype(np.float32)
+    missing_s1_data = missing_s1_data.astype(np.float32)
+    missing_wc_data = missing_wc_data.astype(np.float32)
+
     sample1 = HeliosSample(
         sentinel2_l2a=example_s2_data,
         sentinel1=example_s1_data,
@@ -316,7 +339,20 @@ def samples_without_missing_modalities(
     example_wc_data = np.random.randn(wc_H, wc_W, wc_T, wc_C).astype(np.float32)
     example_latlon_data = np.random.randn(2).astype(np.float32)
     timestamps = np.array(
-        [[15, 7, 2023], [15, 8, 2023], [15, 9, 2023]],
+        [
+            [15, 7, 2023],
+            [15, 8, 2023],
+            [15, 9, 2023],
+            [15, 10, 2023],
+            [15, 11, 2023],
+            [15, 11, 2023],
+            [15, 1, 2024],
+            [15, 2, 2024],
+            [15, 3, 2024],
+            [15, 4, 2024],
+            [15, 5, 2024],
+            [15, 6, 2024],
+        ],
         dtype=np.int32,
     )
 

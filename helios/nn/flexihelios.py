@@ -1491,7 +1491,7 @@ class Predictor(FlexiHeliosBase):
             band_sets = Modality.get(modality).band_sets
             for idx in range(len(band_sets)):
                 if self.is_any_data_to_be_decoded(modality_mask):
-                    logger.info(
+                    logger.debug(
                         f"modality_data in decoding {modality}: {modality_data.shape}"
                     )
                     per_channel_modality_data = modality_data[..., idx, :]
@@ -1500,7 +1500,7 @@ class Predictor(FlexiHeliosBase):
                     )
                 else:
                     # If all data should be ignored by decoder, we need to return an empty tensor
-                    logger.info(
+                    logger.debug(
                         f"modality_data in decoding {modality}: {modality_data.shape} is empty"
                     )
                     # DO NOT PASS EMPTY TENSORS INTO ANY LAYER OR RISK MYSTERY NANS!!

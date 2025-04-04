@@ -6,9 +6,13 @@ import torch
 
 from helios.data.constants import MISSING_VALUE, Modality
 from helios.data.dataset import HeliosSample
-from helios.train.masking import (MaskValue, ModalityMaskingStrategy,
-                                  RandomMaskingStrategy, SpaceMaskingStrategy,
-                                  TimeMaskingStrategy)
+from helios.train.masking import (
+    MaskValue,
+    ModalityMaskingStrategy,
+    RandomMaskingStrategy,
+    SpaceMaskingStrategy,
+    TimeMaskingStrategy,
+)
 
 logger = logging.getLogger(__name__)
 
