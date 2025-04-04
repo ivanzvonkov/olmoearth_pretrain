@@ -335,6 +335,7 @@ def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSa
     # Stack tensors while handling None values
     def stack_or_none(attr: str) -> torch.Tensor | None:
         """Stack the tensors while handling None values."""
+        # For partially missing samples we use MISSING_VALUE so we only check the first sample
         if getattr(batch[0][1], attr) is None:
             return None
         stacked_tensor = torch.stack(

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from helios.data.constants import MISSING_VALUE, Modality
+from helios.data.constants import MISSING_VALUE
 from helios.data.dataset import HeliosSample, collate_helios
 
 
@@ -20,7 +20,10 @@ def samples_with_missing_modalities() -> list[HeliosSample]:
     example_wc_data = np.random.randn(wc_H, wc_W, wc_T, wc_C)
     example_latlon_data = np.random.randn(2)
     timestamps = np.array([[15, 7, 2023], [15, 8, 2023], [15, 9, 2023]], dtype=np.int32)
-
+    missing_s1_data = np.random.randn(s1_H, s1_W, s1_T, s1_C)
+    missing_s1_data[:] = MISSING_VALUE
+    missing_wc_data = np.random.randn(wc_H, wc_W, wc_T, wc_C)
+    missing_wc_data[:] = MISSING_VALUE
     sample1 = HeliosSample(
         sentinel2_l2a=example_s2_data,
         sentinel1=example_s1_data,
@@ -31,7 +34,7 @@ def samples_with_missing_modalities() -> list[HeliosSample]:
 
     sample2 = HeliosSample(
         sentinel2_l2a=example_s2_data,
-        sentinel1=None,
+        sentinel1=missing_s1_data,
         worldcover=example_wc_data,
         latlon=example_latlon_data,
         timestamps=timestamps,
@@ -40,7 +43,7 @@ def samples_with_missing_modalities() -> list[HeliosSample]:
     sample_3 = HeliosSample(
         sentinel2_l2a=example_s2_data,
         sentinel1=example_s1_data,
-        worldcover=None,
+        worldcover=missing_wc_data,
         latlon=example_latlon_data,
         timestamps=timestamps,
     )
@@ -53,34 +56,29 @@ def test_collate_helios(
     samples_with_missing_modalities: list[HeliosSample],
 ) -> None:
     """Test the collate_helios function."""
+    patch_size = [2 for _ in range(len(samples_with_missing_modalities))]
+    patch_size_sample_tuples = list(zip(patch_size, samples_with_missing_modalities))
     collated_sample = collate_helios(
-        samples_with_missing_modalities,
-        [
-            Modality.SENTINEL2_L2A,
-            Modality.SENTINEL1,
-            Modality.WORLDCOVER,
-            Modality.LATLON,
-        ],
+        patch_size_sample_tuples,
     )
 
     # Check that all required fields are present
-    assert collated_sample.sentinel2_l2a is not None
-    assert collated_sample.sentinel1 is not None
-    assert collated_sample.worldcover is not None
-    assert collated_sample.latlon is not None
-    assert collated_sample.timestamps is not None
+    assert collated_sample[1].sentinel2_l2a is not None
+    assert collated_sample[1].sentinel1 is not None
+    assert collated_sample[1].worldcover is not None
+    assert collated_sample[1].latlon is not None
+    assert collated_sample[1].timestamps is not None
 
     # Check the shapes
-    assert collated_sample.sentinel2_l2a.shape[0] == 3
-    assert collated_sample.sentinel1.shape[0] == 3
-    assert collated_sample.worldcover.shape[0] == 3
-    assert collated_sample.latlon.shape[0] == 3
-    assert collated_sample.timestamps.shape[0] == 3
+    assert collated_sample[1].sentinel2_l2a.shape[0] == 3
+    assert collated_sample[1].sentinel1.shape[0] == 3
+    assert collated_sample[1].worldcover.shape[0] == 3
+    assert collated_sample[1].latlon.shape[0] == 3
+    assert collated_sample[1].timestamps.shape[0] == 3
 
     # Check the missing modality mask values
-    assert torch.all(collated_sample.sentinel1[1] == MISSING_VALUE)
-
-    assert torch.all(collated_sample.worldcover[2] == MISSING_VALUE)
+    assert torch.all(collated_sample[1].sentinel1[1] == MISSING_VALUE)
+    assert torch.all(collated_sample[1].worldcover[2] == MISSING_VALUE)
 
 
 class TestHeliosSample:
@@ -92,21 +90,13 @@ class TestHeliosSample:
         samples_with_missing_modalities: list[HeliosSample],
     ) -> None:
         """Test subsetting a collated sample with missing modalities."""
-        collated_sample = collate_helios(
-            samples_with_missing_modalities,
-            [
-                Modality.SENTINEL2_L2A,
-                Modality.SENTINEL1,
-                Modality.WORLDCOVER,
-            ],
-        )
-        hw_to_sample = list(range(4, 13))
+        sampled_hw_p = 4
         patch_size = 2
         max_tokens_per_instance = 100
-        subset_sample = collated_sample.subset(
+        subset_sample = samples_with_missing_modalities[1].subset(
             patch_size=patch_size,
             max_tokens_per_instance=max_tokens_per_instance,
-            hw_to_sample=hw_to_sample,
+            sampled_hw_p=sampled_hw_p,
         )
 
         # Check that the shapes are correct
@@ -114,11 +104,10 @@ class TestHeliosSample:
         assert subset_sample.sentinel1 is not None
         assert subset_sample.worldcover is not None
 
-        assert subset_sample.sentinel2_l2a.shape[0] == 3
-        assert subset_sample.sentinel1.shape[0] == 3
-        assert subset_sample.worldcover.shape[0] == 3
+        assert subset_sample.sentinel2_l2a.shape[0] == 8
+        assert subset_sample.sentinel1.shape[0] == 8
+        assert subset_sample.worldcover.shape[0] == 8
 
         # Check that the missing modality masks are preserved
         # Check the missing modality mask values
-        assert torch.all(subset_sample.sentinel1[1] == MISSING_VALUE)
-        assert torch.all(subset_sample.worldcover[2] == MISSING_VALUE)
+        assert (subset_sample.sentinel1[1] != MISSING_VALUE).sum() == 0
