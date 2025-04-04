@@ -260,7 +260,7 @@ def masked_sample_dict(
 
 
 @pytest.fixture
-def samples_with_missing_modalities() -> list[HeliosSample]:
+def samples_with_missing_modalities() -> list[tuple[int, HeliosSample]]:
     """Samples with missing modalities."""
     s2_H, s2_W, s2_T, s2_C = 16, 16, 12, 13
     s1_H, s1_W, s1_T, s1_C = 16, 16, 12, 2
@@ -329,7 +329,7 @@ def samples_with_missing_modalities() -> list[HeliosSample]:
 @pytest.fixture
 def samples_without_missing_modalities(
     set_random_seeds: None,
-) -> list[HeliosSample]:
+) -> list[tuple[int, HeliosSample]]:
     """Samples without missing modalities."""
     s2_H, s2_W, s2_T, s2_C = 16, 16, 12, 13
     s1_H, s1_W, s1_T, s1_C = 16, 16, 12, 2
