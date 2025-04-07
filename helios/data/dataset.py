@@ -66,6 +66,8 @@ class HeliosSample(NamedTuple):
     openstreetmap_raster: ArrayTensor | None = None  # [B, H, W, 1, len(OSM_bands)]
     srtm: ArrayTensor | None = None  # [B, H, W, 1, len(SRTM_bands)]
     landsat: ArrayTensor | None = None  # [B, H, W, T, len(LANDSAT_bands)]
+    # Unsure what the shapes should be for this one
+    naip: ArrayTensor | None = None  # [B, H, W, T, len(NAIP_bands)]
 
     # TODO: Add unit tests for this
     def shape(self, attribute: str, mask: bool = False) -> Sequence[int]:
@@ -424,7 +426,7 @@ class HeliosDataset(Dataset):
         self.multiprocessed_h5_creation = multiprocessed_h5_creation
         self.supported_modalities = supported_modalities
         if training_modalities is None:
-            self.training_modalities = supported_modalities
+            self.training_modalities = [modality.name for modality in supported_modalities]
         else:
             self.training_modalities = training_modalities
         self.use_samples_with_missing_supported_modalities = (
@@ -928,6 +930,7 @@ class HeliosDataset(Dataset):
         # THis io is the current bottleneck of the getitem operation
         sample_dict = self.read_h5_file(h5_file_path)
 
+        # Fill any training modalities that are not present in the h5 file with missing values
         sample, missing_modalities = self.fill_sample_with_missing_values(sample_dict)
         subset_sample = self.apply_subset(sample, args)
         sample_dict = subset_sample.as_dict(ignore_nones=True)
