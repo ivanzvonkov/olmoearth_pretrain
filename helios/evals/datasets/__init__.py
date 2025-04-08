@@ -30,7 +30,7 @@ def get_eval_dataset(
             dataset=eval_dataset,
             split=split,
             partition=partition,
-            norm_stats_from_pretrained=norm_stats_from_pretrained,
+            norm_stats_from_pretrained=True,
         )
     elif eval_dataset == "mados":
         if norm_stats_from_pretrained:
@@ -55,7 +55,7 @@ def get_eval_dataset(
             path_to_splits=PASTIS_DIR,
             split=split,
             partition=partition,
-            norm_stats_from_pretrained=norm_stats_from_pretrained,
+            norm_stats_from_pretrained=True,
             is_multimodal=False,
         )
     elif eval_dataset == "pastis-r":

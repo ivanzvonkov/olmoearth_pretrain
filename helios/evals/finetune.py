@@ -133,9 +133,9 @@ def finetune_and_eval_seg(
             partition="default",
         ),
         collate_fn=eval_collate_fn,
-        batch_size=16,
-        num_workers=2,
-    )
+        batch_size=64,
+        num_workers=4,
+    )  # 4, 1 for pastis / 16, 2 for sen1floods11
     val_loader = DataLoader(
         get_eval_dataset(
             eval_dataset=task_name,
@@ -143,8 +143,8 @@ def finetune_and_eval_seg(
             partition="default",
         ),
         collate_fn=eval_collate_fn,
-        batch_size=16,
-        num_workers=2,
+        batch_size=64,
+        num_workers=4,
     )
     finetuned_model = finetune_seg(
         task_config=task_config,
@@ -397,7 +397,7 @@ def finetune_seg(
     model_config = load_config(checkpoint_path)
     model = model_config.build()
 
-    load_model_and_optim_state(checkpoint_path / "model_and_optim", model)
+    # load_model_and_optim_state(checkpoint_path / "model_and_optim", model)
     encoder = model.encoder
 
     finetuned_model = EncoderWithHead(
@@ -453,7 +453,7 @@ def finetune_seg(
                     align_corners=True,
                 )  # (bs, num_classes, H, W)
                 loss = loss_function(logits, label)
-                print(f"Loss: {loss.item()}")
+                # print(f"Loss: {loss.item()}")
 
             loss.backward()
             # TODO: change to min/max lr
@@ -546,16 +546,21 @@ def evaluate_seg(
 
 if __name__ == "__main__":
     final_scores = []
-    num_runs = 10
-    task_name = "m-eurosat"
-    # task_name = "mados"
+    num_runs = 1
+    task_name = "m-eurosat"  # 94% (norm_stats_from_pretrained=False is better)
+    # task_name = "mados"  # 75%
+    # task_name = "sen1floods11"  # 77%
+    # task_name = "pastis"  # 54.9%
     task_config = DATASET_TO_CONFIG[task_name]
     task_type = task_config.task_type
-    checkpoint_path = "/weka/dfive-default/helios/checkpoints/henryh/3latentmim_tiny_masking_modality_loss_patch_discrimination_new_token_exit_zero/step154400"
+    checkpoint_path = "/weka/dfive-default/helios/checkpoints/yawenzzzz/galileo_presto_use_modality_S2/step30750"
     patch_size = 4
     pooling_type = PoolingType.MEAN
     epochs = 50
     device = torch.device("cuda")
+
+    # TODO: warning about supported modalities
+    # TODO: need norm type, worker, batch size, etc.
 
     for _ in range(num_runs):
         for lr in FT_LRs:
