@@ -820,14 +820,17 @@ class HeliosDataset(Dataset):
             timestamps = [i.start_time for i in sample_sentinel2_l2a.images]
             dt = pd.to_datetime(timestamps)
         elif Modality.SENTINEL1 in sample.modalities:
+            logger.info(f"Using Sentinel1 data for timestamps")
             sample_sentinel1 = sample.modalities[Modality.SENTINEL1]
             timestamps = [i.start_time for i in sample_sentinel1.images]
             dt = pd.to_datetime(timestamps)
         elif Modality.LANDSAT in sample.modalities:
+            logger.info(f"Using Landsat data for timestamps")
             sample_landsat = sample.modalities[Modality.LANDSAT]
             timestamps = [i.start_time for i in sample_landsat.images]
             dt = pd.to_datetime(timestamps)
         elif Modality.NAIP in sample.modalities:
+            logger.info(f"Using NAIP data for timestamps")
             sample_naip = sample.modalities[Modality.NAIP]
             timestamps = [i.start_time for i in sample_naip.images]
             dt = pd.to_datetime(timestamps)
@@ -874,6 +877,8 @@ class HeliosDataset(Dataset):
     ) -> dict[str, Any]:
         """Create the h5 file."""
         sample_dict = {}
+        sample_dict["latlon"] = self.get_latlon(sample).astype(self.dtype)
+        sample_dict["timestamps"] = self._get_timestamps(sample)
         for modality in sample.modalities:
             sample_modality = sample.modalities[modality]
             image = self.load_sample(sample_modality, sample)
@@ -881,10 +886,6 @@ class HeliosDataset(Dataset):
             if modality == Modality.SENTINEL1:
                 image = convert_to_db(image)
             sample_dict[modality.name] = image
-            # Get latlon and timestamps from Sentinel2 data
-            if modality == Modality.SENTINEL2_L2A:
-                sample_dict["latlon"] = self.get_latlon(sample).astype(self.dtype)
-                sample_dict["timestamps"] = self._get_timestamps(sample)
         # Save h5 file on WEKA
         with h5_file_path.open("wb") as f:
             with h5py.File(f, "w") as h5file:
@@ -900,7 +901,7 @@ class HeliosDataset(Dataset):
         sample = HeliosSample(**sample_dict)
         for modality in self.training_modalities:
             if modality not in sample_dict.keys():
-                logger.info(f"Filling {modality} with missing values")
+                logger.debug(f"Filling {modality} with missing values")
                 sample_dict[modality] = np.full(
                     sample.get_expected_shape(modality),
                     fill_value=MISSING_VALUE,
@@ -929,10 +930,6 @@ class HeliosDataset(Dataset):
                 logger.info(f"Reading h5 file {h5_file_path} with keys {h5file.keys()}")
                 # Not sure lat lon should be here
                 sample_dict = {k: v[()] for k, v in h5file.items() if k in self.training_modalities or k in ["latlon", "timestamps"]}
-                # log all the shapes of the modalities
-                for modality in self.training_modalities:
-                    if modality in sample_dict:
-                        logger.info(f"Shape of {modality}: {sample_dict[modality].shape}")
         return sample_dict
 
     def __getitem__(self, args: GetItemArgs) -> tuple[int, HeliosSample]:

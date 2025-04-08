@@ -38,7 +38,6 @@ def compute_normalization_values(
     else:
         indices_to_sample = list(range(dataset_len))
     norm_dict: dict[str, Any] = {}
-
     for i in tqdm(indices_to_sample):
         get_item_args = GetItemArgs(idx=i, patch_size=1, sampled_hw_p=IMAGE_TILE_SIZE)
         _, sample = dataset[get_item_args]
