@@ -163,8 +163,8 @@ def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
             Modality.SENTINEL1.name,
             Modality.WORLDCOVER.name,
             Modality.SRTM.name,
-            # Modality.NAIP.name,
-            Modality.LANDSAT.name,
+            Modality.NAIP.name,
+            Modality.LANDSAT.name, # why are we not getting all the landsat h5s?
             Modality.OPENSTREETMAP_RASTER.name,
         ],
         supported_modality_names=common.supported_modality_names,

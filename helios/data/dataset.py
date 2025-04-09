@@ -890,6 +890,7 @@ class HeliosDataset(Dataset):
         with h5_file_path.open("wb") as f:
             with h5py.File(f, "w") as h5file:
                 for modality_name, image in sample_dict.items():
+                    logger.info(f"Writing modality {modality_name} to h5 file path {h5_file_path}")
                     h5file.create_dataset(modality_name, data=image)
         return sample_dict
 

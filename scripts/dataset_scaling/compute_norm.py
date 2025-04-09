@@ -109,14 +109,14 @@ if __name__ == "__main__":
         """Parse the supported modalities from a string."""
         return supported_modalities.split(",")
 
-
+    # FOr some reason landsat and naip were missi g from every sample
+    supported_modalities = parse_supported_modalities(args_dict["supported_modalities"])
+    logger.info(f"Supported modalities: {supported_modalities}")
     # Use the config to build the dataset
     dataset_config = HeliosDatasetConfig(
         # tile_path=UPath(args_dict["tile_path"]),
         h5py_dir="/weka/dfive-default/helios/dataset/presto/h5py_data/landsat_naip_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/102695",
-        supported_modality_names=parse_supported_modalities(
-            args_dict["supported_modalities"]
-        ),
+        supported_modality_names=supported_modalities,
         normalize=False,
     )
     dataset = dataset_config.build()
