@@ -31,6 +31,8 @@ class HeliosConcatDataset(ConcatDataset):
     def __getitem__(self, args: GetItemArgs) -> Any:
         """Get the sample at the given index."""
         # Adapted from ConcatDataset.
+        # The only change we make is to extract the index from args, and then get a
+        # tuple with updated index at the end to pass to the sub dataset.
         idx = args.idx
         if idx < 0:
             if -idx > len(self):
