@@ -1005,9 +1005,11 @@ class HeliosDataset(Dataset):
                 logger.info(f"Reading h5 file {h5_file_path} with keys {h5file.keys()}")
                 # Not sure lat lon should be here
                 sample_dict = {k: v[()] for k, v in h5file.items() if k in self.training_modalities or k in ["latlon", "timestamps"]}
-        # log the shape of all modalities
-        # for modality, data in sample_dict.items():
-        #     logger.info(f"Shape of modality {modality}: {data.shape}")
+        # TODO: Hack to make sure landsat works other than this
+        if "landsat" in sample_dict:
+            if sample_dict["landsat"].shape[2] != 12:
+                logger.info(f"Landsat shape: {sample_dict['landsat'].shape}")
+                sample_dict.pop("landsat")
         return sample_dict
 
     def __getitem__(self, args: GetItemArgs) -> tuple[int, HeliosSample]:
