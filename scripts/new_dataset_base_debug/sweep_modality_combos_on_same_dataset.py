@@ -39,7 +39,7 @@ MODALITY_COMBINATIONS = (
 # Base command template
 BASE_COMMAND = (
     "python3 scripts/new_dataset_base_debug/latent_mim_debug.py "
-    "dry_run {run_name} ai2/jupiter-cirrascale-2 {modality_args}"
+    "launch {run_name} ai2/jupiter-cirrascale-2 {modality_args}"
 )
 
 
@@ -63,7 +63,7 @@ def format_training_modalities(modalities: list[ModalitySpec]) -> str:
 for modality_combo in MODALITY_COMBINATIONS:
     # Generate a descriptive name for the run
     modality_combo_name = "_".join([m.name.lower() for m in modality_combo])
-    run_name = f"latentmim_modalities_{modality_combo_name}"
+    run_name = f"new_filtering_latentmim_modalities_{modality_combo_name}"
 
     # Format the modality arguments
     modality_args = format_training_modalities(modality_combo)
