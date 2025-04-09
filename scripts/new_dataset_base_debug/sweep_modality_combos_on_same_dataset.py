@@ -80,7 +80,7 @@ def main() -> None:
     # Base command template using the provided script path
     base_command = (
         f"python3 {args.base_script_path} "
-        f"launch {{run_name}} {args.cluster} "
+        f"dry_run {{run_name}} {args.cluster} "
         f"--dataset.h5py_dir=/weka/dfive-default/helios/dataset/presto/h5py_data/landsat_naip_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/118861 "
         f"{{modality_args}}"
     )
