@@ -165,7 +165,10 @@ class PatchDiscriminationLossNew(Loss):
         target = F.normalize(target, p=2, dim=-1)
 
         count = (all_masks == MaskValue.DECODER.value).sum(dim=-1)
-
+        # what if for a givern sample there are no decoder tokens? then this is really bad? and will give a nan loss?
+        # log if any of the count values are 0
+        if any(count == 0):
+            logger.warning("Some samples have no decoder tokens.")
         losses = []
         start = 0
         for c in count:
