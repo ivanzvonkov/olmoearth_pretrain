@@ -21,7 +21,6 @@ from olmo_core.utils import get_default_device, prepare_cli_environment, seed_al
 from helios.data.constants import Modality
 from helios.data.dataloader import HeliosDataLoaderConfig
 from helios.data.dataset import HeliosDatasetConfig, collate_helios
-from helios.data.normalize import Normalizer, Strategy
 from helios.data.visualize import visualize_sample
 from helios.nn.latent_mim import LatentMIMConfig
 from helios.train.train_module.latent_mim import LatentMIMTrainModuleConfig
@@ -64,7 +63,6 @@ class HeliosVisualizeConfig(Config):
     output_dir: str
     num_samples: int | None = None
     global_step: int | None = None
-    normalize_strategy: Strategy = Strategy.PREDEFINED
     std_multiplier: float = 2.0
 
 
@@ -181,15 +179,9 @@ def visualize(config: HeliosExperimentConfig) -> None:
         sample_indices = np.random.randint(
             0, len(dataset), config.visualize_config.num_samples
         )
-    normalizer = Normalizer(
-        strategy=config.visualize_config.normalize_strategy,
-        std_multiplier=config.visualize_config.std_multiplier,
-    )
     logger.info(f"sample indices: {sample_indices}")
     for sample_index in sample_indices:
-        visualize_sample(
-            dataset, sample_index, normalizer, config.visualize_config.output_dir
-        )
+        visualize_sample(dataset, sample_index, config.visualize_config.output_dir)
     logger.info("Done visualizing the dataset")
 
 
