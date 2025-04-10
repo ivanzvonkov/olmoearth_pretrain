@@ -117,7 +117,7 @@ BASE_COMMAND = (
     "{token_exit_args} "
     "{model_args} "
     "--launch.num_gpus=4 "
-    "--data_loader.global_batch_size 512"
+    "--data_loader.global_batch_size=512"
 )
 
 # Iterate over all combinations of hyperparameters
