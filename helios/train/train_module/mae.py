@@ -190,7 +190,7 @@ class MAETrainModule(HeliosTrainModule):
             labels_dict = masked_batch.as_dict()
             labels_dict.pop("timestamps", None)
             labels = TokensAndMasks(**labels_dict)
-            loss = torch.zeros([], self.device)
+            loss = torch.zeros([], device=self.device)
             if self.mae_loss:
                 loss += self.mae_loss.compute(reconstructed, labels)
             if self.latent_mim_loss:
