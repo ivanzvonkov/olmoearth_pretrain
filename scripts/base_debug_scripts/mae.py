@@ -1,6 +1,7 @@
 """Trying to prototype fitting everything into olmo core."""
 
 import logging
+from typing import Any
 
 from olmo_core.config import DType
 from olmo_core.distributed.parallel.data_parallel import (
@@ -263,7 +264,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     return trainer_config
 
 
-def build_common_components_mae(*args) -> CommonComponents:
+def build_common_components_mae(*args: Any) -> CommonComponents:
     """Build the common components for an experiment."""
     common = build_common_components(*args)
     return CommonComponents(
