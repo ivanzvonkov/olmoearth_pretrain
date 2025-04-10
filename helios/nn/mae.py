@@ -38,12 +38,12 @@ class MAE(nn.Module, DistributedMixins):
 
     def forward(
         self, x: MaskedHeliosSample, patch_size: int
-    ) -> tuple[TokensAndMasks, TokensAndMasks]:
+    ) -> tuple[TokensAndMasks, TokensAndMasks, TokensAndMasks]:
         """Forward pass for the MAE Module."""
         latent = self.encoder(x, patch_size=patch_size)
         decoded = self.decoder(latent, timestamps=x.timestamps, patch_size=patch_size)
         reconstructed = self.reconstructor(decoded, patch_size=patch_size)
-        return latent, reconstructed
+        return latent, decoded, reconstructed
 
     def apply_compile(self) -> None:
         """Apply torch.compile to the model."""

@@ -433,7 +433,7 @@ class MAELoss(Loss):
     name = "MAE"
 
     def __init__(
-        self, loss_function: str = "MSELoss", only_decode: bool = False, **kwargs: Any
+        self, loss_function: str = "MSELoss", only_decode: bool = True, **kwargs: Any
     ):
         """Initialize MAE loss.
 
