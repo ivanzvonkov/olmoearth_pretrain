@@ -187,7 +187,7 @@ class MAETrainModule(HeliosTrainModule):
         """Forward pass of the model."""
         with self._model_forward_context():
             latent = self.model.encoder(masked_batch, patch_size=patch_size)
-            decoded = self.model.encoder(
+            decoded = self.model.decoder(
                 latent, timestamps=masked_batch.timestamps, patch_size=patch_size
             )
             loss = torch.zeros([], device=self.device)
