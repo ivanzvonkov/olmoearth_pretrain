@@ -21,9 +21,7 @@ from olmo_core.utils import get_default_device, prepare_cli_environment, seed_al
 from helios.data.constants import Modality
 from helios.data.dataloader import HeliosDataLoaderConfig
 from helios.data.dataset import HeliosDatasetConfig, collate_helios
-from helios.data.normalize import Normalizer, Strategy
 from helios.data.visualize import visualize_sample
-from helios.nn.latent_mim import LatentMIMConfig
 from helios.train.train_module.latent_mim import LatentMIMTrainModuleConfig
 from helios.train.train_module.train_module import HeliosTrainModuleConfig
 
@@ -41,19 +39,19 @@ class CommonComponents(Config):
 
     run_name: str
     save_folder: str
-    supported_modality_names: list[str]
     launch: BeakerLaunchConfig
+    training_modalities: list[str]
     # callbacks: dict[str, Callback]
 
     def validate(self) -> None:
         """Validate the common components."""
-        if not isinstance(self.supported_modality_names, list):
-            raise ValueError("supported_modality_names must be a list")
+        if not isinstance(self.training_modalities, list):
+            raise ValueError("training_modalities must be a list")
         if not all(
-            modality in Modality.names() for modality in self.supported_modality_names
+            modality in Modality.names() for modality in self.training_modalities
         ):
             raise ValueError(
-                "supported_modality_names must contain only valid modality names"
+                "training_modalities must contain only valid modality names"
             )
 
 
@@ -64,7 +62,6 @@ class HeliosVisualizeConfig(Config):
     output_dir: str
     num_samples: int | None = None
     global_step: int | None = None
-    normalize_strategy: Strategy = Strategy.PREDEFINED
     std_multiplier: float = 2.0
 
 
@@ -75,7 +72,7 @@ class HeliosExperimentConfig(Config):
     run_name: str
     launch: BeakerLaunchConfig
     model: Config
-    dataset: HeliosDatasetConfig  # will likely be fixed for us
+    dataset: Config  # will likely be fixed for us
     data_loader: HeliosDataLoaderConfig  # will likely be fixed for us
     train_module: HeliosTrainModuleConfig
     trainer: TrainerConfig
@@ -181,15 +178,9 @@ def visualize(config: HeliosExperimentConfig) -> None:
         sample_indices = np.random.randint(
             0, len(dataset), config.visualize_config.num_samples
         )
-    normalizer = Normalizer(
-        strategy=config.visualize_config.normalize_strategy,
-        std_multiplier=config.visualize_config.std_multiplier,
-    )
     logger.info(f"sample indices: {sample_indices}")
     for sample_index in sample_indices:
-        visualize_sample(
-            dataset, sample_index, normalizer, config.visualize_config.output_dir
-        )
+        visualize_sample(dataset, sample_index, config.visualize_config.output_dir)
     logger.info("Done visualizing the dataset")
 
 
@@ -202,10 +193,7 @@ def launch(config: HeliosExperimentConfig) -> None:
 
 
 def prep(config: HeliosExperimentConfig) -> None:
-    """Prepare the dataset for an experiment.
-
-    This builds the H5s and saves them to weka to be shared across experiments.
-    """
+    """Prepare the dataset for an experiment."""
     dataset = config.dataset.build()
     # TODO: akward harcoding of the collator here
     data_loader = config.data_loader.build(
@@ -304,8 +292,8 @@ class SubCmd(StrEnum):
 def main(
     *,
     common_components_builder: Callable,
-    model_config_builder: Callable[[CommonComponents], LatentMIMConfig],
-    dataset_config_builder: Callable[[CommonComponents], HeliosDatasetConfig],
+    model_config_builder: Callable[[CommonComponents], Config],
+    dataset_config_builder: Callable[[CommonComponents], Config],
     dataloader_config_builder: Callable[[CommonComponents], HeliosDataLoaderConfig],
     trainer_config_builder: Callable[[CommonComponents], TrainerConfig],
     train_module_config_builder: Callable[

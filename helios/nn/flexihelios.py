@@ -82,6 +82,12 @@ class TokensAndMasks(NamedTuple):
     latlon_mask: Tensor | None = None
     openstreetmap_raster: Tensor | None = None
     openstreetmap_raster_mask: Tensor | None = None
+    srtm: Tensor | None = None
+    srtm_mask: Tensor | None = None
+    landsat: Tensor | None = None
+    landsat_mask: Tensor | None = None
+    naip: Tensor | None = None
+    naip_mask: Tensor | None = None
 
     @property
     def device(self) -> torch.device:
@@ -120,7 +126,7 @@ class TokensAndMasks(NamedTuple):
     @property
     def modalities(self) -> list[str]:
         """Return all data fields."""
-        return [x for x in self._fields if not x.endswith("mask")]
+        return [x for x in self._fields if not x.endswith("mask") and x is not None]
 
     def get_shape_dict(self) -> dict[str, tuple]:
         """Return a dictionary of the shapes of the fields."""
@@ -976,7 +982,6 @@ class Encoder(FlexiHeliosBase):
             updated_mask: [B, T]
             where T is the max number of unmasked tokens for an instance
         """
-        # At this point when we flip the mask 1 means keep 0 means remove
         sorted_mask, indices = torch.sort(mask, dim=1, descending=True, stable=True)
         # Now all the places where we want to keep the token are at the front of the tensor
         x = x.gather(1, indices[:, :, None].expand_as(x))

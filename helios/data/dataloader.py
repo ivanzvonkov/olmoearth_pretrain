@@ -24,6 +24,7 @@ from olmo_core.utils import get_default_device
 from torch.utils.data import default_collate
 from upath import UPath
 
+from helios.data.concat import HeliosConcatDataset
 from helios.data.constants import IMAGE_TILE_SIZE, Modality
 from helios.data.dataset import GetItemArgs, HeliosDataset, HeliosSample
 
@@ -41,7 +42,7 @@ class HeliosDataLoader(DataLoaderBase):
 
     def __init__(
         self,
-        dataset: HeliosDataset,
+        dataset: HeliosDataset | HeliosConcatDataset,
         work_dir: UPath,
         global_batch_size: int,
         min_patch_size: int,
@@ -70,9 +71,6 @@ class HeliosDataLoader(DataLoaderBase):
             fs_local_rank=fs_local_rank,
         )
         self.dataset = dataset
-        assert isinstance(self.dataset, HeliosDataset)  # type: ignore
-        if not self.dataset.is_dataset_prepared:
-            raise RuntimeError("Dataset must be prepared before creating a dataloader")
         self.min_patch_size = min_patch_size
         self.max_patch_size = max_patch_size
         if token_budget is None:
@@ -184,7 +182,7 @@ class HeliosDataLoader(DataLoaderBase):
             return self._global_indices
         if not self._global_indices_file.is_file():
             raise RuntimeError(
-                "Missing global indices file, did you forget to call 'reshuffle()'?"
+                f"Missing global indices file {self._global_indices_file}, did you forget to call 'reshuffle()'?"
             )
         return np.memmap(self._global_indices_file, mode="r", dtype=np.uint32)
 
@@ -289,21 +287,31 @@ class HeliosDataLoader(DataLoaderBase):
         logger.info("Getting mock batch NOT FROM DATASET")
         rng = get_rng(42)
         output_dict = {}
-        if Modality.SENTINEL2_L2A in self.dataset.supported_modalities:
+        # ToDO: change to training modalities
+        logger.info(f"Training modalities: {self.dataset.training_modalities}")
+        if Modality.SENTINEL2_L2A.name in self.dataset.training_modalities:
             mock_sentinel2_l2a = rng.random((256, 256, 12, 12), dtype=np.float32)
             output_dict["sentinel2_l2a"] = mock_sentinel2_l2a
-        if Modality.SENTINEL1 in self.dataset.supported_modalities:
+        if Modality.SENTINEL1.name in self.dataset.training_modalities:
             mock_sentinel1 = rng.random((256, 256, 12, 2), dtype=np.float32)
             output_dict["sentinel1"] = mock_sentinel1
-        if Modality.WORLDCOVER in self.dataset.supported_modalities:
+        if Modality.WORLDCOVER.name in self.dataset.training_modalities:
             mock_worldcover = rng.random((256, 256, 1, 1), dtype=np.float32)
             output_dict["worldcover"] = mock_worldcover
-        if Modality.LATLON in self.dataset.supported_modalities:
+        if Modality.LATLON.name in self.dataset.training_modalities:
             mock_latlon = rng.random((2,), dtype=np.float32)
             output_dict["latlon"] = mock_latlon
-        if Modality.OPENSTREETMAP_RASTER in self.dataset.supported_modalities:
+        if Modality.OPENSTREETMAP_RASTER.name in self.dataset.training_modalities:
             mock_openstreetmap_raster = rng.random((256, 256, 1, 30), dtype=np.float32)
             output_dict["openstreetmap_raster"] = mock_openstreetmap_raster
+        if Modality.SRTM.name in self.dataset.training_modalities:
+            mock_srtm = rng.random((256, 256, 1, 1), dtype=np.float32)
+            output_dict["srtm"] = mock_srtm
+        if Modality.LANDSAT.name in self.dataset.training_modalities:
+            mock_landsat = rng.random(
+                (256, 256, 12, Modality.LANDSAT.num_bands), dtype=np.float32
+            )
+            output_dict["landsat"] = mock_landsat
 
         days = rng.integers(0, 25, (12, 1))
         months = rng.integers(0, 12, (12, 1))
@@ -487,8 +495,6 @@ class HeliosDataLoaderConfig(Config):
     ) -> "HeliosDataLoader":
         """Build the HeliosDataLoader."""
         self.validate()
-        if not isinstance(dataset, HeliosDataset):
-            raise ValueError("Dataset must be a HeliosDataset")
         dataset.prepare()
 
         return HeliosDataLoader(
