@@ -33,13 +33,13 @@ parallelize the materialize commands.
 
     export DATASET_PATH=/dfive-default/helios/dataset_creation/X/
     cp data/rslearn_dataset_configs/config_X.json $DATASET_PATH/config.json
-    rslearn dataset prepare --root $DATASET_PATH --group res_10 --workers 64 --no-use-initial-job --retry-max-attempts 8 --retry-backoff-seconds 60
+    rslearn dataset prepare --root $DATASET_PATH --group res_10 --workers 64 --no-use-initial-job --retry-max-attempts 8 --retry-backoff-seconds 60 --jobs-per-process 16
     rslearn dataset materialize --root $DATASET_PATH --group res_10 --workers 64 --no-use-initial-job --retry-max-attempts 8 --retry-backoff-seconds 60
 
 NAIP is also from Planetary Computer, but it only applies to the 0.625 m/pixel windows:
 
     cp data/rslearn_dataset_configs/config_naip.json $DATASET_PATH/config.json
-    rslearn dataset prepare --root $DATASET_PATH --group res_0.625 --workers 64 --no-use-initial-job --retry-max-attempts 8 --retry-backoff-seconds 60
+    rslearn dataset prepare --root $DATASET_PATH --group res_0.625 --workers 64 --no-use-initial-job --retry-max-attempts 8 --retry-backoff-seconds 60 --jobs-per-process 16
     rslearn dataset materialize --root $DATASET_PATH --group res_0.625 --workers 64 --no-use-initial-job --retry-max-attempts 8 --retry-backoff-seconds 60
 
 OpenStreetMap can be processed on one machine. We use 16 workers for preparing and
