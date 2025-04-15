@@ -88,6 +88,14 @@ class HeliosConcatDataset(ConcatDataset):
             dataset_latlons.append(dataset.latlon_distribution)
         self.latlon_distribution = np.concatenate(dataset_latlons, axis=0)
 
+        # Set training modalities attribute (accessed by data loader).
+        self.training_modalities = self.datasets[0].training_modalities
+        for dataset in self.datasets:
+            if self.training_modalities != dataset.training_modalities:
+                raise ValueError(
+                    "expected all sub datasets to have same training modalities"
+                )
+
     @property
     def supported_modalities(self) -> list[ModalitySpec]:
         """Return the supported modalities."""
