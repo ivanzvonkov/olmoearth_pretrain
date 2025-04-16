@@ -6,6 +6,7 @@ import uuid
 import tqdm
 from beaker import (
     Beaker,
+    Constraints,
     DataMount,
     DataSource,
     ExperimentSpec,
@@ -44,6 +45,7 @@ def launch_job(
     clusters: list[str],
     ds_path: str,
     modality: str,
+    hostname: str | None = None,
 ) -> None:
     """Launch a Beaker job that materializes the specified modality.
 
@@ -52,6 +54,7 @@ def launch_job(
         clusters: list of Beaker clusters to target.
         ds_path: the dataset path.
         modality: the modality to materialize.
+        hostname: optional Beaker host to constrain to.
     """
     beaker = Beaker.from_env(default_workspace=BEAKER_WORKSPACE)
     with beaker.session():
@@ -64,18 +67,33 @@ def launch_job(
             source=DataSource(weka="dfive-default"),
             mount_path="/weka/dfive-default",
         )
+
+        # Set one GPU if not targeting a specific host, otherwise we might have
+        # hundreds of jobs scheduled on the same host.
+        # Also we can only set cluster constraint if we do not specify hostname.
+        resources: dict | None
+        constraints: Constraints
+        if hostname is None:
+            resources = {"gpuCount": 1}
+            constraints = Constraints(
+                cluster=clusters,
+            )
+        else:
+            resources = None
+            constraints = Constraints(
+                hostname=[hostname],
+            )
+
         experiment_spec = ExperimentSpec.new(
             budget=BEAKER_BUDGET,
             task_name=experiment_name,
             beaker_image=image,
             priority=Priority.high,
-            cluster=clusters,
             command=command,
             datasets=[weka_mount],
-            # Set one GPU, otherwise we might have hundreds of jobs scheduled on the
-            # same machine.
-            resources={"gpuCount": 1},
+            resources=resources,
             preemptible=True,
+            constraints=constraints,
         )
         beaker.experiment.create(experiment_name, experiment_spec)
 
@@ -111,13 +129,31 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_jobs",
         type=int,
-        help="Number of Beaker jobs to start",
-        required=True,
+        help="Number of Beaker jobs to start (one of num_jobs and hosts must be set)",
+        default=None,
+    )
+    parser.add_argument(
+        "--hosts",
+        type=str,
+        help="Comma-separated list of hosts to start jobs on, one job per host (one of num_jobs and hosts must be set)",
+        default=None,
     )
     args = parser.parse_args()
     clusters = args.clusters.split(",")
 
-    for i in tqdm.tqdm(list(range(args.num_jobs)), desc="Launching jobs"):
-        launch_job(
-            args.image_name, args.clusters.split(","), args.ds_path, args.modality
-        )
+    if args.num_jobs is not None:
+        for i in tqdm.tqdm(list(range(args.num_jobs)), desc="Launching jobs"):
+            launch_job(
+                args.image_name, args.clusters.split(","), args.ds_path, args.modality
+            )
+    elif args.hosts is not None:
+        for host in args.hosts.split(","):
+            launch_job(
+                args.image_name,
+                args.clusters.split(","),
+                args.ds_path,
+                args.modality,
+                hostname=host,
+            )
+    else:
+        raise ValueError("one of num_jobs and hosts must be set")
