@@ -143,6 +143,7 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
         min_patch_size=MIN_PATCH_SIZE,
         max_patch_size=MAX_PATCH_SIZE,
         token_budget=TOKEN_BUDGET,
+        cache_dir="/data/helios/test_run_20",
     )
     return dataloader_config
 
