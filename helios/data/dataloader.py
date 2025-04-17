@@ -3,8 +3,6 @@
 import logging
 import math
 import multiprocessing as mp
-import os
-import subprocess  # nosec
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -63,7 +61,6 @@ class HeliosDataLoader(DataLoaderBase):
         drop_last: bool = True,
         persistent_workers: bool = True,
         multiprocessing_context: str = "spawn",
-        cache_dir: UPath | None = None,
     ):
         """Initialize the HeliosDataLoader."""
         super().__init__(
@@ -94,17 +91,6 @@ class HeliosDataLoader(DataLoaderBase):
         if self.num_workers > 0 and self.multiprocessing_context == "forkserver":
             # Overhead of loading modules on import by preloading them
             mp.set_forkserver_preload(["torch", "rasterio"])
-        self.cache_dir = cache_dir
-        if self.cache_dir is not None:
-            os.makedirs(self.cache_dir, exist_ok=True)
-            self.dataset.set_cache_dir(self.cache_dir)
-            if fs_local_rank == 0:
-                logger.warning(
-                    f"preparing cache directory cleanup for {self.cache_dir} in process {os.getpid()}"
-                )
-                subprocess.Popen(
-                    ["python", "-m", "helios.data.cleanup_handler", self.cache_dir.path]
-                )  # nosec
 
     @property
     def total_batches(self) -> int:
@@ -488,7 +474,6 @@ class HeliosDataLoaderConfig(Config):
     prefetch_factor: int | None = None
     target_device_type: str | None = None
     drop_last: bool = True
-    cache_dir: str | None = None
 
     def validate(self) -> None:
         """Validate the configuration."""
@@ -501,11 +486,6 @@ class HeliosDataLoaderConfig(Config):
     def work_dir_upath(self) -> UPath:
         """Get the work directory."""
         return UPath(self.work_dir)
-
-    @property
-    def cache_dir_upath(self) -> UPath:
-        """Get the cache directory."""
-        return UPath(self.cache_dir)
 
     def build(
         self,
@@ -535,5 +515,4 @@ class HeliosDataLoaderConfig(Config):
             max_patch_size=self.max_patch_size,
             sampled_hw_p_list=self.sampled_hw_p_list,
             token_budget=self.token_budget,
-            cache_dir=self.cache_dir_upath,
         )

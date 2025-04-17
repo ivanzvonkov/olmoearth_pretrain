@@ -360,6 +360,7 @@ class HeliosDataset(Dataset):
         dtype: DType,
         normalize: bool = True,
         use_samples_with_missing_supported_modalities: bool = False,
+        cache_dir: UPath | None = None,
     ):
         """Initialize the dataset.
 
@@ -377,6 +378,7 @@ class HeliosDataset(Dataset):
             normalize: If True, apply normalization to the data, if False, do not apply
                 normalization.
             use_samples_with_missing_supported_modalities: If True, use samples that are missing a supported modality.
+            cache_dir: optional local directory to cache the H5 files.
 
         Returns:
             None
@@ -384,6 +386,7 @@ class HeliosDataset(Dataset):
         self.h5py_dir = h5py_dir
         if not self.h5py_dir.exists():
             raise FileNotFoundError(f"H5PY directory does not exist: {self.h5py_dir}")
+        self.cache_dir = cache_dir
 
         self.training_modalities = training_modalities
         self.use_samples_with_missing_supported_modalities = (
@@ -398,7 +401,6 @@ class HeliosDataset(Dataset):
 
         self.sample_indices: np.ndarray | None = None
         self.latlon_distribution: np.ndarray | None = None
-        self.cache_dir: UPath | None = None
 
     @property
     def fingerprint_version(self) -> str:
@@ -454,13 +456,6 @@ class HeliosDataset(Dataset):
     def is_dataset_prepared(self) -> bool:
         """Check if the dataset is prepared."""
         return self.sample_indices is not None
-
-    def set_cache_dir(self, cache_dir: UPath) -> None:
-        """Set the cache directory to cache H5 files.
-
-        This is called by the data loader if cache_dir option is set there.
-        """
-        self.cache_dir = cache_dir
 
     def _filter_sample_indices_for_training(self) -> None:
         """Filter the sample indices for training.
@@ -750,6 +745,7 @@ class HeliosDatasetConfig(Config):
     dtype: DType = DType.float32
     normalize: bool = True
     use_samples_with_missing_supported_modalities: bool = False
+    cache_dir: str | None = None
 
     def validate(self) -> None:
         """Validate the configuration and build kwargs.
@@ -769,10 +765,16 @@ class HeliosDatasetConfig(Config):
         """Get the h5py directory."""
         return UPath(self.h5py_dir)
 
+    @property
+    def cache_dir_upath(self) -> UPath:
+        """Get the cache directory."""
+        return UPath(self.cache_dir)
+
     def build(self) -> "HeliosDataset":
         """Build the dataset."""
         self.validate()
         kwargs = self.as_dict(exclude_none=True, recurse=False)
         kwargs["h5py_dir"] = self.h5py_dir_upath
+        kwargs["cache_dir"] = self.cache_dir_upath
         logger.info(f"HeliosDataset kwargs: {kwargs}")
         return HeliosDataset(**kwargs)
