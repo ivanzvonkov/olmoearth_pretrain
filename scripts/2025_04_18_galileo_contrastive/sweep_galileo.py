@@ -7,6 +7,14 @@
 import subprocess  # nosec
 
 MODEL_CONFIGS = {
+    # "tiny": {
+    #     "encoder_embedding_size": 192,
+    #     "decoder_embedding_size": 192,
+    #     "encoder_depth": 12,
+    #     "encoder_num_heads": 3,
+    #     "decoder_num_heads": 3,
+    #     "mlp_ratio": 4.0,
+    # },
     "base": {
         "encoder_embedding_size": 768,
         "decoder_embedding_size": 768,
