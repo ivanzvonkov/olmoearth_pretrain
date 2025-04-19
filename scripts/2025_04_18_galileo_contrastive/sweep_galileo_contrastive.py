@@ -7,7 +7,7 @@
 
 import subprocess  # nosec
 
-MODEL_TRAINING_CONFIGS = {
+MODEL_CONFIGS = {
     "base": {
         "encoder_embedding_size": 768,
         "decoder_embedding_size": 768,
@@ -26,18 +26,13 @@ MODEL_TRAINING_CONFIGS = {
     },
 }
 
-BASE_SCRIPT_NAMES = [
-    "galileo",
-    "galileo_contrastive",
-]
-
 DECODER_DEPTHS = [2, 4]
 LEARNING_RATES = [0.0001, 0.004]
 CONTRASTIVE_WEIGHTS = [0.05, 0.1, 0.2]
 
 
 BASE_COMMAND = (
-    "python3 scripts/2025_04_18_galileo_contrastive/{script_name}.py launch {run_name} ai2/jupiter-cirrascale-2 "
+    "python3 scripts/2025_04_18_galileo_contrastive/galileo.py launch {run_name} ai2/jupiter-cirrascale-2 "
     "--model.encoder_config.embedding_size={encoder_embedding_size} "
     "--model.decoder_config.encoder_embedding_size={encoder_embedding_size} "
     "--model.decoder_config.decoder_embedding_size={decoder_embedding_size} "
@@ -48,24 +43,23 @@ BASE_COMMAND = (
     "--model.encoder_config.mlp_ratio={mlp_ratio} "
     "--model.decoder_config.mlp_ratio={mlp_ratio} "
     "--train_module.optim_config.lr={lr} "
+    "--train_module.contrastive_config.type=InfoNCE "
     "--train_module.contrastive_config.weight={contrastive_weight} "
     "--launch.num_gpus=8"
 )
 
-for script_name in BASE_SCRIPT_NAMES:
-    for model_name, model_config in MODEL_TRAINING_CONFIGS.items():
-        for decoder_depth in DECODER_DEPTHS:
-            for lr in LEARNING_RATES:
-                for contrastive_weight in CONTRASTIVE_WEIGHTS:
-                    run_name = f"{script_name}_{model_name}_decoder_{decoder_depth}_lr_{lr}_contrastive_weight_{contrastive_weight}"
-                    command = BASE_COMMAND.format(
-                        script_name=script_name,
-                        run_name=run_name,
-                        **model_config,
-                        decoder_depth=decoder_depth,
-                        lr=lr,
-                        contrastive_weight=contrastive_weight,
-                    )
-                    print(command)
-                    # Execute the command
-            subprocess.run(command, shell=True, check=True)  # nosec
+for model_name, model_config in MODEL_CONFIGS.items():
+    for decoder_depth in DECODER_DEPTHS:
+        for lr in LEARNING_RATES:
+            for contrastive_weight in CONTRASTIVE_WEIGHTS:
+                run_name = f"galileo_contrastive_{model_name}_decoder_{decoder_depth}_lr_{lr}_contrastive_weight_{contrastive_weight}"
+                command = BASE_COMMAND.format(
+                    run_name=run_name,
+                    **model_config,
+                    decoder_depth=decoder_depth,
+                    lr=lr,
+                    contrastive_weight=contrastive_weight,
+                )
+                print(command)
+                # Execute the command
+                subprocess.run(command, shell=True, check=True)  # nosec
