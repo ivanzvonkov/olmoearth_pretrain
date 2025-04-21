@@ -68,11 +68,18 @@ def finetune_and_eval_cls(
     if task_config.task_type != TaskType.CLASSIFICATION:
         raise ValueError(f"Task {task_name} is not a classification task")
 
+    # By default, we use the norm stats from the pretrained model
+    norm_stats_from_pretrained = True
+    if task_name == "mados":
+        # MADOS has very different norm stats than our pretraining dataset
+        norm_stats_from_pretrained = False
+
     train_loader = DataLoader(
         get_eval_dataset(
             eval_dataset=task_name,
             split="train",
             partition="default",
+            norm_stats_from_pretrained=norm_stats_from_pretrained,
         ),
         collate_fn=eval_collate_fn,
         batch_size=batch_size,
@@ -83,6 +90,7 @@ def finetune_and_eval_cls(
             eval_dataset=task_name,
             split="valid",
             partition="default",
+            norm_stats_from_pretrained=norm_stats_from_pretrained,
         ),
         collate_fn=eval_collate_fn,
         batch_size=batch_size,
@@ -141,11 +149,18 @@ def finetune_and_eval_seg(
     if task_config.task_type != TaskType.SEGMENTATION:
         raise ValueError(f"Task {task_name} is not a segmentation task")
 
+    # By default, we use the norm stats from the pretrained model
+    norm_stats_from_pretrained = True
+    if task_name == "mados":
+        # MADOS has very different norm stats than our pretraining dataset
+        norm_stats_from_pretrained = False
+
     train_loader = DataLoader(
         get_eval_dataset(
             eval_dataset=task_name,
             split="train",
             partition="default",
+            norm_stats_from_pretrained=norm_stats_from_pretrained,
         ),
         collate_fn=eval_collate_fn,
         batch_size=batch_size,
@@ -156,6 +171,7 @@ def finetune_and_eval_seg(
             eval_dataset=task_name,
             split="valid",
             partition="default",
+            norm_stats_from_pretrained=norm_stats_from_pretrained,
         ),
         collate_fn=eval_collate_fn,
         batch_size=batch_size,

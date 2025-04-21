@@ -63,5 +63,4 @@ DATASET_TO_CONFIG = {
         height_width=64,
     ),
 }
-
 ALL_DATASETS = list(DATASET_TO_CONFIG.keys())
