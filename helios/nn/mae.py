@@ -105,7 +105,7 @@ class MAEConfig(Config):
                 )
             if (
                 self.encoder_config.max_sequence_length
-                != self.reconstructor_config.max_sequence_length
+                != self.reconstructor_config.decoder_config.max_sequence_length
             ):
                 raise ValueError(
                     "Encoder and reconstructor must have the same max sequence length"
