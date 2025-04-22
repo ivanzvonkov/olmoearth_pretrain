@@ -186,18 +186,17 @@ class MAETrainModule(HeliosTrainModule):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Forward pass of the model."""
         with self._model_forward_context():
-            latent = self.model.encoder(masked_batch, patch_size=patch_size)
-            decoded = self.model.decoder(
-                latent, timestamps=masked_batch.timestamps, patch_size=patch_size
+            latent, decoded, reconstructed = self.model(
+                masked_batch, timestamps=masked_batch.timestamps, patch_size=patch_size
             )
+
             loss = torch.zeros([], device=self.device)
-            if self.mae_loss:
-                reconstructed = self.model.reconstructor(decoded, patch_size=patch_size)
+            if self.mae_loss and reconstructed is not None:
                 labels_dict = masked_batch.as_dict()
                 labels_dict.pop("timestamps", None)
                 labels = TokensAndMasks(**labels_dict)
                 loss += self.mae_loss.compute(reconstructed, labels)
-            if self.latent_mim_loss:
+            if self.latent_mim_loss and decoded is not None:
                 with torch.no_grad():
                     logger.info("Target Encoder forward pass...")
                     target_output = self.model.encoder.forward(

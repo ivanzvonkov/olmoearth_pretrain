@@ -54,10 +54,11 @@ MAE_MODALITIES = [
 
 def build_model_config(common: CommonComponents) -> MAEConfig:
     """Build the model config for an experiment."""
+    # Tiny ViT with shallow decoder
     ENCODER_EMBEDDING_SIZE = 192
     DECODER_EMBEDDING_SIZE = 192
     ENCODER_DEPTH = 12
-    DECODER_DEPTH = 12
+    DECODER_DEPTH = 4
     ENCODER_NUM_HEADS = 3
     DECODER_NUM_HEADS = 3
     MLP_RATIO = 4.0
@@ -85,8 +86,8 @@ def build_model_config(common: CommonComponents) -> MAEConfig:
     )
     reconstructor_config = ReconstructorConfig(
         supported_modality_names=common.training_modalities,
-        embedding_size=ENCODER_EMBEDDING_SIZE,
         max_patch_size=MAX_PATCH_SIZE,
+        decoder_config=decoder_config,
     )
     model_config = MAEConfig(
         encoder_config=encoder_config,
@@ -100,7 +101,7 @@ def build_train_module_config(
     common: CommonComponents,
 ) -> MAETrainModuleConfig:
     """Build the train module config for an experiment."""
-    LR = 0.002
+    LR = 0.001
     RANK_MICROBATCH_SIZE = 128
     ENCODE_RATIO = 0.1
     DECODE_RATIO = 0.9
@@ -118,6 +119,7 @@ def build_train_module_config(
             "type": "mae",
             "loss_function": "SmoothL1Loss",
             "beta": 0.1,
+            "weight": 10,
         }
     )
     latent_mim_loss_config = LossConfig(
@@ -125,7 +127,7 @@ def build_train_module_config(
             "type": "patch_discrimination_new",
         }
     )
-    token_exit_cfg = {modality: 12 for modality in common.training_modalities}
+    token_exit_cfg = {modality: 0 for modality in common.training_modalities}
     WARMUP_EPOCHS = 2
     dp_config = DataParallelConfig(name=DataParallelType.ddp)
 
