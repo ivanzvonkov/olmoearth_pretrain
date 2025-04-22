@@ -24,6 +24,7 @@
         },
         "collection_name": "naip",
         "duration": "730d",
+        "ingest": false,
         "name": "rslearn.data_sources.planetary_computer.PlanetaryComputer",
         "time_offset": "-365d"
       },
