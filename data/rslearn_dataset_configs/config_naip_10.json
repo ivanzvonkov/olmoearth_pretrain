@@ -1,0 +1,33 @@
+{
+  "layers": {
+    "naip_10": {
+      "band_sets": [
+        {
+          "bands": [
+            "R",
+            "G",
+            "B",
+            "IR"
+          ],
+          "dtype": "uint8",
+          "zoom_offset": 16
+        }
+      ],
+      "data_source": {
+        "asset_bands": {
+          "image": [
+            "R",
+            "G",
+            "B",
+            "IR"
+          ]
+        },
+        "collection_name": "naip",
+        "duration": "730d",
+        "name": "rslearn.data_sources.planetary_computer.PlanetaryComputer",
+        "time_offset": "-365d"
+      },
+      "type": "raster"
+    }
+  }
+}
