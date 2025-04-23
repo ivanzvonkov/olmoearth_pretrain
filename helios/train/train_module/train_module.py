@@ -193,7 +193,7 @@ class HeliosTrainModule(TrainModule):
             "Number of encoder parameters: %d",
             sum(p.numel() for p in self.model.encoder.parameters()),
         )
-        if hasattr(self.model, "decoder"):
+        if hasattr(self.model, "decoder") and self.model.decoder is not None:
             logger.info(
                 "Number of decoder parameters: %d",
                 sum(p.numel() for p in self.model.decoder.parameters()),
