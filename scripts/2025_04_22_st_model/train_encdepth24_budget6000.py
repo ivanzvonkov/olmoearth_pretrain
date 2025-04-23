@@ -14,15 +14,15 @@ from helios.internal.experiment import CommonComponents, main
 from helios.nn.latent_mim import LatentMIMConfig
 from helios.nn.st_model import STEncoderConfig, STPredictorConfig
 
-MIN_PATCH_SIZE = 4
-MAX_PATCH_SIZE = 4
+MIN_PATCH_SIZE = 1
+MAX_PATCH_SIZE = 8
 
 
 def build_model_config(common: CommonComponents) -> LatentMIMConfig:
     """Build the model config for an experiment."""
     ENCODER_EMBEDDING_SIZE = 768
     DECODER_EMBEDDING_SIZE = 768
-    ENCODER_DEPTH = 12
+    ENCODER_DEPTH = 24
     DECODER_DEPTH = 12
     ENCODER_NUM_HEADS = 12
     DECODER_NUM_HEADS = 12

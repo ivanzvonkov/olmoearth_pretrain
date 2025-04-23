@@ -14,15 +14,15 @@ from helios.internal.experiment import CommonComponents, main
 from helios.nn.latent_mim import LatentMIMConfig
 from helios.nn.st_model import STEncoderConfig, STPredictorConfig
 
-MIN_PATCH_SIZE = 4
-MAX_PATCH_SIZE = 4
+MIN_PATCH_SIZE = 1
+MAX_PATCH_SIZE = 8
 
 
 def build_model_config(common: CommonComponents) -> LatentMIMConfig:
     """Build the model config for an experiment."""
     ENCODER_EMBEDDING_SIZE = 768
     DECODER_EMBEDDING_SIZE = 768
-    ENCODER_DEPTH = 12
+    ENCODER_DEPTH = 24
     DECODER_DEPTH = 12
     ENCODER_NUM_HEADS = 12
     DECODER_NUM_HEADS = 12
@@ -62,7 +62,7 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
     # TODO: Include collate function here
 
     GLOBAL_BATCH_SIZE = 512
-    TOKEN_BUDGET = 6000
+    TOKEN_BUDGET = 1500
     SAMPLE_HW_P_LIST = list(range(5, 13))
 
     dataloader_config = HeliosDataLoaderConfig(
