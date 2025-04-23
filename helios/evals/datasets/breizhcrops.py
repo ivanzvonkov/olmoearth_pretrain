@@ -1,5 +1,6 @@
+"""Breizhcrops eval dataset."""
+
 import json
-import warnings
 from pathlib import Path
 
 import numpy as np
@@ -10,26 +11,25 @@ from breizhcrops.datasets.breizhcrops import SELECTED_BANDS
 from einops import repeat
 from torch.utils.data import ConcatDataset, Dataset
 
+from helios.train.masking import HeliosSample, MaskedHeliosSample, Modality
+
 from .constants import EVAL_S2_BAND_NAMES, EVAL_TO_HELIOS_S2_BANDS
 from .normalize import normalize_bands
 
 LEVEL = "L1C"
-OUTPUT_BAND_ORDER = [
-    "B1",
-    "B2",
-    "B3",
-    "B4",
-    "B5",
-    "B6",
-    "B7",
-    "B8",
-    "B8A",
-    "B9",
-    "B10",
-    "B11",
-    "B12",
+
+
+def _helios2bc_name(band_name: str) -> str:
+    """Transform Helios S2 band name to Breizhcrops S2 band name."""
+    band_number = band_name.split(" ")[0]
+    if band_number.startswith("0"):
+        band_number = band_number[1:]
+    return f"B{band_number}"
+
+
+INPUT_TO_OUTPUT_BAND_MAPPING = [
+    SELECTED_BANDS[LEVEL].index(_helios2bc_name(b)) for b in EVAL_S2_BAND_NAMES
 ]
-INPUT_TO_OUTPUT_BAND_MAPPING = [SELECTED_BANDS[LEVEL].index(b) for b in OUTPUT_BAND_ORDER]
 
 BAND_STATS = {
     "01 - Coastal aerosol": {"mean": 3254.1433, "std": 2148.5647},
@@ -44,21 +44,24 @@ BAND_STATS = {
     "09 - Water vapour": {"mean": 4056.3201, "std": 1752.6676},
     "10 - SWIR - Cirrus": {"mean": 3914.2307, "std": 1649.3500},
     "11 - SWIR": {"mean": 4290.2134, "std": 11693.7297},
-    "12 - SWIR": {"mean": 1697.6628, "std": 1239.9095}
+    "12 - SWIR": {"mean": 1697.6628, "std": 1239.9095},
 }
 
 
 class BreizhCropsDataset(Dataset):
+    """The Breizhcrops dataset."""
+
     def __init__(
         self,
         path_to_splits: Path,
         split: str,
-        norm_operation,
-        augmentation,
-        partition,
+        partition: str,
+        norm_stats_from_pretrained: bool = False,
+        norm_method: str = "norm_no_clip",
         monthly_average: bool = True,
     ):
-        """
+        """The Breizhcrops dataset.
+
         https://isprs-archives.copernicus.org/articles/XLIII-B2-2020/1545/2020/
         isprs-archives-XLIII-B2-2020-1545-2020.pdf
 
@@ -67,6 +70,14 @@ class BreizhCropsDataset(Dataset):
         dataset into training (FRH01, FRH02), validation (FRH03), and
         evaluation (FRH04) subsets based on these spatially distinct
         regions.
+
+        Args:
+            path_to_splits: Path where .pt objects returned by process_mados have been saved
+            split: Split to use
+            partition: Partition to use
+            norm_stats_from_pretrained: Whether to use normalization stats from pretrained model
+            norm_method: Normalization method to use, only when norm_stats_from_pretrained is False
+            monthly_average: Whether to compute a monthly average of the timesteps
         """
         kwargs = {
             "root": path_to_splits,
@@ -88,35 +99,63 @@ class BreizhCropsDataset(Dataset):
             self.ds = BreizhCrops(region="belle-ile", **kwargs)
         self.monthly_average = monthly_average
 
-        with (Path(__file__).parents[0] / Path("configs_v2") / Path("breizhcrops.json")).open(
-            "r"
-        ) as f:
+        with (
+            Path(__file__).parents[0] / Path("configs_v2") / Path("breizhcrops.json")
+        ).open("r") as f:
             config = json.load(f)
         self.band_info = config["band_info"]
-        self.norm_operation = norm_operation
-        self.augmentation = augmentation
-        warnings.warn("Augmentations ignored for time series")
         if partition != "default":
             raise NotImplementedError(f"partition {partition} not implemented yet")
 
-    def __len__(self):
+        self.norm_stats_from_pretrained = norm_stats_from_pretrained
+        self.norm_method = norm_method
+        # If normalize with pretrained stats, we initialize the normalizer here
+        if self.norm_stats_from_pretrained:
+            from helios.data.normalize import Normalizer, Strategy
+
+            self.normalizer_computed = Normalizer(Strategy.COMPUTED)
+
+    def __len__(self) -> int:
+        """Length of the dataset."""
         return len(self.ds)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> tuple[MaskedHeliosSample, torch.Tensor]:
+        """Return a Breizhcrops instance."""
         x, y_true, _ = self.ds[idx]
         if self.monthly_average:
-            x = self.average_over_month(x)
-        eo = normalize_bands(
-            x[:, INPUT_TO_OUTPUT_BAND_MAPPING], self.norm_operation, self.band_info
+            x = self._average_over_month(x)
+
+        months = torch.from_numpy(x[:, SELECTED_BANDS[LEVEL].index("doa")])
+        days = torch.ones_like(months)
+        # from the Breizhcrops paper: The dataset is composed of Sentinel-2 image time series
+        # extracted from January 1, 2017 to December 31, 2017
+        years = torch.ones_like(months) * 2017
+        timestamp = torch.concat([days, months, years], dim=-1)  # t, c=3
+        if not self.norm_stats_from_pretrained:
+            x = normalize_bands(x, self.means, self.stds, self.norm_method)
+        image = repeat(x, "t c -> h w t c", w=1, h=1)[
+            :,
+            :,
+            :,
+            EVAL_TO_HELIOS_S2_BANDS,
+        ]
+        if self.norm_stats_from_pretrained:
+            image = self.normalizer_computed.normalize(Modality.SENTINEL2, image)
+
+        masked_sample = MaskedHeliosSample.from_heliossample(
+            HeliosSample(
+                sentinel1=torch.tensor(image).float(), timestamps=timestamp.long()
+            )
         )
-        eo = repeat(eo, "t d -> h w t d", h=1, w=1)
-        months = x[:, SELECTED_BANDS[LEVEL].index("doa")]
-        return {"s2": torch.tensor(eo), "months": torch.tensor(months), "target": y_true}
+        return masked_sample, y_true.long()
 
     @staticmethod
-    def average_over_month(x: np.ndarray):
+    def _average_over_month(x: np.ndarray) -> np.ndarray:
         x[:, SELECTED_BANDS[LEVEL].index("doa")] = np.array(
-            [t.month - 1 for t in pd.to_datetime(x[:, SELECTED_BANDS[LEVEL].index("doa")])]
+            [
+                t.month - 1
+                for t in pd.to_datetime(x[:, SELECTED_BANDS[LEVEL].index("doa")])
+            ]
         )
         per_month = np.split(
             x, np.unique(x[:, SELECTED_BANDS[LEVEL].index("doa")], return_index=True)[1]
@@ -124,5 +163,6 @@ class BreizhCropsDataset(Dataset):
         return np.array([per_month[idx].mean(axis=0) for idx in range(len(per_month))])
 
 
-def raw_transform(input_timeseries):
+def raw_transform(input_timeseries: np.ndarray) -> np.ndarray:
+    """A raw transform, for the Breizhcrops transforms."""
     return input_timeseries
