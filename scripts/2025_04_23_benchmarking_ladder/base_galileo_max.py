@@ -1,6 +1,7 @@
 """This script is aimed to be the base script for trying to get maximum throughput on a galileo style model."""
 
 import logging
+from typing import Any
 
 from olmo_core.config import Config, DType
 from olmo_core.distributed.parallel.data_parallel import (
@@ -299,9 +300,20 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     return trainer_config
 
 
+def build_common_components_limited_modalities(*args: Any) -> CommonComponents:
+    """Build the common components for an experiment."""
+    config = build_common_components(*args)
+    config.training_modalities = [
+        Modality.SENTINEL1.name,
+        Modality.SENTINEL2_L2A.name,
+        Modality.WORLDCOVER.name,
+    ]
+    return config
+
+
 if __name__ == "__main__":
     main(
-        common_components_builder=build_common_components,
+        common_components_builder=build_common_components_limited_modalities,
         model_config_builder=build_model_config,
         train_module_config_builder=build_train_module_config,
         dataset_config_builder=build_dataset_config,

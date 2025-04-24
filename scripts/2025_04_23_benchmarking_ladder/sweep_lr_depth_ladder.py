@@ -49,9 +49,7 @@ for i, ((size_name, size_config), decoder_depth, lr) in enumerate(all_combinatio
 
     cluster_name = "titan" if "titan" in cluster else "jupiter"
     # Construct run name
-    run_name = (
-        f"galileo_contrastive_0.05_{size_name}_dec{decoder_depth}_lr{lr}_{cluster_name}"
-    )
+    run_name = f"1_galileo_contrastive_0.05_{size_name}_dec{decoder_depth}_lr{lr}_{cluster_name}"
 
     # Construct full command
     command = BASE_COMMAND.format(
