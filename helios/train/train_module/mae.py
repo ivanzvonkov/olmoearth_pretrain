@@ -18,7 +18,6 @@ from olmo_core.train.train_module.transformer import (
 from helios.data.constants import Modality
 from helios.data.dataset import HeliosSample
 from helios.data.transform import TransformConfig
-from helios.nn.flexihelios import TokensAndMasks
 from helios.nn.mae import MAE
 from helios.train.loss import LossConfig
 from helios.train.masking import MaskedHeliosSample, MaskingConfig
@@ -190,10 +189,7 @@ class MAETrainModule(HeliosTrainModule):
 
             loss = torch.zeros([], device=self.device)
             if self.mae_loss and reconstructed is not None:
-                labels_dict = x.as_dict()
-                labels_dict.pop("timestamps", None)
-                labels = TokensAndMasks(**labels_dict)
-                loss += self.mae_loss.compute(reconstructed, labels)
+                loss += self.mae_loss.compute(reconstructed, x)
             if self.latent_mim_loss and decoded is not None:
                 with torch.no_grad():
                     logger.info("Target Encoder forward pass...")

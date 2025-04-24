@@ -41,8 +41,8 @@ from helios.train.train_module.galileo import GalileoTrainModuleConfig
 
 logger = logging.getLogger(__name__)
 
-MAX_PATCH_SIZE = 8  # NOTE: actual patch_size <= max_patch_size
-MIN_PATCH_SIZE = 1
+MAX_PATCH_SIZE = 16  # NOTE: actual patch_size <= max_patch_size
+MIN_PATCH_SIZE = 2
 
 
 def build_model_config(common: CommonComponents) -> GalileoConfig:
@@ -50,7 +50,7 @@ def build_model_config(common: CommonComponents) -> GalileoConfig:
     ENCODER_EMBEDDING_SIZE = 192
     DECODER_EMBEDDING_SIZE = 192
     ENCODER_DEPTH = 12
-    DECODER_DEPTH = 12
+    DECODER_DEPTH = 4
     ENCODER_NUM_HEADS = 3
     DECODER_NUM_HEADS = 3
     MLP_RATIO = 4.0
@@ -90,7 +90,7 @@ def build_train_module_config(
     LR = 0.002
     RANK_MICROBATCH_SIZE = 64
     ENCODE_RATIO = 0.1
-    DECODE_RATIO = 0.75
+    DECODE_RATIO = 0.9
     WD = 0.02
     optim_config = AdamWConfig(lr=LR, weight_decay=WD)
     masking_config_a = MaskingConfig(

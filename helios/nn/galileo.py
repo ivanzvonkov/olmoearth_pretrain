@@ -20,6 +20,8 @@ from helios.nn.flexihelios import (
     PoolingType,
     Predictor,
     PredictorConfig,
+    Reconstructor,
+    ReconstructorConfig,
     TokensAndMasks,
 )
 from helios.nn.utils import DistributedMixins
@@ -35,18 +37,21 @@ class Galileo(nn.Module, DistributedMixins):
         self,
         encoder: Encoder,
         decoder: Predictor,
+        reconstructor: Reconstructor | None = None,
     ):
         """Initialize the Galileo Style.
 
         Args:
             encoder: The encoder to use.
             decoder: The decoder to use.
+            reconstructor: Optional reconstructor for auto-encoding.
         """
         super().__init__()
         self.encoder = encoder
         self.decoder_a = decoder
         self.decoder_b = deepcopy(decoder)
         self.target_encoder = deepcopy(self.encoder)
+        self.reconstructor = reconstructor
         for p in self.target_encoder.parameters():
             p.requires_grad = False
 
@@ -57,27 +62,33 @@ class Galileo(nn.Module, DistributedMixins):
 
     def forward_a(
         self, x: MaskedHeliosSample, patch_size: int
-    ) -> tuple[TokensAndMasks, TokensAndMasks, torch.Tensor]:
+    ) -> tuple[TokensAndMasks, TokensAndMasks, torch.Tensor, TokensAndMasks | None]:
         """Forward pass for the Latent MIM Style."""
         # TODO: Input And outputs here are not consistent between encoder and decoder need a tokensandmaks++
         latent = self.encoder(x, patch_size=patch_size)
+        reconstructed = None
+        if self.reconstructor:
+            reconstructed = self.reconstructor(latent, x.timestamps, patch_size)
         decoded = self.decoder_a(latent, timestamps=x.timestamps, patch_size=patch_size)
         pooled_for_contrastive = latent.pool_unmasked_tokens(
             PoolingType.MEAN, spatial_pooling=False
         )
-        return latent, decoded, self.linear_proj(pooled_for_contrastive)
+        return latent, decoded, self.linear_proj(pooled_for_contrastive), reconstructed
 
     def forward_b(
         self, x: MaskedHeliosSample, patch_size: int
-    ) -> tuple[TokensAndMasks, TokensAndMasks, torch.Tensor]:
+    ) -> tuple[TokensAndMasks, TokensAndMasks, torch.Tensor, TokensAndMasks | None]:
         """Forward pass for the Latent MIM Style."""
         # TODO: Input And outputs here are not consistent between encoder and decoder need a tokensandmaks++
         latent = self.encoder(x, patch_size=patch_size)
+        reconstructed = None
+        if self.reconstructor:
+            reconstructed = self.reconstructor(latent, x.timestamps, patch_size)
         decoded = self.decoder_b(latent, timestamps=x.timestamps, patch_size=patch_size)
         pooled_for_contrastive = latent.pool_unmasked_tokens(
             PoolingType.MEAN, spatial_pooling=False
         )
-        return latent, decoded, self.linear_proj(pooled_for_contrastive)
+        return latent, decoded, self.linear_proj(pooled_for_contrastive), reconstructed
 
     def apply_fsdp(
         self,
@@ -108,6 +119,8 @@ class Galileo(nn.Module, DistributedMixins):
         self.decoder_a.apply_compile()
         self.decoder_b.apply_compile()
         self.target_encoder.apply_compile()
+        if self.reconstructor is not None:
+            self.reconstructor.apply_compile()
 
 
 @dataclass
@@ -116,6 +129,7 @@ class GalileoConfig(Config):
 
     encoder_config: "EncoderConfig"
     decoder_config: "PredictorConfig"
+    reconstructor_config: ReconstructorConfig | None = None
 
     def validate(self) -> None:
         """Validate the configuration."""
@@ -142,7 +156,9 @@ class GalileoConfig(Config):
         self.validate()
         encoder = self.encoder_config.build()
         decoder = self.decoder_config.build()
+        reconstructor = self.reconstructor_config and self.reconstructor_config.build()
         return Galileo(
             encoder=encoder,
             decoder=decoder,
+            reconstructor=reconstructor,
         )

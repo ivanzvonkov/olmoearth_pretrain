@@ -6,7 +6,7 @@ import pytest
 import torch
 
 from helios.data.constants import Modality, ModalitySpec
-from helios.nn.flexihelios import Encoder, Predictor, Reconstructor, TokensAndMasks
+from helios.nn.flexihelios import Encoder, Predictor, Reconstructor
 from helios.nn.mae import MAE
 from helios.train.loss import MAELoss, PatchDiscriminationLossNew
 from helios.train.masking import MaskedHeliosSample, MaskValue
@@ -151,10 +151,7 @@ def test_mae_with_loss(
 
     # this reflects the forward_model function in mae
     loss_mae = MAELoss()
-    labels = x.as_dict()
-    labels.pop("timestamps")
-    target_output = TokensAndMasks(**labels)
-    loss = loss_mae.compute(reconstructed, target_output)
+    loss = loss_mae.compute(reconstructed, x)
 
     loss_mim = PatchDiscriminationLossNew()
     with torch.no_grad():

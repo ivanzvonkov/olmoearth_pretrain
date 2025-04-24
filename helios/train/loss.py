@@ -15,7 +15,7 @@ from torch import Tensor
 
 from helios.data.constants import Modality
 from helios.nn.flexihelios import PoolingType, TokensAndMasks
-from helios.train.masking import MaskValue
+from helios.train.masking import MaskedHeliosSample, MaskValue
 
 logger = logging.getLogger(__name__)
 
@@ -477,7 +477,7 @@ class MAELoss(Loss):
         return torch.cat(datas, dim=1), torch.cat(masks, dim=1)
 
     def compute(
-        self, predictions: TokensAndMasks, targets: TokensAndMasks, **kwargs: Any
+        self, predictions: TokensAndMasks, targets: MaskedHeliosSample, **kwargs: Any
     ) -> Tensor:
         """Compute MAE loss between predictions and targets.
 
@@ -493,7 +493,7 @@ class MAELoss(Loss):
         valid_dict = {}
         for modality in predictions.modalities:
             if getattr(predictions, modality) is not None:
-                masked_name = targets.get_masked_modality_name(modality)
+                masked_name = predictions.get_masked_modality_name(modality)
                 valid_dict[modality] = getattr(targets, modality)
                 valid_dict[masked_name] = getattr(targets, masked_name)
         valid_targets = TokensAndMasks(**valid_dict)
