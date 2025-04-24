@@ -1,6 +1,7 @@
 """This script sweeps across model sizes, decoder depths, and learning rates for Galileo."""
 
 import itertools
+import subprocess  # nosec
 
 from helios.internal.utils import MODEL_SIZE_ARGS
 
@@ -13,7 +14,7 @@ MODEL_SIZES = {
 # Sweep parameters
 CLUSTERS = ["ai2/jupiter-cirrascale-2", "ai2/titan-cirrascale"]
 
-DECODER_DEPTHS = [2, 4, 12]
+DECODER_DEPTHS = [2, 4]
 LEARNING_RATES = [4e-3, 1e-4, 4e-4, 1e-5]
 CONTRASTIVE_WEIGHTS = [0.05]
 
@@ -69,5 +70,5 @@ for i, ((size_name, size_config), decoder_depth, lr) in enumerate(all_combinatio
 
     print(f"Launching: {command}")
 
-    # # Execute the command
-    # subprocess.run(command, shell=True, check=True)  # nosec
+    # Execute the command
+    subprocess.run(command, shell=True, check=True)  # nosec
