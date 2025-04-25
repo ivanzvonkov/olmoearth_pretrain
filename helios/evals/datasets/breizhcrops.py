@@ -162,6 +162,7 @@ class BreizhCropsDataset(Dataset):
 
     @staticmethod
     def _average_over_month(x: np.ndarray) -> np.ndarray:
+        # doa == date of acquisition
         x[:, SELECTED_BANDS[LEVEL].index("doa")] = np.array(
             [
                 t.month - 1
