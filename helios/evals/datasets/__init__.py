@@ -10,6 +10,7 @@ from .floods_dataset import FLOODS_DIR, Sen1Floods11Dataset
 from .geobench_dataset import GEOBENCH_DIR, GeobenchDataset
 from .mados_dataset import MADOS_DIR, MADOSDataset
 from .pastis_dataset import PASTIS_DIR, PASTISRDataset
+from .sickle_dataset import SICKLE_DIR, SICKLEDataset
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ def get_eval_dataset(
             norm_stats_from_pretrained=norm_stats_from_pretrained,
         )
     elif eval_dataset == "pastis":
+        # PASTIS is the single-modal version of PASTIS (S2 only)
         return PASTISRDataset(
             path_to_splits=PASTIS_DIR,
             split=split,
@@ -60,7 +62,7 @@ def get_eval_dataset(
             is_multimodal=False,
         )
     elif eval_dataset == "pastis-r":
-        # PASTIS-R is the multimodal version of PASTIS
+        # PASTIS-R is the multimodal version of PASTIS (S1, S2)
         return PASTISRDataset(
             path_to_splits=PASTIS_DIR,
             split=split,
@@ -73,6 +75,24 @@ def get_eval_dataset(
             path_to_splits=BREIZHCROPS_DIR,
             split=split,
             partition=partition,
+            norm_stats_from_pretrained=norm_stats_from_pretrained,
+        )
+    elif eval_dataset == "sickle":
+        # SICKLE is the single-modal version of SICKLE (L8 only)
+        return SICKLEDataset(
+            path_to_splits=SICKLE_DIR,
+            split=split,
+            partition=partition,
+            is_multimodal=False,
+            norm_stats_from_pretrained=norm_stats_from_pretrained,
+        )
+    elif eval_dataset == "sickle-r":
+        # SICKLE-R is the multimodal version of SICKLE (S1, S2, L8)
+        return SICKLEDataset(
+            path_to_splits=SICKLE_DIR,
+            split=split,
+            partition=partition,
+            is_multimodal=True,
             norm_stats_from_pretrained=norm_stats_from_pretrained,
         )
     else:

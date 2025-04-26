@@ -482,7 +482,7 @@ def process_sickle(
     processor.process()
 
 
-class SICKLERDataset(Dataset):
+class SICKLEDataset(Dataset):
     """SICKLE dataset class."""
 
     def __init__(
