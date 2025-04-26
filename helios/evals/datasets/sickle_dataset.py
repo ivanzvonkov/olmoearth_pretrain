@@ -1,6 +1,7 @@
 """SICKLE dataset class."""
 
 import glob
+import logging
 import os
 import warnings
 from collections import defaultdict
@@ -25,13 +26,15 @@ from helios.data.dataset import HeliosSample
 from helios.evals.datasets.constants import (
     EVAL_L8_BAND_NAMES,
     EVAL_S1_BAND_NAMES,
-    EVAL_S2_BAND_NAMES,
+    EVAL_S2_L2A_BAND_NAMES,
     EVAL_TO_HELIOS_L8_BANDS,
     EVAL_TO_HELIOS_S1_BANDS,
-    EVAL_TO_HELIOS_S2_BANDS,
+    EVAL_TO_HELIOS_S2_L2A_BANDS,
 )
 from helios.evals.datasets.normalize import normalize_bands
 from helios.train.masking import MaskedHeliosSample
+
+logger = logging.getLogger(__name__)
 
 CSV_PATH = UPath(
     "/weka/dfive-default/helios/evaluation/SICKLE/sickle_dataset_tabular.csv"
@@ -373,7 +376,6 @@ class SICKLEProcessor:
                 res["s1_images"] = res["s1_images"][:MIN_MONTHS, ...]
                 res["l8_images"] = res["l8_images"][:MIN_MONTHS, ...]
                 res["months"] = res["months"][:MIN_MONTHS]
-                res["targets"] = res["targets"][:MIN_MONTHS, ...]
 
                 for key in [
                     "s2_images",
@@ -504,11 +506,14 @@ class SICKLEDataset(Dataset):
             norm_stats_from_pretrained: Whether to use normalization stats from pretrained model
             norm_method: Normalization method to use, only when norm_stats_from_pretrained is False
         """
-        assert split in ["train", "val"]
+        assert split in ["train", "valid"]
+        split = "val" if split == "valid" else split
+
         self.is_multimodal = is_multimodal
 
+        # Remove B10 bands from EVAL_S2_BAND_NAMES
         self.s2_means, self.s2_stds = self._get_norm_stats(
-            S2_BAND_STATS, EVAL_S2_BAND_NAMES
+            S2_BAND_STATS, EVAL_S2_L2A_BAND_NAMES
         )
         self.s1_means, self.s1_stds = self._get_norm_stats(
             S1_BAND_STATS, EVAL_S1_BAND_NAMES
@@ -516,6 +521,21 @@ class SICKLEDataset(Dataset):
         self.l8_means, self.l8_stds = self._get_norm_stats(
             L8_BAND_STATS, EVAL_L8_BAND_NAMES
         )
+
+        self.norm_method = norm_method
+
+        self.norm_stats_from_pretrained = norm_stats_from_pretrained
+        # If normalize with pretrained stats, we initialize the normalizer here
+        if self.norm_stats_from_pretrained:
+            from helios.data.normalize import Normalizer, Strategy
+
+            self.normalizer_computed = Normalizer(Strategy.COMPUTED)
+
+        self.s2_images_dir = path_to_splits / f"sickle_{split}" / "s2_images"
+        self.s1_images_dir = path_to_splits / f"sickle_{split}" / "s1_images"
+        self.l8_images_dir = path_to_splits / f"sickle_{split}" / "l8_images"
+        self.labels = torch.load(path_to_splits / f"sickle_{split}" / "targets.pt")
+        self.months = torch.load(path_to_splits / f"sickle_{split}" / "months.pt")
 
     @staticmethod
     def _get_norm_stats(
@@ -545,7 +565,7 @@ class SICKLEDataset(Dataset):
             s2_image = einops.rearrange(
                 s2_image, "t c h w -> h w t c"
             )  # (32, 32, 5, 13)
-            s2_image = s2_image[:, :, :, EVAL_TO_HELIOS_S2_BANDS]
+            s2_image = s2_image[:, :, :, EVAL_TO_HELIOS_S2_L2A_BANDS]
 
             s1_image = torch.load(self.s1_images_dir / f"{idx}.pt")
             s1_image = einops.rearrange(
@@ -567,8 +587,7 @@ class SICKLEDataset(Dataset):
                 s1_image = normalize_bands(
                     s1_image.numpy(), self.s1_means, self.s1_stds, self.norm_method
                 )
-
-        if self.norm_stats_from_pretrained:
+        else:
             l8_image = self.normalizer_computed.normalize(Modality.LANDSAT, l8_image)
             if self.is_multimodal:
                 s2_image = self.normalizer_computed.normalize(
