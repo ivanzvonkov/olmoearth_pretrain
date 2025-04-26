@@ -371,7 +371,7 @@ class SICKLEProcessor:
         }
         for res in results:
             if res:
-                # There can be 5 or 6 months of data, we cut it to 5
+                # Cut all samples to 5 months
                 res["s2_images"] = res["s2_images"][:MIN_MONTHS, ...]
                 res["s1_images"] = res["s1_images"][:MIN_MONTHS, ...]
                 res["l8_images"] = res["l8_images"][:MIN_MONTHS, ...]
