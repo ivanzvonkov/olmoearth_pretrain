@@ -208,7 +208,8 @@ class MaskingStrategy:
         self, instance: torch.Tensor, modality: ModalitySpec, mask: torch.Tensor
     ) -> torch.Tensor:
         """Get the missing mask for the input data."""
-        missing_mask = mask.new_zeros(mask.shape)
+        # For some reason we need torch bool
+        missing_mask = mask.new_zeros(mask.shape, dtype=torch.bool)
         logger.info(f"Missing mask shape: {mask.shape}")
         # expected shape
         for i, band_set_indices in enumerate(modality.bandsets_as_indices()):
@@ -216,27 +217,35 @@ class MaskingStrategy:
             logger.info(f"modality: {modality.name}")
             instance_band_set = instance[..., band_set_indices]
             missing_mask_band_set = instance_band_set == MISSING_VALUE
-            logger.info(f"Missing mask band set: {missing_mask_band_set.shape}")
-            logger.info(f"mask band set shape: {missing_mask[..., i].shape}")
+            missing_mask_band_set_any = missing_mask_band_set.any(dim=-1)
+            if missing_mask_band_set_any.all():
+                logger.warning(f"All tokens are missing for modality {modality.name} and band set {i}")
+            elif missing_mask_band_set_any.any():
+                logger.warning(f"{missing_mask_band_set_any.sum()} tokens are missing for modality {modality.name} and band set {i}")
+                # how many are not missing?
+                logger.warning(f"{(~missing_mask_band_set_any).sum()} tokens are not missing for modality {modality.name} and band set {i}")
             # If any band in the band set is missing, set the whole band set to missing
-            missing_mask[..., i] = missing_mask_band_set.any(dim=-1)
-        if missing_mask.any():
-            return missing_mask
-        return None
+            missing_mask[..., i] = missing_mask_band_set_any
+        logger.warning(f"missing mask dtype: {missing_mask.dtype}")
+        return missing_mask
 
     def fill_mask_with_missing_values(
         self, instance: torch.Tensor, mask: torch.Tensor, modality: ModalitySpec
     ) -> torch.Tensor:
         """Apply a missing mask to the input data."""
         logger.info(f"Mask shape: {mask.shape}")
+        logger.warning(f"mask dtype: {mask.dtype}")
         logger.info(f"num encoded tokens of mask before missing mask: {(mask == MaskValue.ONLINE_ENCODER.value).sum()}")
         missing_mask = self.get_missing_mask(instance, modality, mask)
-        if missing_mask is not None:
-            logger.info(f"Filling mask with missing values: {missing_mask.shape}")
-            logger.info(f"Mask shape: {mask.shape}")
-            logger.info(f"num encoded tokens of mask after missing mask: {(mask == MaskValue.ONLINE_ENCODER.value).sum()}")
-            mask[missing_mask] = MaskValue.MISSING.value
-        return mask
+        output_mask = mask.clone()
+        if missing_mask.any():
+            logger.warning(f"Filling mask with missing values: {missing_mask.shape}")
+            logger.warning(f"num  missing tokens assigning missing mask: {(missing_mask == 1).sum()}")
+            logger.warning(f"assigning missing mask shape : {missing_mask.shape} to mask shape: {mask.shape}")
+            output_mask[missing_mask] = MaskValue.MISSING.value
+        logger.info(f"Mask shape: {mask.shape}")
+        logger.warning(f"missing mask dtype: {missing_mask.dtype} shape: {missing_mask.shape}")
+        return output_mask
 
     def _create_random_mask(
         self,
@@ -470,7 +479,8 @@ class SpaceMaskingStrategy(MaskingStrategy):
         mask = repeat(
             patch_mask, "b h w -> b (h hp) (w wp)", hp=patch_size, wp=patch_size
         )
-
+        if (mask == MaskValue.MISSING.value).all():
+            raise ValueError(f"All tokens are missing for modality {modality.name} before missing values are assigned within spatial masking strategy")
         return mask
 
     def apply_mask(
@@ -492,6 +502,7 @@ class SpaceMaskingStrategy(MaskingStrategy):
             raise ValueError("patch_size must be provided for space masking")
         output_dict: dict[str, ArrayTensor | None] = {}
         spatial_mask = None
+        # Same spatial mask for all modalities
         for modality_name in batch.modalities:
             instance = getattr(batch, modality_name)
             if instance is None:
@@ -500,37 +511,54 @@ class SpaceMaskingStrategy(MaskingStrategy):
                 output_dict[
                     MaskedHeliosSample.get_masked_modality_name(modality_name)
                 ] = None
-            else:
-                if modality_name == "timestamps":
-                    output_dict[modality_name] = instance
-                    continue
+                continue
 
-                if isinstance(instance, torch.Tensor):
-                    device: torch.device | None = instance.device
-                else:
-                    device = None
-
-                modality = Modality.get(modality_name)
-                shape = instance.shape
-                if not modality.is_spatial:
-                    mask = self._create_random_mask(modality, shape, patch_size, device)
-                else:
-                    if spatial_mask is None:
-                        spatial_mask = self._create_spatial_mask(
-                            modality, shape, patch_size, device
-                        )
-                    if len(shape) == 5:
-                        t = shape[-2]
-                    else:
-                        t = 1
-                    b_s = modality.num_band_sets
-                    mask = repeat(spatial_mask, "... -> ... t b_s", t=t, b_s=b_s)
-                    mask = mask.view(*shape[:-1], b_s).contiguous()
-                mask = self.fill_mask_with_missing_values(instance, mask, modality)
+            if modality_name == "timestamps":
                 output_dict[modality_name] = instance
-                output_dict[
-                    MaskedHeliosSample.get_masked_modality_name(modality_name)
-                ] = mask
+                continue
+
+            if isinstance(instance, torch.Tensor):
+                device: torch.device | None = instance.device
+            else:
+                device = None
+
+            modality = Modality.get(modality_name)
+            shape = instance.shape
+            if not modality.is_spatial:
+                logger.warning(f"Modality {modality.name} is not spatial, random masking strategy will be applied")
+                mask = self._create_random_mask(modality, shape, patch_size, device)
+            else:
+                if spatial_mask is None:
+                    logger.info(f"Creating spatial mask for modality {modality.name}")
+                    spatial_mask = self._create_spatial_mask(
+                        modality, shape, patch_size, device
+                    )
+
+                if len(shape) == 5:
+                    t = shape[-2]
+                else:
+                    t = 1
+                b_s = modality.num_band_sets
+                mask = repeat(spatial_mask, "... -> ... t b_s", t=t, b_s=b_s)
+                mask = mask.view(*shape[:-1], b_s).contiguous()
+                if (mask == MaskValue.MISSING.value).all():
+                    logger.warning(f"All tokens are missing for modality {modality.name} before missing values are assigned at reshape")
+            mask = self.fill_mask_with_missing_values(instance, mask, modality)
+            if (spatial_mask == MaskValue.MISSING.value).all():
+                raise ValueError(f"spatial mask should never have all missing values and should not be altered by the masking strategy")
+            # log the number of masks types for the modality
+            logger.info(f"Number of missing tokens for modality {modality.name}: {(mask == MaskValue.MISSING.value).sum()}")
+            logger.info(f"Number of online encoder tokens for modality {modality.name}: {(mask == MaskValue.ONLINE_ENCODER.value).sum()}")
+            logger.info(f"Number of decoder tokens for modality {modality.name}: {(mask == MaskValue.DECODER.value).sum()}")
+            logger.info(f"Number of target encoder only tokens for modality {modality.name}: {(mask == MaskValue.TARGET_ENCODER_ONLY.value).sum()}")
+            if (mask == MaskValue.MISSING.value).all():
+                logger.warning(f"All tokens are missing for modality {modality.name} after missing values are assigned")
+
+            # Keep data as is
+            output_dict[modality_name] = instance
+            output_dict[
+                MaskedHeliosSample.get_masked_modality_name(modality_name)
+            ] = mask
         return MaskedHeliosSample(**output_dict)
 
 

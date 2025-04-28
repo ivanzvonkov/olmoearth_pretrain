@@ -189,7 +189,10 @@ def visualize_sample(
 
 if __name__ == "__main__":
     import h5py
-    sample_path ="/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_gzip_3_shuffle/landsat_naip_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/324192/sample_76827"
+    from upath import UPath
+    from olmo_core.utils import prepare_cli_environment
+    prepare_cli_environment()
+    sample_path =UPath("/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_gzip_3_shuffle/landsat_naip_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/324192/sample_76827.h5")
     with sample_path.open("rb") as f:
         with h5py.File(f, "r") as h5file:
             logger.info(f"Reading h5 file {sample_path} with keys {h5file.keys()}")
@@ -205,6 +208,7 @@ if __name__ == "__main__":
         logger.info(f"Number of timesteps: {num_timesteps}")
         for i in range(num_timesteps):
             s2_data_i = s2_data[:, :, i]
+            logger.info(f"timestep: {i}")
             logger.info(f"S2 data shape: {s2_data_i.shape}")
             logger.info(f"S2 data type: {s2_data_i.dtype}")
             logger.info(f"S2 data min: {s2_data_i.min()}")
