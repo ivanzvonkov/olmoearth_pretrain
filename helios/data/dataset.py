@@ -654,10 +654,10 @@ class HeliosDataset(Dataset):
         self, sample_dict: dict[str, Any]
     ) -> tuple[HeliosSample, list[str]]:
         """Fill the sample with missing values."""
+        # TODO: This is still relatively slow
         missing_modalities = []
         sample = HeliosSample(**sample_dict)
         for modality in self.training_modalities:
-            filled_any_missing = False
             if modality not in sample_dict.keys():
                 logger.debug(f"Filling {modality} with missing values")
                 sample_dict[modality] = np.full(
@@ -666,7 +666,6 @@ class HeliosDataset(Dataset):
                     dtype=self.dtype,
                 )
                 missing_modalities.append(modality)
-                filled_any_missing = True
 
 
             modality_data = sample_dict[modality]
@@ -678,29 +677,19 @@ class HeliosDataset(Dataset):
             # cast to appropriate dtype to prevent overflow from missing values
             modality_data = modality_data.astype(self.dtype)
 
-            # TODO: We can likely do this in a more vectorized way
-            # Create a mask for timesteps that are all zeros
-            num_timesteps = modality_data.shape[2]
-            # Loop over each timestep and fill with missing values if it's all zeros
             missing_timesteps = []
-            for t in range(num_timesteps):
-                if np.all(modality_data[..., t, :] == 0):
-                    logger.info(
-                        f"Filling {modality} timestep {t} with missing values"
-                    )
-                    modality_data[..., t, :] = np.full_like(
-                        modality_data[..., t, :],
-                        fill_value=MISSING_VALUE,
-                        dtype=self.dtype,
-                    )
-                    filled_any_missing = True
-                    missing_timesteps.append(t)
+            # Check all timesteps at once for zeros
+            all_zeros_mask = np.all(modality_data[..., :, :] == 0, axis=(-1, -3, -4))  # Checks H, W, bands dimensions
+            missing_timesteps = np.where(all_zeros_mask)[0]  # Get indices where all values are 0
+
+            if len(missing_timesteps) > 0:
+                logger.debug(
+                    f"Filling {modality} timesteps {missing_timesteps} with missing values"
+                )
+                # Fill all missing timesteps at once
+                modality_data[..., missing_timesteps, :] = MISSING_VALUE
 
             sample_dict[modality] = modality_data
-            if filled_any_missing:
-                # Ensure missing values are actually assigned by ensuring there are some missing values
-                if (sample_dict[modality] == MISSING_VALUE).sum() == 0:
-                    logger.warning(f"No missing values assigned for {modality}")
         return HeliosSample(**sample_dict), missing_modalities
 
     def apply_subset(self, sample: HeliosSample, args: GetItemArgs) -> HeliosSample:
@@ -769,7 +758,6 @@ class HeliosDataset(Dataset):
 
     def __getitem__(self, args: GetItemArgs) -> tuple[int, HeliosSample]:
         """Get the sample at the given index."""
-        logger.info(f"Getting item at index {args.idx}")
         if hasattr(self, "sample_indices") and self.sample_indices is not None:
             index = self.sample_indices[args.idx]
         else:
@@ -780,17 +768,12 @@ class HeliosDataset(Dataset):
             raise FileNotFoundError(
                 f"H5 file {h5_file_path} does not exist, Be Sure to run prepare before starting Training"
             )
-        # We are currently reading the entire h5 file into memory this can be made faster by chunking the dataset appropriately and only reading in the optimal chunks
-        # THis io is the current bottleneck of the getitem operation
+
         sample_dict = self.read_h5_file(h5_file_path)
-
-        # Fill any training modalities that are not present in the h5 file with missing values
-        start_time = time.perf_counter()
+        # fill sample currently takes like .08 seconds which may bottleneck smaller models
         sample, missing_modalities = self.fill_sample_with_missing_values(sample_dict)
-        end_time = time.perf_counter()
-        logger.info(f"Time to fill sample with missing values: {end_time - start_time:.6f}s")
-
         subset_sample = self.apply_subset(sample, args)
+
         sample_dict = subset_sample.as_dict(ignore_nones=True)
         logger.debug(f"Sample dict keys {sample_dict.keys()}")
         # Sample modalities should be written into the metadata of the h5 dataset
@@ -813,6 +796,7 @@ class HeliosDataset(Dataset):
                 )
                 # Sentinel Values must be reset after normalization so they can be recognized by missing mask
                 sample_dict[modality.name] = np.where(missing_mask, modality_data, normalized_data)
+
         return args.patch_size, HeliosSample(**sample_dict)
 
 
