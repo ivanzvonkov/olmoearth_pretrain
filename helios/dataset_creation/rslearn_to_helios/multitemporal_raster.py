@@ -307,9 +307,17 @@ def convert_monthly(
         if len(cur_images) < len(modality.band_sets):
             continue
 
+        # Sometimes the images are blank because the window actually does not intersect
+        # the raster. This is due to raster geometry information being too coarse in
+        # some data sources. Here we skip those rasters so they don't get included with
+        # this example in the Helios dataset.
+        all_images_blank = all(image.max() == 0 for image in cur_images.values())
+        if all_images_blank:
+            continue
+
+        time_ranges.append((start_time.isoformat(), end_time.isoformat()))
         for band_set, image in cur_images.items():
             images[band_set].append(image)
-        time_ranges.append((start_time.isoformat(), end_time.isoformat()))
 
     if len(images[modality.band_sets[0]]) > 0:
         for band_set, band_set_images in images.items():
