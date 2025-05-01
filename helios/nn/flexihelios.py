@@ -1576,6 +1576,8 @@ class EncoderConfig(Config):
     max_sequence_length: int = 12
     use_channel_embs: bool = True
     random_channel_embs: bool = False
+    num_projection_layers: int = 1
+    aggregate_then_project: bool = True
 
     def validate(self) -> None:
         """Validate the configuration."""
