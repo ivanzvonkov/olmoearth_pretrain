@@ -177,7 +177,7 @@ def parse_helios_dataset(
 
         if modality.is_multitemporal:
             # We need to load the one-year and two-week data separately.
-            time_spans = [TimeSpan.YEAR, TimeSpan.TWO_WEEK]
+            time_spans = [TimeSpan.YEAR] # [TimeSpan.YEAR, TimeSpan.TWO_WEEK]
         else:
             # Just need to load the static data.
             time_spans = [TimeSpan.STATIC]

@@ -145,6 +145,7 @@ class ConvertToH5py:
                 )
         else:
             for i, sample in enumerate(samples):
+                logger.info(f"Processing sample {i}")
                 self.process_sample_into_h5((i, sample))
 
     def save_sample_metadata(self, samples: list[SampleInformation]) -> None:
@@ -212,28 +213,28 @@ class ConvertToH5py:
                 image = convert_to_db(image)
             sample_dict[modality.name] = image
         # w+b as sometimes metadata needs to be read as well for different chunking/compression settings
-        with h5_file_path.open("w+b") as f:
-            with h5py.File(f, "w") as h5file:
-                for modality_name, image in sample_dict.items():
-                    logger.info(
-                        f"Writing modality {modality_name} to h5 file path {h5_file_path}"
-                    )
-                    # Create dataset with optional compression
-                    create_kwargs: dict[str, Any] = {}
+        # with h5_file_path.open("w+b") as f:
+        #     with h5py.File(f, "w") as h5file:
+        #         for modality_name, image in sample_dict.items():
+        #             logger.info(
+        #                 f"Writing modality {modality_name} to h5 file path {h5_file_path}"
+        #             )
+        #             # Create dataset with optional compression
+        #             create_kwargs: dict[str, Any] = {}
 
-                    if self.compression is not None:
-                        create_kwargs["compression"] = self.compression
-                        # Only use compression_opts with gzip
-                        if (
-                            self.compression == "gzip"
-                            and self.compression_opts is not None
-                        ):
-                            create_kwargs["compression_opts"] = self.compression_opts
-                        # Only use shuffle with compression
-                        if self.shuffle is not None:
-                            create_kwargs["shuffle"] = self.shuffle
+        #             if self.compression is not None:
+        #                 create_kwargs["compression"] = self.compression
+        #                 # Only use compression_opts with gzip
+        #                 if (
+        #                     self.compression == "gzip"
+        #                     and self.compression_opts is not None
+        #                 ):
+        #                     create_kwargs["compression_opts"] = self.compression_opts
+        #                 # Only use shuffle with compression
+        #                 if self.shuffle is not None:
+        #                     create_kwargs["shuffle"] = self.shuffle
 
-                    h5file.create_dataset(modality_name, data=image, **create_kwargs)
+        #             h5file.create_dataset(modality_name, data=image, **create_kwargs)
         return sample_dict
 
     def _log_modality_distribution(self, samples: list[SampleInformation]) -> None:
