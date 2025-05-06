@@ -244,9 +244,9 @@ def load_image_for_sample(
                     width=subtile_size,
                     height=subtile_size,
                 )
-                logger.info(f"reading window={rasterio_window} from {fname}")
+                logger.debug(f"reading window={rasterio_window} from {fname}")
                 image: npt.NDArray = raster.read(window=rasterio_window)
-                logger.info(f"image.shape={image.shape}")
+                logger.debug(f"image.shape={image.shape}")
 
                 # And then for now resample it to the grid resolution.
                 # The difference in resolution should always be a power of 2.
@@ -262,7 +262,7 @@ def load_image_for_sample(
                     downscale_factor = subtile_size // desired_subtile_size
                     image = image[:, ::downscale_factor, ::downscale_factor]
                 elif desired_subtile_size > subtile_size:
-                    logger.info(f"desired_subtile_size={desired_subtile_size}, subtile_size={subtile_size}")
+                    logger.debug(f"desired_subtile_size={desired_subtile_size}, subtile_size={subtile_size}")
                     # This is the more common case, where we need to upscale because we
                     # stored some bands at a lower resolution, e.g. for Sentinel-2 or
                     # Landsat.
@@ -279,7 +279,7 @@ def load_image_for_sample(
                     desired_subtile_size,
                 )
                 image = image.reshape(shape)
-                logger.info(f"shape after scalingimage.shape={image.shape}")
+                logger.debug(f"shape after scaling image.shape={image.shape}")
                 band_set_images.append(image)
 
     return np.concatenate(band_set_images, axis=1)

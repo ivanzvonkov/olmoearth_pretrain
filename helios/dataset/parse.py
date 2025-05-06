@@ -196,7 +196,7 @@ def parse_helios_dataset(
                 helios_path
                 / f"{tile_resolution}_{modality.name}{time_span.get_suffix()}.csv"  # type: ignore
             )
-            logger.info(f"Parsing {modality.name} {time_span} {csv_fname}")
+            logger.debug(f"Parsing {modality.name} {time_span} {csv_fname}")
             tiles[modality][time_span] = parse_modality_csv(  # type: ignore
                 helios_path,
                 modality,
