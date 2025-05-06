@@ -318,9 +318,9 @@ def build_common_components_limited_modalities(*args: Any) -> CommonComponents:
         Modality.SENTINEL1.name,
         Modality.SENTINEL2_L2A.name,
         Modality.WORLDCOVER.name,
-        #     Modality.LANDSAT.name,
-        #     Modality.OPENSTREETMAP_RASTER.name,
-        #     Modality.SRTM.name,
+        Modality.LANDSAT.name,
+        Modality.OPENSTREETMAP_RASTER.name,
+        Modality.SRTM.name,
     ]
     return config
 
