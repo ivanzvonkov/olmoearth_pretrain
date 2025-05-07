@@ -303,8 +303,7 @@ class HeliosSample(NamedTuple):
         start_h = np.random.choice(self.height - sampled_hw + 1)
         start_w = np.random.choice(self.width - sampled_hw + 1)
 
-        # Try to pick a start_t and a max_t such that there is at least one modality present at each timestep
-        # So that we don't select to encode or decode entirely missing data
+        # TODO:Try to pick a start_t and a max_t such that there is at least one modality present at each timestep
         start_t = np.random.choice(self.time - max_t + 1)
         new_data_dict: dict[str, ArrayTensor] = {}
         for attribute, modality in self.as_dict(ignore_nones=True).items():
@@ -346,7 +345,6 @@ def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSa
         )
         return stacked_tensor
 
-    # TODO: Gets all non-None modalities ASSUMES ALL SAMPLES HAVE THE SAME MODALITIES
     patch_size, batch_zero = batch[0]
     sample_fields = batch_zero.modalities
 
