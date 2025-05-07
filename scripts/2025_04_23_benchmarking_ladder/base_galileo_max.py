@@ -200,7 +200,7 @@ def build_dataset_config(common: CommonComponents) -> Config:
         #     # samples_per_sec=4 / NUM_WORKERS,  # 2/ GBS
         # ),
         HeliosDatasetConfig(
-            h5py_dir="/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_gzip_3/landsat_naip_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/323681",
+            h5py_dir="/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_gzip_3/landsat_naip_10_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/334699/ ",
             training_modalities=common.training_modalities,
             use_samples_with_missing_supported_modalities=True,
             dtype=DType.float32,
@@ -238,7 +238,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             num_workers=8,
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
-            eval_interval=Duration.epochs(10),
+            eval_interval=Duration.epochs(5),
         ),
         "mados": DownstreamTaskConfig(
             dataset="mados",
@@ -267,15 +267,15 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             probe_lr=0.1,
             eval_interval=Duration.epochs(20),
         ),
-        "pastis-r": DownstreamTaskConfig(
-            dataset="pastis-r",
-            batch_size=8,
-            num_workers=2,
-            pooling_type=PoolingType.MEAN,
-            norm_stats_from_pretrained=True,
-            probe_lr=0.1,
-            eval_interval=Duration.epochs(20),
-        ),
+        # "pastis-r": DownstreamTaskConfig(
+        #     dataset="pastis-r",
+        #     batch_size=8,
+        #     num_workers=2,
+        #     pooling_type=PoolingType.MEAN,
+        #     norm_stats_from_pretrained=True,
+        #     probe_lr=0.1,
+        #     eval_interval=Duration.epochs(20),
+        # ),
     }
     # Let us not use garbage collector fallback
     trainer_config = (

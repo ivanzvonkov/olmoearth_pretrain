@@ -229,6 +229,8 @@ class GalileoTrainModule(HeliosTrainModule):
         self.model.train()
 
         # Set the maximum number of tokens
+        total_space_time_mask_loss = torch.tensor(0.0, device=self.device)
+        total_random_mask_loss = torch.tensor(0.0, device=self.device)
         total_batch_loss = torch.tensor(0.0, device=self.device)
         total_batch_reg = torch.tensor(0.0, device=self.device)
         total_batch_con = torch.tensor(0.0, device=self.device)
@@ -253,8 +255,7 @@ class GalileoTrainModule(HeliosTrainModule):
                         self.token_exit_cfg_a,
                     )
                 )
-                if torch.isnan(loss_a).any() or torch.isinf(loss_a).any():
-                    raise ValueError("loss_a is nan or inf")
+
                 loss_b, latent_b, pooled_b = (
                     self.apply_masks_and_compute_losses_and_latents(
                         microbatch,
@@ -264,27 +265,17 @@ class GalileoTrainModule(HeliosTrainModule):
                         self.token_exit_cfg_b,
                     )
                 )
-                losses = []
-                for loss in (loss_a, loss_b):
-                    if torch.isnan(loss).any() or torch.isinf(loss).any():
-                        logger.warning(
-                            f"loss is nan or inf: {loss} not adding to total loss. "
-                            f"rank: {self.local_rank}, epoch: {self.trainer.epoch}, "
-                            f"step: {self.trainer.global_step}"
-                        )
-                        self.trainer.record_metric(
-                            "step_skipped", 1, ReduceType.sum, namespace="optim"
-                        )
-                        continue
-                    losses.append(loss)
-                loss = sum(losses) / len(losses)
-                logger.info(
-                    f"loss before contrastive loss: loss_a: {loss_a}, loss_b: {loss_b}, loss: {loss}"
+                loss = (loss_a + loss_b) / 2
+                total_space_time_mask_loss += (
+                    get_local_tensor(loss_a.detach()) / num_microbatches
+                )
+                total_random_mask_loss += (
+                    get_local_tensor(loss_b.detach()) / num_microbatches
                 )
 
                 # Scale loss by number of microbatches
-                reg_term_a = self.compute_regularization(latent_a)
-                reg_term_b = self.compute_regularization(latent_b)
+                reg_term_a = self.compute_regularization(pooled_a)
+                reg_term_b = self.compute_regularization(pooled_b)
                 if reg_term_a is not None:
                     assert reg_term_b is not None
                     loss = loss + (reg_term_a + reg_term_b) / 2
@@ -345,11 +336,29 @@ class GalileoTrainModule(HeliosTrainModule):
         total_batch_loss = torch.nan_to_num(total_batch_loss, nan=float("inf"))
         total_batch_reg = torch.nan_to_num(total_batch_reg, nan=float("inf"))
         total_batch_con = torch.nan_to_num(total_batch_con, nan=float("inf"))
+        total_space_time_mask_loss = torch.nan_to_num(
+            total_space_time_mask_loss, nan=float("inf")
+        )
+        total_random_mask_loss = torch.nan_to_num(
+            total_random_mask_loss, nan=float("inf")
+        )
 
         self.trainer.record_metric(
             f"train/{self.total_loss_name}",
             total_batch_loss,
             ReduceType.mean,
+        )
+        self.trainer.record_metric(
+            "space_time_mask_loss",
+            total_space_time_mask_loss,
+            ReduceType.mean,
+            namespace="train",
+        )
+        self.trainer.record_metric(
+            "random_mask_loss",
+            total_random_mask_loss,
+            ReduceType.mean,
+            namespace="train",
         )
         self.trainer.record_metric("train/epoch", self.trainer.epoch)
         self.log_regularization(total_batch_reg)
@@ -388,7 +397,7 @@ class GalileoTrainModule(HeliosTrainModule):
             latent, decoded, pooled = self.model.forward_a(batch, patch_size)
             with torch.no_grad():
                 logger.info("target encoder running here")
-                target_output = self.model.target_encoder.forward(
+                target_output, _ = self.model.target_encoder.forward(
                     batch.unmask(),
                     patch_size=patch_size,
                     token_exit_cfg=token_exit_cfg,
@@ -407,7 +416,7 @@ class GalileoTrainModule(HeliosTrainModule):
             latent, decoded, pooled = self.model.forward_b(batch, patch_size)
             with torch.no_grad():
                 logger.info("target encoder running here")
-                target_output = self.model.target_encoder.forward(
+                target_output, _ = self.model.target_encoder.forward(
                     batch.unmask(),
                     patch_size=patch_size,
                     token_exit_cfg=token_exit_cfg,
