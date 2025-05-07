@@ -180,7 +180,7 @@ class Modality:
 
     NAIP = ModalitySpec(
         name="naip",
-        tile_resolution_factor=16,  # THis is a bit of a misnomer and a bit
+        tile_resolution_factor=1,
         band_sets=[BandSet(["R", "G", "B", "IR"], 1)],
         is_multitemporal=False,
         ignore_when_parsing=False,
