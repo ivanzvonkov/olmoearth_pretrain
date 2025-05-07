@@ -108,8 +108,6 @@ def image_tiles_to_samples(
         for time_span, time_span_tiles in modality_tiles.items():
             for tile in time_span_tiles:
                 index_key = (modality, tile.grid_tile, time_span)
-                if modality.name == "naip_10":
-                    logger.info(f"adding tile {index_key} to index")
                 image_tile_index[index_key] = tile
 
     # Enumerate all the (grid_tile, time_span) tuples present in the dataset.
@@ -123,8 +121,13 @@ def image_tiles_to_samples(
     for modality, grid_tile, time_span in image_tile_index.keys():
         if time_span == TimeSpan.STATIC:
             # Now that we have NAIP_10, we want to include it in both datasets always
-            if grid_tile.resolution_factor > 1 and modality.name != Modality.NAIP_10.name:
-                logger.info(f"ignoring static tile {grid_tile.resolution_factor} because it is coarser than the base resolution for modality {modality.name}")
+            if (
+                grid_tile.resolution_factor > 1
+                and modality.name != Modality.NAIP_10.name
+            ):
+                logger.info(
+                    f"ignoring static tile {grid_tile.resolution_factor} because it is coarser than the base resolution for modality {modality.name}"
+                )
                 continue
             else:
                 unique_image_tiles.add((grid_tile, TimeSpan.TWO_WEEK))  # type: ignore
@@ -152,7 +155,9 @@ def image_tiles_to_samples(
                 continue
             # We only use modalities that are at an equal or coarser resolution.
             if modality.tile_resolution_factor < sample.grid_tile.resolution_factor:
-                logger.info(f"ignoring modality {modality.name} with resolution factor {modality.tile_resolution_factor} because it is coarser than the sample grid tile resolution factor {sample.grid_tile.resolution_factor}")
+                logger.info(
+                    f"ignoring modality {modality.name} with resolution factor {modality.tile_resolution_factor} because it is coarser than the sample grid tile resolution factor {sample.grid_tile.resolution_factor}"
+                )
                 continue
 
             # Why are we downscaling here?
@@ -181,7 +186,9 @@ def image_tiles_to_samples(
 
             index_key = (modality, modality_grid_tile, lookup_time_span)
             if index_key not in image_tile_index:
-                logger.info(f"ignoring modality {modality.name} because no tile found for index_key={index_key}")
+                logger.debug(
+                    f"ignoring modality {modality.name} because no tile found for index_key={index_key}"
+                )
                 continue
             image_tile = image_tile_index[index_key]
 
@@ -218,7 +225,8 @@ def load_image_for_sample(
     """
     # Compute the factor by which image_tile is bigger (coarser) than the sample.
     factor = (
-        image_tile.grid_tile.resolution_factor // sample.grid_tile.resolution_factor)
+        image_tile.grid_tile.resolution_factor // sample.grid_tile.resolution_factor
+    )
     # Read the modality image one band set at a time.
     # For now we resample all bands to the grid resolution of the modality.
     band_set_images = []
@@ -252,7 +260,11 @@ def load_image_for_sample(
                 # The difference in resolution should always be a power of 2.
                 # If the factor is less than 1 we want the desired size to be multiplied by the thing
                 # If the tile size is greater we want to keep that extent
-                desired_subtile_size = int(IMAGE_TILE_SIZE * image_tile.grid_tile.image_tile_size_factor // factor) # if factor >= 1 else subtile_size
+                desired_subtile_size = int(
+                    IMAGE_TILE_SIZE
+                    * image_tile.grid_tile.image_tile_size_factor
+                    // factor
+                )  # if factor >= 1 else subtile_size
                 if desired_subtile_size < subtile_size:
                     # In this case we need to downscale.
                     # This should not be common, since usually bands would be stored at
@@ -262,7 +274,9 @@ def load_image_for_sample(
                     downscale_factor = subtile_size // desired_subtile_size
                     image = image[:, ::downscale_factor, ::downscale_factor]
                 elif desired_subtile_size > subtile_size:
-                    logger.debug(f"desired_subtile_size={desired_subtile_size}, subtile_size={subtile_size}")
+                    logger.debug(
+                        f"desired_subtile_size={desired_subtile_size}, subtile_size={subtile_size}"
+                    )
                     # This is the more common case, where we need to upscale because we
                     # stored some bands at a lower resolution, e.g. for Sentinel-2 or
                     # Landsat.
