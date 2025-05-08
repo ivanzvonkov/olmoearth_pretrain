@@ -494,9 +494,9 @@ class HeliosDataset(Dataset):
             naip_indices = metadata_df[(metadata_df["naip_10"] == 1)].index
         elif "naip" in metadata_df.columns:
             naip_indices = metadata_df[metadata_df["naip"] == 1].index
-            self.naip_indices = naip_indices
         else:
-            self.naip_indices = np.array([])
+            naip_indices = np.array([])
+        self.naip_indices = naip_indices
         logger.info(f"NAIP indices: {self.naip_indices}")
 
         # Get the indices of samples that don't have any training modalities that are
@@ -679,33 +679,33 @@ class HeliosDataset(Dataset):
         return HeliosSample(**sample_dict), missing_modalities
 
 
-            modality_data = sample_dict[modality]
+        #     modality_data = sample_dict[modality]
 
-            if modality == Modality.SRTM.name:
-                # SRTM can natively be all 0 if we are on the ocean!
-                # Seems like we could tokenize this more intelligently in some cases
-                continue
-            # cast to appropriate dtype to prevent overflow from missing values
-            modality_data = modality_data.astype(self.dtype)
+        #     if modality == Modality.SRTM.name:
+        #         # SRTM can natively be all 0 if we are on the ocean!
+        #         # Seems like we could tokenize this more intelligently in some cases
+        #         continue
+        #     # cast to appropriate dtype to prevent overflow from missing values
+        #     modality_data = modality_data.astype(self.dtype)
 
-            missing_timesteps = []
-            # Check all timesteps at once for zeros
-            all_zeros_mask = np.all(
-                modality_data[..., :, :] == 0, axis=(-1, -3, -4)
-            )  # Checks H, W, bands dimensions
-            missing_timesteps = np.where(all_zeros_mask)[
-                0
-            ]  # Get indices where all values are 0
+        #     missing_timesteps = []
+        #     # Check all timesteps at once for zeros
+        #     all_zeros_mask = np.all(
+        #         modality_data[..., :, :] == 0, axis=(-1, -3, -4)
+        #     )  # Checks H, W, bands dimensions
+        #     missing_timesteps = np.where(all_zeros_mask)[
+        #         0
+        #     ]  # Get indices where all values are 0
 
-            if len(missing_timesteps) > 0:
-                logger.debug(
-                    f"Filling {modality} timesteps {missing_timesteps} with missing values"
-                )
-                # Fill all missing timesteps at once
-                modality_data[..., missing_timesteps, :] = MISSING_VALUE
+        #     if len(missing_timesteps) > 0:
+        #         logger.debug(
+        #             f"Filling {modality} timesteps {missing_timesteps} with missing values"
+        #         )
+        #         # Fill all missing timesteps at once
+        #         modality_data[..., missing_timesteps, :] = MISSING_VALUE
 
-            sample_dict[modality] = modality_data
-        return HeliosSample(**sample_dict), missing_modalities
+        #     sample_dict[modality] = modality_data
+        # return HeliosSample(**sample_dict), missing_modalities
 
     def apply_subset(
         self,
