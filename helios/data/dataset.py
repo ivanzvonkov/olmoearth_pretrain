@@ -454,11 +454,6 @@ class HeliosDataset(Dataset):
 
         tile_path = self.h5py_dir.parent.parent.parent
 
-        logger.info(f"tile_path: {tile_path}")
-        logger.info(f"supported_modalities: {supported_modalities}")
-        logger.info(f"num_samples: {num_samples}")
-        logger.info(f"dtype: {self.dtype}")
-
         sha256_hash.update(
             f"tile_path={tile_path},"
             f"supported_modalities={sorted(supported_modalities)},"
@@ -493,11 +488,15 @@ class HeliosDataset(Dataset):
         logger.info(f"columns: {metadata_df.columns}")
         # For now we want to filter out any samples that have NAIP DATA or don't have any of the training modalities
         # Get the indices of samples that have NAIP data
-        if "naip_10" in metadata_df.columns:
-            naip_indices = metadata_df[(metadata_df["naip_10"] == 1)].index
-            self.naip_indices = naip_indices
+        if Modality.NAIP_10.name not in self.training_modalities or Modality.NAIP.name not in self.training_modalities:
+            if "naip_10" in metadata_df.columns:
+                naip_indices = metadata_df[(metadata_df["naip_10"] == 1)].index
+                naip_indices = naip_indices
+            elif "naip" in metadata_df.columns:
+                naip_indices = metadata_df[(metadata_df["naip"] == 1)].index
         else:
-            self.naip_indices = np.array([])
+            naip_indices = np.array([])
+        self.naip_indices = naip_indices
         logger.info(f"NAIP indices: {self.naip_indices}")
 
         # Get the indices of samples that don't have any training modalities that are
@@ -678,7 +677,7 @@ class HeliosDataset(Dataset):
 
             modality_data = sample_dict[modality]
 
-            if modality == Modality.SRTM.name:
+            if modality == Modality.SRTM.name or modality == Modality.OPENSTREETMAP_RASTER.name :
                 # SRTM can natively be all 0 if we are on the ocean!
                 # Seems like we could tokenize this more intelligently in some cases
                 continue
@@ -698,6 +697,7 @@ class HeliosDataset(Dataset):
                 logger.info(
                     f"Filling {modality} timesteps {missing_timesteps} with missing values"
                 )
+                raise ValueError("missing timestamps found")
                 # Fill all missing timesteps at once
                 modality_data[..., missing_timesteps, :] = MISSING_VALUE
 
