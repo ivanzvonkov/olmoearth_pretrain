@@ -358,7 +358,13 @@ class FlexiHeliosPatchEmbeddings(nn.Module):
                 # static in time
                 token_mask = modality_mask[..., idx]
             else:
-                token_mask = modality_mask[:, 0::patch_size, 0::patch_size, ..., idx]
+                token_mask = modality_mask[
+                    :,
+                    0 :: patch_size * modality_spec.image_tile_size_factor,
+                    0 :: patch_size * modality_spec.image_tile_size_factor,
+                    ...,
+                    idx,
+                ]
                 modality_specific_kwargs = {"patch_size": patch_size}
             # Now apply the embedding to the patchified data
             patchified_data = modality_data[..., channel_set_indices]
