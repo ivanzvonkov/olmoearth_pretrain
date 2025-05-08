@@ -125,7 +125,7 @@ def image_tiles_to_samples(
                 grid_tile.resolution_factor > 1
                 and modality.name != Modality.NAIP_10.name
             ):
-                logger.info(
+                logger.debug(
                     f"ignoring static tile {grid_tile.resolution_factor} because it is coarser than the base resolution for modality {modality.name}"
                 )
                 continue
