@@ -676,6 +676,8 @@ class HeliosDataset(Dataset):
                 missing_modalities.append(modality)
 
             modality_data = sample_dict[modality]
+            if modality != Modality.LANDSAT.name:
+                continue
 
             if modality == Modality.SRTM.name or modality == Modality.OPENSTREETMAP_RASTER.name :
                 # SRTM can natively be all 0 if we are on the ocean!
