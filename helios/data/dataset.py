@@ -351,9 +351,11 @@ class HeliosSample(NamedTuple):
         """Dtype of the ArrayTensors in this sample."""
         cast(ArrayTensor, next(iter(self.as_dict().items()))[1]).dtype
 
-    def fill_modality(self, modality: str) -> "HeliosSample":
-        """If modality is missing, fill it with the expected shape."""
-        if getattr(self, modality) is None:
+    def get_attribute_including_missing(self, modality: str) -> ArrayTensor:
+        """Return the modality if it exists, or an array of missing values if it doesn't."""
+        if getattr(self, modality) is not None:
+            return getattr(self, modality)
+        else:
             return self._replace(
                 **{
                     modality: np.full(
@@ -363,8 +365,6 @@ class HeliosSample(NamedTuple):
                     )
                 }
             )
-        else:
-            return self
 
 
 def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSample]:
@@ -374,34 +374,19 @@ def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSa
     def stack_or_none(attr: str) -> torch.Tensor | None:
         """Stack the tensors while handling None values."""
         all_nones: bool = True
-        has_any_nones: bool = False
         for sample in batch:
             if getattr(sample[1], attr) is not None:
                 all_nones = False
-            else:
-                has_any_nones = True
         if all_nones:
             return None
-        elif has_any_nones:
-            # we have to do this because tuples are immutable
-            new_batch = [(sample[0], sample[1].fill_modality(attr)) for sample in batch]
-
-            # we can't assign batch (ruff gets upset since this disrupts the scope) so we
-            # have to do it this way
-            try:
-                return torch.stack(
-                    [
-                        torch.from_numpy(getattr(sample, attr))
-                        for _, sample in new_batch
-                    ],
-                    dim=0,
-                )
-            except RuntimeError as e:
-                raise RuntimeError(f"{e}, {attr}")
-
-        stacked_tensor = torch.stack(
-            [torch.from_numpy(getattr(sample, attr)) for _, sample in batch], dim=0
-        )
+        else:
+            stacked_tensor = torch.stack(
+                [
+                    torch.from_numpy(sample.get_attribute_including_missing(attr))
+                    for _, sample in batch
+                ],
+                dim=0,
+            )
         return stacked_tensor
 
     patch_size, batch_zero = batch[0]
