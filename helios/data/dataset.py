@@ -351,18 +351,20 @@ class HeliosSample(NamedTuple):
         """Dtype of the ArrayTensors in this sample."""
         cast(ArrayTensor, next(iter(self.as_dict().items()))[1]).dtype
 
-    def fill_modality(self, modality: str) -> None:
+    def fill_modality(self, modality: str) -> "HeliosSample":
         """If modality is missing, fill it with the expected shape."""
         if getattr(self, modality) is None:
-            setattr(
-                self,
-                modality,
-                np.full(
-                    self.get_expected_shape(modality),
-                    fill_value=MISSING_VALUE,
-                    dtype=self.dtype,
-                ),
+            return self._replace(
+                **{
+                    modality: np.full(
+                        self.get_expected_shape(modality),
+                        fill_value=MISSING_VALUE,
+                        dtype=self.dtype,
+                    )
+                }
             )
+        else:
+            return self
 
 
 def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSample]:
@@ -372,16 +374,24 @@ def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSa
     def stack_or_none(attr: str) -> torch.Tensor | None:
         """Stack the tensors while handling None values."""
         all_nones: bool = True
+        has_any_nones: bool = False
         for sample in batch:
             if getattr(sample[1], attr) is not None:
                 all_nones = False
-                break
+            else:
+                has_any_nones = True
         if all_nones:
             return None
-        else:
-            # fill any missing modalities with None
-            for sample in batch:
-                sample[1].fill_modality(attr)
+        elif has_any_nones:
+            # we have to do this because tuples are immutable
+            new_batch = [(sample[0], sample[1].fill_modality(attr)) for sample in batch]
+
+            # we can't assign batch (ruff gets upset since this disrupts the scope) so we
+            # have to do it this way
+            return torch.stack(
+                [torch.from_numpy(getattr(sample, attr)) for _, sample in new_batch],
+                dim=0,
+            )
 
         stacked_tensor = torch.stack(
             [torch.from_numpy(getattr(sample, attr)) for _, sample in batch], dim=0
