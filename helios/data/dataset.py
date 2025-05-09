@@ -173,7 +173,7 @@ class HeliosSample(NamedTuple):
             "sentinel1",
             "worldcover",
             "srtm",
-            "openstreetmap",
+            "openstreetmap_raster",
             "landsat",
         ]
         for modality in height_width_time_modalities:
@@ -196,7 +196,7 @@ class HeliosSample(NamedTuple):
             "sentinel1",
             "worldcover",
             "srtm",
-            "openstreetmap",
+            "openstreetmap_raster",
             "landsat",
         ]
         for modality in height_width_time_modalities:
