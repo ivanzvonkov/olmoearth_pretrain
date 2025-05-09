@@ -398,9 +398,8 @@ def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSa
         )
         return stacked_tensor
 
-    # TODO: Gets all non-None modalities ASSUMES ALL SAMPLES HAVE THE SAME MODALITIES
     patch_size, batch_zero = batch[0]
-    sample_fields = batch_zero.modalities
+    sample_fields = batch_zero._fields
 
     # Create a dictionary of stacked tensors for each field
     collated_dict = {field: stack_or_none(field) for field in sample_fields}
