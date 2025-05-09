@@ -373,6 +373,7 @@ def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSa
         for sample in batch:
             if getattr(sample[1], attr) is not None:
                 all_nones = False
+                break
         if all_nones:
             return None
         else:
