@@ -354,23 +354,29 @@ class HeliosSample(NamedTuple):
         """Dtype of the ArrayTensors in this sample."""
         cast(ArrayTensor, next(iter(self.as_dict().items()))[1]).dtype
 
-    def get_attribute_including_missing(self, modality: str) -> ArrayTensor:
+    def get_attribute_including_missing(
+        self, modality: str, min_timestamps: int
+    ) -> ArrayTensor:
         """Return the modality if it exists, or an array of missing values if it doesn't."""
         if getattr(self, modality) is not None:
-            return getattr(self, modality)
+            value = getattr(self, modality)
         else:
-            return np.full(
+            value = np.full(
                 self.get_expected_shape(modality),
                 fill_value=MISSING_VALUE,
                 dtype=self.dtype,
             )
+        if modality == "latlon":
+            return value
+        else:
+            return value[..., :min_timestamps, :]
 
 
 def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSample]:
     """Collate function that automatically handles any modalities present in the samples."""
 
     # Stack tensors while handling None values
-    def stack_or_none(attr: str) -> torch.Tensor | None:
+    def stack_or_none(attr: str, min_timestamps: int) -> torch.Tensor | None:
         """Stack the tensors while handling None values."""
         all_nones: bool = True
         for sample in batch:
@@ -383,7 +389,9 @@ def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSa
             try:
                 stacked_tensor = torch.stack(
                     [
-                        torch.from_numpy(sample.get_attribute_including_missing(attr))
+                        torch.from_numpy(
+                            sample.get_attribute_including_missing(attr, min_timestamps)
+                        )
                         for _, sample in batch
                     ],
                     dim=0,
@@ -395,9 +403,12 @@ def collate_helios(batch: list[tuple[int, HeliosSample]]) -> tuple[int, HeliosSa
 
     patch_size, batch_zero = batch[0]
     sample_fields = batch_zero._fields
+    min_timestamps = min([s[1].time for s in batch])
 
     # Create a dictionary of stacked tensors for each field
-    collated_dict = {field: stack_or_none(field) for field in sample_fields}
+    collated_dict = {
+        field: stack_or_none(field, min_timestamps) for field in sample_fields
+    }
     return patch_size, HeliosSample(**collated_dict)
 
 
