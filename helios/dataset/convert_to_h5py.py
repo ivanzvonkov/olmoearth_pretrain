@@ -60,7 +60,7 @@ class ConvertToH5pyConfig(Config):
 class ConvertToH5py:
     """Class for converting a dataset of GeoTiffs into a training dataset set up of h5py files."""
 
-    h5py_folder: str = "h5py_data"
+    h5py_folder: str = "h5py_data_new"
     latlon_distribution_fname: str = "latlon_distribution.npy"
     sample_metadata_fname: str = "sample_metadata.csv"
     sample_file_pattern: str = "sample_{index}.h5"
@@ -456,5 +456,5 @@ class ConvertToH5py:
 
     def run(self) -> None:
         """Run the conversion."""
-        samples = self.get_and_filter_samples()[:75000]
+        samples = self.get_and_filter_samples()
         self.prepare_h5_dataset(samples)
