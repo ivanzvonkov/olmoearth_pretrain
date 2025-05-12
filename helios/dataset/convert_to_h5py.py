@@ -360,9 +360,6 @@ class ConvertToH5py:
         """Filter samples to adjust to the HeliosSample format."""
         logger.info(f"Number of samples before filtering: {len(samples)}")
         filtered_samples = []
-        num_samples_without_12_months = 0
-        samples_skipped_because_no_modalities_have_12_months = 0
-        missing_month_lens = []
         for sample in samples:
             if not all(
                 modality in self.supported_modalities
@@ -382,54 +379,15 @@ class ConvertToH5py:
             multitemporal_modalities = [
                 modality for modality in sample.modalities if modality.is_multitemporal
             ]
-            total_multitemporal_modalities = len(multitemporal_modalities)
-            # Check if at least one multitemporal modality has 12 months
-            has_complete_modality = False
-            incomplete_modalities = []
 
-            for modality in multitemporal_modalities:
-                if len(sample.modalities[modality].images) == 12:
-                    has_complete_modality = True
-                else:
-                    logger.info(
-                        f"Modality {modality} has less than 12 months of data: {len(sample.modalities[modality].images)} months"
-                    )
-                    num_samples_without_12_months += 1
-                    missing_month_lens.append(len(sample.modalities[modality].images))
-                    incomplete_modalities.append(modality)
-
-            # If no modality has complete 12 months, skip this sample
-            if not has_complete_modality:
-                logger.info(
-                    "Skipping sample because no multitemporal modality has complete 12 months of data"
-                )
-                samples_skipped_because_no_modalities_have_12_months += 1
-                continue
-
-            # Remove incomplete modalities if needed
-            # for modality in incomplete_modalities:
-            #     sample.modalities.pop(modality)
-            #     total_multitemporal_modalities -= 1
             # If there's no multitemporal modalities, skip the sample
-            if total_multitemporal_modalities == 0:
+            if not len(multitemporal_modalities):
                 logger.info(
                     "Skipping sample because it has no multitemporal modalities"
                 )
                 continue
 
             filtered_samples.append(sample)
-        logger.info(f"Number of samples skipped because no modalities have 12 months: {samples_skipped_because_no_modalities_have_12_months}")
-        logger.info(f"Number of samples after filtering: {len(filtered_samples)}")
-        logger.info(f"Number of samples without 12 months: {num_samples_without_12_months}")
-        # log min max mean and std of the missing month lengths
-        logger.info(f"Min missing month length: {min(missing_month_lens)}")
-        logger.info(f"Max missing month length: {max(missing_month_lens)}")
-        logger.info(f"Mean missing month length: {np.mean(missing_month_lens)}")
-        logger.info(f"Std missing month length: {np.std(missing_month_lens)}")
-        logger.info(f"10th percentile missing month length: {np.percentile(missing_month_lens, 10)}")
-        logger.info(f"25th percentile missing month length: {np.percentile(missing_month_lens, 25)}")
-        logger.info(f"75th percentile missing month length: {np.percentile(missing_month_lens, 75)}")
-        logger.info(f"90th percentile missing month length: {np.percentile(missing_month_lens, 90)}")
         logger.info("Distribution of samples after filtering:")
         self._log_modality_distribution(filtered_samples)
         return filtered_samples
@@ -476,4 +434,4 @@ class ConvertToH5py:
     def run(self) -> None:
         """Run the conversion."""
         samples = self.get_and_filter_samples()
-        # self.prepare_h5_dataset(samples)
+        self.prepare_h5_dataset(samples)
