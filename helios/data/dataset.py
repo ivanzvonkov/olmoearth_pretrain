@@ -688,12 +688,6 @@ class HeliosDataset(Dataset):
                 # If we have any missing timesteps
                 if not np.all(mask) or len(mask) < self.max_sequence_length:
                     if self.use_modalities_with_missing_timesteps:
-                        modality_data = np.full(
-                            sample.get_expected_shape(modality), # does this work if full timesteps are not present across the modality?
-                            fill_value=MISSING_VALUE,
-                            dtype=self.dtype,
-                        )
-                    else:
                         # Get the shape of the data to create properly sized temporal layers
                         h, w, t, c = modality_data.shape
 
@@ -715,6 +709,12 @@ class HeliosDataset(Dataset):
 
                         # Replace the original data with the imputed version
                         modality_data = full_timesteps_data
+                    else:
+                        modality_data = np.full(
+                            sample.get_expected_shape(modality),
+                            fill_value=MISSING_VALUE,
+                            dtype=self.dtype,
+                        )
 
             # Update the sample dictionary with the potentially imputed data
             sample_dict[modality] = modality_data
