@@ -33,7 +33,6 @@ def get_modalities_to_process(
     modalities_to_process = set(supported_modality_names).intersection(
         set(available_modalities)
     )
-    logger.info(f"Modalities to process: {modalities_to_process}")
     return list(modalities_to_process)
 
 
