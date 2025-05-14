@@ -1,7 +1,5 @@
 """Trying to prototype fitting everything into olmo core."""
 
-"""Trying to prototype fitting everything into olmo core."""
-
 import logging
 
 from olmo_core.config import DType
@@ -25,6 +23,7 @@ from helios.data.dataloader import HeliosDataLoaderConfig
 from helios.data.dataset import HeliosDatasetConfig
 from helios.internal.common import build_common_components
 from helios.internal.experiment import CommonComponents, HeliosVisualizeConfig, main
+from helios.internal.utils import MODEL_SIZE_ARGS
 from helios.nn.flexihelios import EncoderConfig, PoolingType, PredictorConfig
 from helios.nn.latent_mim import LatentMIMConfig
 from helios.train.callbacks import (
@@ -42,16 +41,18 @@ logger = logging.getLogger(__name__)
 MAX_PATCH_SIZE = 8
 MIN_PATCH_SIZE = 1
 
+base_model_args = MODEL_SIZE_ARGS["base_super_shallow_decoder"]
+
 
 def build_model_config(common: CommonComponents) -> LatentMIMConfig:
     """Build the model config for an experiment."""
-    ENCODER_EMBEDDING_SIZE = 192
-    DECODER_EMBEDDING_SIZE = 192
-    ENCODER_DEPTH = 12
-    DECODER_DEPTH = 12
-    ENCODER_NUM_HEADS = 3
-    DECODER_NUM_HEADS = 3
-    MLP_RATIO = 4.0
+    ENCODER_EMBEDDING_SIZE = base_model_args["encoder_embedding_size"]
+    DECODER_EMBEDDING_SIZE = base_model_args["decoder_embedding_size"]
+    ENCODER_DEPTH = base_model_args["encoder_depth"]
+    DECODER_DEPTH = base_model_args["decoder_depth"]
+    ENCODER_NUM_HEADS = base_model_args["encoder_num_heads"]
+    DECODER_NUM_HEADS = base_model_args["decoder_num_heads"]
+    MLP_RATIO = base_model_args["mlp_ratio"]
     encoder_config = EncoderConfig(
         supported_modality_names=common.training_modalities,
         embedding_size=ENCODER_EMBEDDING_SIZE,
@@ -85,7 +86,7 @@ def build_train_module_config(
 ) -> LatentMIMTrainModuleConfig:
     """Build the train module config for an experiment."""
     LR = 0.0001
-    RANK_MICROBATCH_SIZE = 128
+    RANK_MICROBATCH_SIZE = 32
     ENCODE_RATIO = 0.1
     DECODE_RATIO = 0.75
     WD = 0.02
@@ -107,10 +108,9 @@ def build_train_module_config(
     )
     token_exit_cfg = {modality: 0 for modality in common.training_modalities}
 
-    WARMUP_EPOCHS = 5
+    WARMUP_EPOCHS = 10
     dp_config = DataParallelConfig(name=DataParallelType.ddp)
 
-    # TODO: would need a scheduler config and registry to be able to change this with overrides
     scheduler = CosWithWarmup()
     train_module_config = LatentMIMTrainModuleConfig(
         optim_config=optim_config,
@@ -130,10 +130,9 @@ def build_train_module_config(
 def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
     """Build the dataloader config for an experiment."""
     # things should be set during building
-    # TODO: Include collate function here
 
     NUM_WORKERS = 8
-    GLOBAL_BATCH_SIZE = 128
+    GLOBAL_BATCH_SIZE = 512
     PREFETCH_FACTOR = 4
     TOKEN_BUDGET = 1500
     SAMPLE_HW_P_LIST = list(range(5, 13))
@@ -154,8 +153,7 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
 
 def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
     """Build the dataset config for an experiment."""
-    # NOTE: Change this directory based on the supported modalities
-    h5py_dir = "/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_gzip_3/landsat_naip_10_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/334699"
+    h5py_dir = "/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_w_missing_timesteps_gzip_3/landsat_naip_10_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/285288"
     return HeliosDatasetConfig(
         h5py_dir=h5py_dir,
         use_samples_with_missing_supported_modalities=True,
