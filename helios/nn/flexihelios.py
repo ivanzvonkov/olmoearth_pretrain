@@ -33,6 +33,7 @@ def get_modalities_to_process(
     modalities_to_process = set(supported_modality_names).intersection(
         set(available_modalities)
     )
+    logger.info(f"Modalities to process: {modalities_to_process}")
     return list(modalities_to_process)
 
 
@@ -1542,7 +1543,6 @@ class Predictor(FlexiHeliosBase):
         modalities_to_process = get_modalities_to_process(
             available_modalities, self.supported_modality_names
         )
-
         for modality in modalities_to_process:
             masked_modality_name = MaskedHeliosSample.get_masked_modality_name(modality)
             modality_mask = tokens_and_masks[masked_modality_name]
