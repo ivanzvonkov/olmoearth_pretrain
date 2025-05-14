@@ -204,10 +204,12 @@ class ConvertToH5py:
         self, multi_temporal_timestamps_dict: dict[ModalitySpec, np.ndarray]
     ) -> np.ndarray:
         """Find the timestamps for the sample with the most timestamps."""
-        return max(
-            multi_temporal_timestamps_dict,
-            key=lambda k: len(multi_temporal_timestamps_dict[k]),
-        )
+        return multi_temporal_timestamps_dict[
+            max(
+                multi_temporal_timestamps_dict,
+                key=lambda k: len(multi_temporal_timestamps_dict[k]),
+            )
+        ]
 
     def _create_missing_timesteps_masks(
         self,
