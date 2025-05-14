@@ -98,10 +98,10 @@ def build_train_module_config(
     optim_config = AdamWConfig(lr=LR, weight_decay=WD)
     masking_config_a = MaskingConfig(
         strategy_config={
-            "type": "modality_cross_space",
+            "type": "modality_cross_space_time",
             "max_unmasking_bandsets": 20,
             "min_encoding_bandsets": 2,
-            "max_encoding_bandsets": 6,
+            "max_encoding_bandsets": 6, # THis needs to be compared with the number of available bandsets so we have enough decoding bandsets
             "encode_ratio": ENCODE_RATIO,
             "decode_ratio": DECODE_RATIO,
         }
