@@ -30,5 +30,6 @@ class DistributedMixins:
                 )
             else:
                 torch._dynamo.config.optimize_ddp = "ddp_optimizer"  # type: ignore
-
-        replicate(self, device_mesh=dp_mesh, bucket_cap_mb=100)
+        # Forwards kwargs to torch DDP class, find_unused_parameters=True is required for MAE
+        # Small performance hit could be possible for other models
+        replicate(self, device_mesh=dp_mesh, bucket_cap_mb=100, find_unused_parameters=True)
