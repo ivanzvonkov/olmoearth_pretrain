@@ -803,13 +803,12 @@ def test_random_range_masking() -> None:
     assert min_decode_ratio - eps <= min(decode_ratios) < min_decode_ratio + 0.1
     assert max_decode_ratio + eps >= max(decode_ratios) > max_decode_ratio - 0.1
 
-# THESE TESTS did not merge well and need to be split out
+
 def test_space_cross_modality_masking() -> None:
     """Test space cross modality masking."""
-    b, h, w, t = 4, 16, 16, 8
+    b, h, w, t = 4, 4, 4, 3
 
-
-    patch_size = 4
+    patch_size = 1
 
     days = torch.randint(1, 31, (b, 1, t), dtype=torch.long)
     months = torch.randint(1, 13, (b, 1, t), dtype=torch.long)
@@ -820,9 +819,7 @@ def test_space_cross_modality_masking() -> None:
     latlon_num_bands = Modality.LATLON.num_bands
     batch = HeliosSample(
         sentinel2_l2a=torch.ones((b, h, w, t, sentinel2_l2a_num_bands)),
-
         sentinel1=torch.ones((b, h, w, t, Modality.SENTINEL1.num_bands)),
-
         latlon=torch.ones((b, latlon_num_bands)),
         timestamps=timestamps,
         worldcover=torch.ones((b, h, w, 1, worldcover_num_bands)),
@@ -835,5 +832,41 @@ def test_space_cross_modality_masking() -> None:
         encode_ratio=0.1,
         decode_ratio=0.75,
     )
-    masked_sample= strategy.apply_mask(batch, patch_size=patch_size)
+    masked_sample = strategy.apply_mask(batch, patch_size=patch_size)
     logger.info(f"masked_sample: {masked_sample}")
+    # Check that the worldcover mask has the expected values
+
+    # Check that latlon mask has the expected values
+    expected_latlon_mask = torch.tensor([[2], [2], [2], [2]])
+    expected_worldcover_mask = torch.tensor(
+        [
+            [
+                [[[2]], [[2]], [[2]], [[1]]],
+                [[[2]], [[2]], [[1]], [[2]]],
+                [[[2]], [[2]], [[1]], [[2]]],
+                [[[2]], [[2]], [[1]], [[2]]],
+            ],
+            [
+                [[[1]], [[2]], [[2]], [[1]]],
+                [[[2]], [[2]], [[2]], [[2]]],
+                [[[2]], [[1]], [[2]], [[2]]],
+                [[[2]], [[2]], [[1]], [[2]]],
+            ],
+            [
+                [[[2]], [[2]], [[1]], [[2]]],
+                [[[2]], [[1]], [[2]], [[1]]],
+                [[[2]], [[2]], [[1]], [[2]]],
+                [[[2]], [[2]], [[2]], [[2]]],
+            ],
+            [
+                [[[2]], [[2]], [[2]], [[2]]],
+                [[[2]], [[1]], [[2]], [[2]]],
+                [[[2]], [[2]], [[1]], [[1]]],
+                [[[1]], [[2]], [[2]], [[2]]],
+            ],
+        ]
+    )
+
+    # Assert that the masks match the expected values
+    assert torch.equal(masked_sample.worldcover_mask, expected_worldcover_mask)
+    assert torch.equal(masked_sample.latlon_mask, expected_latlon_mask)
