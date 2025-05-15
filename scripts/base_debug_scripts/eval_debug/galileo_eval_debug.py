@@ -27,6 +27,7 @@ from helios.data.dataloader import HeliosDataLoaderConfig
 from helios.data.dataset import HeliosDatasetConfig
 from helios.internal.common import build_common_components
 from helios.internal.experiment import CommonComponents, HeliosVisualizeConfig, main
+from helios.internal.utils import MODEL_SIZE_ARGS
 from helios.nn.flexihelios import EncoderConfig, PoolingType, PredictorConfig
 from helios.nn.galileo import GalileoConfig
 from helios.train.callbacks import (
@@ -44,16 +45,18 @@ logger = logging.getLogger(__name__)
 MAX_PATCH_SIZE = 8  # NOTE: actual patch_size <= max_patch_size
 MIN_PATCH_SIZE = 1
 
+base_args = MODEL_SIZE_ARGS["base"]
+
 
 def build_model_config(common: CommonComponents) -> GalileoConfig:
     """Build the model config for an experiment."""
-    ENCODER_EMBEDDING_SIZE = 192
-    DECODER_EMBEDDING_SIZE = 192
-    ENCODER_DEPTH = 12
-    DECODER_DEPTH = 12
-    ENCODER_NUM_HEADS = 3
-    DECODER_NUM_HEADS = 3
-    MLP_RATIO = 4.0
+    ENCODER_EMBEDDING_SIZE = int(base_args["encoder_embedding_size"])
+    DECODER_EMBEDDING_SIZE = int(base_args["decoder_embedding_size"])
+    ENCODER_DEPTH = int(base_args["encoder_depth"])
+    DECODER_DEPTH = int(base_args["decoder_depth"])
+    ENCODER_NUM_HEADS = int(base_args["encoder_num_heads"])
+    DECODER_NUM_HEADS = int(base_args["decoder_num_heads"])
+    MLP_RATIO = float(base_args["mlp_ratio"])
 
     encoder_config = EncoderConfig(
         supported_modality_names=common.training_modalities,
@@ -118,13 +121,13 @@ def build_train_module_config(
         }
     )
     token_exit_cfg_a = {
-        Modality.SENTINEL2_L2A.name: 4,
-        Modality.LATLON.name: 4,
-        Modality.SENTINEL1.name: 4,
+        Modality.SENTINEL2_L2A.name: int(base_args["encoder_depth"]),
+        Modality.LATLON.name: int(base_args["encoder_depth"]),
+        Modality.SENTINEL1.name: int(base_args["encoder_depth"]),
         Modality.WORLDCOVER.name: 0,
-        Modality.SRTM.name: 2,
+        Modality.SRTM.name: int(base_args["encoder_depth"]),
         Modality.OPENSTREETMAP_RASTER.name: 0,
-        Modality.LANDSAT.name: 4,
+        Modality.LANDSAT.name: int(base_args["encoder_depth"]),
     }
     if any(modality not in token_exit_cfg_a for modality in common.training_modalities):
         raise ValueError(
