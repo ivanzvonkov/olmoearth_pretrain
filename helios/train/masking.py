@@ -837,17 +837,17 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
                     )
                     modality_mask[..., bandset_idx] = MaskValue.ONLINE_ENCODER.value
 
-            # handle the decoding bandset clamping
-            # For static in space data ignore all previous masking decisions and clamp
-            if self.overide_random_mask_condition(modality_spec):
-                logger.info(
-                    f"Clamping {modality} to max {MaskValue.TARGET_ENCODER_ONLY.value} for all bandsets"
-                )
-                modality_mask = torch.clamp(
-                    modality_mask, max=MaskValue.TARGET_ENCODER_ONLY.value
-                )
+                # handle the decoding bandset clamping
+                # For static in space data ignore all previous masking decisions and clamp
+                if self.overide_random_mask_condition(modality_spec):
+                    logger.info(
+                        f"Clamping {modality} to max {MaskValue.TARGET_ENCODER_ONLY.value} for all bandsets"
+                    )
+                    modality_mask[..., bandset_idx] = torch.clamp(
+                        modality_mask[..., bandset_idx],
+                        max=MaskValue.TARGET_ENCODER_ONLY.value,
+                    )
 
-            for bandset_idx in range(modality_num_bandsets):
                 is_decoded = (modality, bandset_idx) in decoded_bandset_idxs
                 if not is_decoded:
                     modality_mask[..., bandset_idx] = torch.clamp(

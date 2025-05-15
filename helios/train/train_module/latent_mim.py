@@ -246,7 +246,6 @@ class LatentMIMTrainModule(HeliosTrainModule):
             total_batch_loss,
             ReduceType.mean,
         )
-        logger.info(f"Total batch loss: {total_batch_loss}")
         self.log_regularization(total_batch_reg)
 
         if dry_run:
