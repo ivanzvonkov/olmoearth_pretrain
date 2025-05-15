@@ -794,15 +794,13 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
         # Defaults to not overiding anything that may be random masked
         return False
 
-    def clamp_unclamp_mask(
+    def apply_bandset_mask_rules(
         self,
         masked_batch: MaskedHeliosSample,
         encoded_bandset_list: list[tuple[str, int]],
         decoded_bandset_idxs: tuple[tuple[str, int], ...],
     ) -> MaskedHeliosSample:
-        """Clamp and unclamp the mask for the encoded and decoded bandsets."""
-        # I want to refactor this into a single loop but I need a good test first to make sure it works
-        # Loop to handle the encoding bandset clamping
+        """Allow encoding of encoded bandsets and decoding of decoded bandsets."""
         masked_batch_dict = masked_batch.as_dict(return_none=False)
         for modality in masked_batch.modalities:
             if modality == "timestamps":
@@ -811,16 +809,29 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
             modality_spec = Modality.get(modality)
             modality_num_bandsets = modality_spec.num_band_sets
             modality_mask = masked_batch_dict[masked_modality_name]
-            missing_mask = modality_mask == MaskValue.MISSING.value
+            # Be Careful to ensure that the missing mask is not overriden
             for bandset_idx in range(modality_num_bandsets):
                 is_encoded = (modality, bandset_idx) in encoded_bandset_list
                 is_decoded = (modality, bandset_idx) in decoded_bandset_idxs
 
-                # we could also check for not missing here
-                if not is_encoded and not is_decoded:
-                    modality_mask[..., bandset_idx] = (
-                        MaskValue.TARGET_ENCODER_ONLY.value
+                if self.overide_random_mask_condition(modality_spec):
+                    # assumes the mask is random so we overide to make it all the same
+                    if is_encoded:
+                        forced_mask_value = MaskValue.ONLINE_ENCODER.value
+                    elif is_decoded:
+                        forced_mask_value = MaskValue.DECODER.value
+                    logger.info(
+                        f"Setting {modality} bandset {bandset_idx} to {MaskValue.ONLINE_ENCODER.value}"
                     )
+                    not_missing_mask = (
+                        modality_mask[..., bandset_idx] != MaskValue.MISSING.value
+                    )
+                    modality_mask[..., bandset_idx] = torch.where(
+                        not_missing_mask,
+                        forced_mask_value,
+                        modality_mask[..., bandset_idx],
+                    )
+                    continue
 
                 if not is_encoded:
                     # Supress all encoded values for a not encoded bandset
@@ -844,19 +855,6 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
                         modality_mask[..., bandset_idx],
                     )
 
-                if self.overide_random_mask_condition(modality_spec):
-                    # assumes the mask is random so we
-                    if is_encoded:
-                        forced_mask_value = MaskValue.ONLINE_ENCODER.value
-                    elif is_decoded:
-                        forced_mask_value = MaskValue.DECODER.value
-                    logger.info(
-                        f"Setting {modality} bandset {bandset_idx} to {MaskValue.ONLINE_ENCODER.value}"
-                    )
-                    modality_mask[..., bandset_idx] = forced_mask_value
-
-            # Reset the missing mask to the original missing mask
-            modality_mask[missing_mask] = MaskValue.MISSING.value
             masked_batch_dict[masked_modality_name] = modality_mask
 
         masked_batch = MaskedHeliosSample(**masked_batch_dict)
@@ -875,7 +873,7 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
         logger.info(f"decoded_bandset_idxs: {decoded_bandset_idxs}")
         logger.info(f"encoded_bandset_list: {encoded_bandset_list}")
 
-        masked_sample = self.clamp_unclamp_mask(
+        masked_sample = self.apply_bandset_mask_rules(
             masked_sample, encoded_bandset_list, decoded_bandset_idxs
         )
         return masked_sample
