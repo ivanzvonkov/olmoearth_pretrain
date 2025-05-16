@@ -14,15 +14,7 @@ from torch.distributed.fsdp import (
     register_fsdp_forward_method,
 )
 
-from helios.nn.flexihelios import (
-    Encoder,
-    EncoderConfig,
-    Predictor,
-    PredictorConfig,
-    Reconstructor,
-    ReconstructorConfig,
-    TokensAndMasks,
-)
+from helios.nn.flexihelios import TokensAndMasks
 from helios.nn.utils import DistributedMixins
 from helios.train.masking import MaskedHeliosSample
 
@@ -34,9 +26,9 @@ class Galileo(nn.Module, DistributedMixins):
 
     def __init__(
         self,
-        encoder: Encoder,
-        decoder: Predictor,
-        reconstructor: Reconstructor | None = None,
+        encoder: torch.nn.Module,
+        decoder: torch.nn.Module,
+        reconstructor: torch.nn.Module | None = None,
     ):
         """Initialize the Galileo Style.
 
@@ -115,9 +107,9 @@ class Galileo(nn.Module, DistributedMixins):
 class GalileoConfig(Config):
     """Configuration for the Galileo model."""
 
-    encoder_config: "EncoderConfig"
-    decoder_config: "PredictorConfig"
-    reconstructor_config: ReconstructorConfig | None = None
+    encoder_config: Config
+    decoder_config: Config
+    reconstructor_config: Config | None = None
 
     def validate(self) -> None:
         """Validate the configuration."""
