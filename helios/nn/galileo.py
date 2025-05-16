@@ -49,7 +49,14 @@ class Galileo(nn.Module, DistributedMixins):
     def forward_a(
         self, x: MaskedHeliosSample, patch_size: int
     ) -> tuple[TokensAndMasks, TokensAndMasks, torch.Tensor, TokensAndMasks | None]:
-        """Forward pass for the Latent MIM Style."""
+        """Forward pass for the Latent MIM Style.
+
+        Returns:
+            latent: embeddings from encoder
+            decoded: predictions from decoder for masked tokens
+            latent_projected_and_pooled: pooled tokens for contrastive loss
+            reconstructed: MAE predictions if enabled
+        """
         # TODO: Input And outputs here are not consistent between encoder and decoder need a tokensandmaks++
         latent, latent_projected_and_pooled = self.encoder(x, patch_size=patch_size)
         reconstructed = None
@@ -61,7 +68,14 @@ class Galileo(nn.Module, DistributedMixins):
     def forward_b(
         self, x: MaskedHeliosSample, patch_size: int
     ) -> tuple[TokensAndMasks, TokensAndMasks, torch.Tensor, TokensAndMasks | None]:
-        """Forward pass for the Latent MIM Style."""
+        """Forward pass for the Latent MIM Style.
+
+        Returns:
+            latent: embeddings from encoder
+            decoded: predictions from decoder for masked tokens
+            latent_projected_and_pooled: pooled tokens for contrastive loss
+            reconstructed: MAE predictions if enabled
+        """
         # TODO: Input And outputs here are not consistent between encoder and decoder need a tokensandmaks++
         latent, latent_projected_and_pooled = self.encoder(x, patch_size=patch_size)
         reconstructed = None
@@ -136,7 +150,11 @@ class GalileoConfig(Config):
         self.validate()
         encoder = self.encoder_config.build()
         decoder = self.decoder_config.build()
-        reconstructor = self.reconstructor_config and self.reconstructor_config.build()
+        reconstructor = (
+            self.reconstructor_config.build()
+            if self.reconstructor_config is not None
+            else None
+        )
         return Galileo(
             encoder=encoder,
             decoder=decoder,

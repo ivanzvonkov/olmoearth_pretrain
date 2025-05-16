@@ -113,8 +113,14 @@ class MAEConfig(Config):
         """Build the MAE Predictor."""
         self.validate()
         encoder = self.encoder_config.build()
-        decoder = self.decoder_config and self.decoder_config.build()
-        reconstructor = self.reconstructor_config and self.reconstructor_config.build()
+        decoder = (
+            self.decoder_config.build() if self.decoder_config is not None else None
+        )
+        reconstructor = (
+            self.reconstructor_config.build()
+            if self.reconstructor_config is not None
+            else None
+        )
         return MAE(
             encoder=encoder,
             decoder=decoder,

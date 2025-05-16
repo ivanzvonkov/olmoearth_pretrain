@@ -113,7 +113,7 @@ def build_train_module_config(
             "decode_ratio": DECODE_RATIO,
         }
     )
-    loss_config = LossConfig(
+    mae_loss_config = LossConfig(
         loss_config={
             "type": "mae",
         }
@@ -129,7 +129,7 @@ def build_train_module_config(
         optim_config=optim_config,
         masking_config=masking_config,
         warmup_duration=Duration.epochs(WARMUP_EPOCHS),
-        loss_config=loss_config,
+        mae_loss_config=mae_loss_config,
         rank_microbatch_size=RANK_MICROBATCH_SIZE,
         token_exit_cfg=token_exit_cfg,
         autocast_precision=DType.bfloat16,
