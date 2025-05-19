@@ -160,7 +160,7 @@ def build_model_config_builder(
 def build_train_module_config(model: str = "galileo") -> HeliosTrainModuleConfig:
     """Build the train module config for an experiment."""
     LR = 0.0001
-    RANK_MICROBATCH_SIZE = 64
+    RANK_MICROBATCH_SIZE = 32
     ENCODE_RATIO = 0.1
     DECODE_RATIO = 0.9
     WD = 0.02
@@ -194,7 +194,7 @@ def build_train_module_config(model: str = "galileo") -> HeliosTrainModuleConfig
     contrastive_config = LossConfig(
         loss_config={
             "type": "InfoNCE",
-            "weight": 0.05,
+            "weight": 0.1,
         }
     )
     mae_loss_config = LossConfig(
@@ -202,7 +202,7 @@ def build_train_module_config(model: str = "galileo") -> HeliosTrainModuleConfig
             "type": "mae",
             "loss_function": "SmoothL1Loss",
             "beta": 0.02,
-            "weight": 1,
+            "weight": 0.1,
         }
     )
     token_exit_cfg_galileo = {
