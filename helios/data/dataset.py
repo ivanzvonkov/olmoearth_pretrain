@@ -10,6 +10,7 @@ from math import floor
 from typing import Any, NamedTuple, cast
 
 import h5py
+import hdf5plugin  # noqa: F401
 import numpy as np
 import pandas as pd
 import torch
@@ -30,6 +31,8 @@ from helios.dataset.convert_to_h5py import ConvertToH5py
 from helios.types import ArrayTensor
 
 logger = logging.getLogger(__name__)
+
+# check if hdf5plugin is installed
 
 
 class HeliosSample(NamedTuple):
