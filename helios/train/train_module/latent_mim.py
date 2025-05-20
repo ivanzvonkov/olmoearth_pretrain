@@ -1,6 +1,5 @@
 """Training and optimizer abstraction for Helios."""
 
-import time
 from dataclasses import dataclass, field
 from logging import getLogger
 from typing import Any
@@ -197,8 +196,6 @@ class LatentMIMTrainModule(HeliosTrainModule):
 
         NOTE: For non contrastive losses, the loss is invariant to the global batch size across GPUS as well
         """
-        # Throttle by .3 seconds
-        time.sleep(0.5)
         self.update_target_encoder()
         # Set the model to train mode
         self.model.train()

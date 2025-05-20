@@ -962,7 +962,6 @@ class Encoder(FlexiHeliosBase):
         max_sequence_length: int,
         use_channel_embs: bool = True,
         random_channel_embs: bool = False,
-        # SHould I have aggregate and
         num_projection_layers: int = 1,
         aggregate_then_project: bool = True,
     ):
