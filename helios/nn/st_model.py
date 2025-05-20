@@ -385,7 +385,7 @@ class STBase(nn.Module):
                     ws=size,
                 )
                 flattened_masks = rearrange(
-                    cur_tokens,
+                    cur_masks,
                     "b t (hn hs) (wn ws) -> (b hn wn) (t hs ws)",
                     hs=size,
                     ws=size,
