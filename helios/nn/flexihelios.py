@@ -1221,6 +1221,7 @@ class Encoder(FlexiHeliosBase):
         tokens_per_modality_dict.update(original_masks_dict)
         return tokens_per_modality_dict
 
+    # TODO: we want to have a single API for the encoder and decoder
     def forward(
         self,
         x: MaskedHeliosSample,
