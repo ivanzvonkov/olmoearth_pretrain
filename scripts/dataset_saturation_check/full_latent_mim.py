@@ -174,7 +174,7 @@ def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
             # samples_per_sec=4 / NUM_WORKERS,  # 2/ GBS
         ),
     ]
-    return HeliosConcatDatasetConfig(datasets=configs)
+    return HeliosConcatDatasetConfig(dataset_configs=configs)
 
 
 def build_trainer_config(common: CommonComponents) -> TrainerConfig:
