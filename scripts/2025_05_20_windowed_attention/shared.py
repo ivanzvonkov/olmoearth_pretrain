@@ -84,7 +84,7 @@ def build_model_config(common: CommonComponents) -> LatentMIMConfig:
         drop_path=0.1,
         max_sequence_length=12,
         use_channel_embs=True,
-        windowed_attention_size=4,
+        windowed_attention_size=3,
     )
     decoder_config = STPredictorConfig(
         encoder_embedding_size=ENCODER_EMBEDDING_SIZE,
@@ -95,7 +95,7 @@ def build_model_config(common: CommonComponents) -> LatentMIMConfig:
         max_sequence_length=12,
         supported_modality_names=common.training_modalities,
         learnable_channel_embeddings=True,
-        windowed_attention_size=4,
+        windowed_attention_size=3,
     )
     model_config = LatentMIMConfig(
         encoder_config=encoder_config,

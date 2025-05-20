@@ -152,10 +152,10 @@ class STBase(nn.Module):
             x_modality_mask = x[masked_modality_name]
             tokens.append(rearrange(x_modality, "b ... d -> b (...) d"))
             masks.append(rearrange(x_modality_mask, "b ... -> b (...)"))
-        tokens = torch.cat(tokens, dim=1)
-        masks = torch.cat(masks, dim=1)
+        tokens_tensor = torch.cat(tokens, dim=1)
+        masks_tensor = torch.cat(masks, dim=1)
 
-        return tokens, masks
+        return tokens_tensor, masks_tensor
 
     def collapse_and_combine_temporal(
         self, x: dict[str, Tensor]
@@ -231,9 +231,9 @@ class STBase(nn.Module):
             masks.append(flattened_masks)
 
         # Concatenate along temporal (token) dimension.
-        tokens = torch.cat(tokens, dim=1)
-        masks = torch.cat(masks, dim=1)
-        return tokens, masks
+        tokens_tensor = torch.cat(tokens, dim=1)
+        masks_tensor = torch.cat(masks, dim=1)
+        return tokens_tensor, masks_tensor
 
     def collapse_and_combine_spatial(
         self, x: dict[str, Tensor]
@@ -310,9 +310,9 @@ class STBase(nn.Module):
             masks.append(flattened_masks)
 
         # Concatenate along temporal (batch) dimension.
-        tokens = torch.cat(tokens, dim=0)
-        masks = torch.cat(masks, dim=0)
-        return tokens, masks
+        tokens_tensor = torch.cat(tokens, dim=0)
+        masks_tensor = torch.cat(masks, dim=0)
+        return tokens_tensor, masks_tensor
 
     def collapse_and_combine_windowed(
         self, x: dict[str, Tensor], block_idx: int
@@ -402,9 +402,12 @@ class STBase(nn.Module):
             masks.append(flattened_masks)
 
         # Concatenate along the token dimension.
-        tokens = torch.cat(tokens, dim=1)
-        masks = torch.cat(masks, dim=1)
-        return tokens, masks
+        tokens_tensor = torch.cat(tokens, dim=1)
+        masks_tensor = torch.cat(masks, dim=1)
+        logger.info(
+            f"collapse_and_combine_windowed: end up with {tokens_tensor.shape[0]} batches of {tokens_tensor.shape[1]} tokens"
+        )
+        return tokens_tensor, masks_tensor
 
     @staticmethod
     def _construct_einops_pattern(
