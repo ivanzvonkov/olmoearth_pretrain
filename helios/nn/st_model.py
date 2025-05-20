@@ -19,6 +19,7 @@ from helios.nn.flexihelios import (
     BASE_GSD,
     FlexiHeliosCompositeEncodings,
     FlexiHeliosPatchEmbeddings,
+    ProjectAndAggregate,
     TokensAndMasks,
     get_modalities_to_process,
     return_modalities_from_dict,
@@ -579,6 +580,8 @@ class STEncoder(STBase):
         max_sequence_length: int,
         use_channel_embs: bool = True,
         random_channel_embs: bool = False,
+        num_projection_layers: int = 1,
+        aggregate_then_project: bool = True,
     ):
         """Initialize the encoder.
 
@@ -594,6 +597,8 @@ class STEncoder(STBase):
             max_sequence_length: Maximum sequence length
             use_channel_embs: Whether to use learnable channel embeddings
             random_channel_embs: Initialize channel embeddings randomly (zeros if False)
+            num_projection_layers: Number of projection layers
+            aggregate_then_project: Whether to aggregate then project
         """
         super().__init__(
             embedding_size=embedding_size,
@@ -613,6 +618,12 @@ class STEncoder(STBase):
             self.supported_modality_names,
             self.max_patch_size,
             self.embedding_size,
+        )
+        # TODO: add backwards compatibility without the project and aggregate module
+        self.project_and_aggregate = ProjectAndAggregate(
+            embedding_size=self.embedding_size,
+            num_layers=num_projection_layers,
+            aggregate_then_project=aggregate_then_project,
         )
         self.norm = nn.LayerNorm(self.embedding_size)
         self.apply(self._init_weights)
@@ -827,7 +838,7 @@ class STEncoder(STBase):
         patch_size: int,
         input_res: int = BASE_GSD,
         token_exit_cfg: dict | None = None,
-    ) -> tuple[TokensAndMasks, torch.Tensor]:
+    ) -> tuple[TokensAndMasks, Tensor]:
         """Process masked input samples into token representations.
 
         Args:
@@ -851,7 +862,8 @@ class STEncoder(STBase):
                 input_res=input_res,
                 token_exit_cfg=token_exit_cfg,
             )
-        return TokensAndMasks(**patchified_tokens_and_masks), torch.tensor(0)
+        output = TokensAndMasks(**patchified_tokens_and_masks)
+        return output, self.project_and_aggregate(output)
 
     def apply_fsdp(self, **fsdp_kwargs: Any) -> None:
         """Apply FSDP to the model."""
@@ -961,6 +973,7 @@ class STPredictor(STBase):
 
         return output_dict
 
+    # TODO: These are duplicated static methods maybe they should just be utils functions if they are shared or in some base class
     # TODO: GIVE more explicit function names
     @staticmethod
     def split_x_y(
