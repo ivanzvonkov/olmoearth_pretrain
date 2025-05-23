@@ -42,8 +42,8 @@ python scripts/v0_sweep/galileo_st.py launch v0_base_SpT_galileo_cross_space ai2
 python scripts/v0_sweep/galileo_st.py launch v0_base_SpT_galileo_cross_space_time ai2/jupiter-cirrascale-2  --model.decoder_config.depth=8 --train_module.masking_config_a.strategy_config.type=modality_cross_space_time --common.launch.num_gpus=8 --train_module.contrastive_config=null --model.reconstructor_config=null --train_module.mae_loss_config=null --data_loader.token_budget=1500
 
 # Some MAE Expts
-python scripts/v0_sweep/latent_mim_st.py launch v0_base_SpT_latentmim_mae_random ai2/jupiter-cirrascale-2 --train_module.masking_config.strategy_config.type=random --common.launch.num_gpus=8 --data_loader.token_budget=6000 --train_module.rank_microbatch_size=16
-python scripts/v0_sweep/contrastive_latent_mim_st.py launch v0_base_SpT_latentmim_contrastive_mae_random ai2/jupiter-cirrascale-2 --train_module.masking_config.strategy_config.type=random --common.launch.num_gpus=8 --data_loader.token_budget=3000 --train_module.rank_microbatch_size=16
+python scripts/v0_sweep/latent_mim_st.py launch v0_base_SpT_latentmim_mae_random ai2/jupiter-cirrascale-2 --train_module.masking_config.strategy_config.type=random --common.launch.num_gpus=8 --data_loader.token_budget=3000 --train_module.rank_microbatch_size=16
+python scripts/v0_sweep/contrastive_latent_mim_st.py launch v0_base_SpT_latentmim_contrastive_mae_random ai2/jupiter-cirrascale-2 --train_module.masking_config.strategy_config.type=random --common.launch.num_gpus=8 --data_loader.token_budget=2000 --train_module.rank_microbatch_size=16
 python scripts/v0_sweep/latent_mim.py launch v0_base_latent_mim_mae_random ai2/jupiter-cirrascale-2 --model.decoder_config.depth=4 --common.launch.num_gpus=8 --train_module.masking_config.strategy_config.type=random
 # TODO the run below is contrastive but not labelled as such, correct naming after run finishes in wandb
 python scripts/v0_sweep/galileo.py launch v0_base_galileo_mae_random_x_random ai2/jupiter-cirrascale-2 --model.decoder_config.depth=4 --common.launch.num_gpus=8 --train_module.masking_config_a.strategy_config.type=random
