@@ -409,6 +409,24 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             eval_interval=Duration.epochs(10),
             input_modalities=["landsat8"],
         ),
+        "mados": DownstreamTaskConfig(
+            dataset="mados",
+            batch_size=128,
+            num_workers=8,
+            pooling_type=PoolingType.MEAN,
+            norm_stats_from_pretrained=False,
+            probe_lr=0.1,
+            eval_interval=Duration.epochs(10),
+        ),
+        "sen1floods11": DownstreamTaskConfig(
+            dataset="sen1floods11",
+            batch_size=128,
+            num_workers=8,
+            pooling_type=PoolingType.MEAN,
+            norm_stats_from_pretrained=True,
+            probe_lr=0.1,
+            eval_interval=Duration.epochs(10),
+        ),
     }
     # Let us not use garbage collector fallback
     trainer_config = (
