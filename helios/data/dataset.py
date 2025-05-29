@@ -638,6 +638,7 @@ class HeliosDataset(Dataset):
         missing_modalities = []
         sample = HeliosSample(**sample_dict)
         for modality in self.training_modalities:
+            # If one modality is completely missing, we need to fill it all with missing values
             if modality not in sample_dict.keys():
                 logger.debug(f"Filling {modality} with missing values")
                 sample_dict[modality] = self._fill_missing_modality(sample, modality)
