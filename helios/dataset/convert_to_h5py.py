@@ -307,6 +307,14 @@ class ConvertToH5py:
                                 create_kwargs["chunks"] = data_item.shape
                             else:
                                 create_kwargs["chunks"] = self.chunk_shape
+                                if len(self.chunk_shape) != len(data_item.shape):
+                                    # fill  with chunk shape until exhausted
+                                    for i in range(len(data_item.shape)):
+                                        if i >= len(self.chunk_shape):
+                                            # use the dataset shape instead
+                                            create_kwargs["chunks"].append(data_item.shape[i])
+                                        else:
+                                            create_kwargs["chunks"].append(self.chunk_shape[i])
 
                     # Create the dataset per item
                     h5file.create_dataset(item_name, data=data_item, **create_kwargs)

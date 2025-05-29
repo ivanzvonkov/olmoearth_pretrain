@@ -70,10 +70,10 @@ TRAINING_MODALITIES = [
 
 ENCODER_EMBEDDING_SIZE = 768
 DECODER_EMBEDDING_SIZE = 768
-ENCODER_DEPTH = 12
-DECODER_DEPTH = 12
-ENCODER_NUM_HEADS = 12
-DECODER_NUM_HEADS = 12
+ENCODER_DEPTH = 4 # 12
+DECODER_DEPTH = 4 # 12
+ENCODER_NUM_HEADS = 3 # 12
+DECODER_NUM_HEADS = 3 # 12
 MLP_RATIO = 4.0
 
 
@@ -314,28 +314,28 @@ def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
     dataset_configs = [
         # presto
         HeliosDatasetConfig(
-            h5py_dir="/weka/dfive-default/helios/dataset/presto/h5py_data_w_missing_timesteps_zstd_3/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/117473/",
+            h5py_dir="/weka/dfive-default/helios/dataset/presto/h5py_data_w_missing_timesteps_128_128/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/117473",
             training_modalities=TRAINING_MODALITIES,
             # use_samples_with_missing_supported_modalities=False,
             dtype=DType.float32,
-            cache_dir="/helios_cache/presto",
+            # cache_dir="/helios_cache/presto",
         ),
-        # osm_sampling
-        HeliosDatasetConfig(
-            h5py_dir="/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_w_missing_timesteps_zstd_3/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/285288/",
-            training_modalities=TRAINING_MODALITIES,
-            # use_samples_with_missing_supported_modalities=False,
-            dtype=DType.float32,
-            cache_dir="/helios_cache/osm_sampling",
-        ),
-        # osmbig
-        HeliosDatasetConfig(
-            h5py_dir="/weka/dfive-default/helios/dataset/osmbig/h5py_data_w_missing_timesteps_zstd_3/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/324482/",
-            training_modalities=TRAINING_MODALITIES,
-            # use_samples_with_missing_supported_modalities=False,
-            dtype=DType.float32,
-            cache_dir="/helios_cache/osmbig",
-        ),
+        # # osm_sampling
+        # HeliosDatasetConfig(
+        #     h5py_dir="/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_w_missing_timesteps_zstd_3/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/285288/",
+        #     training_modalities=TRAINING_MODALITIES,
+        #     # use_samples_with_missing_supported_modalities=False,
+        #     dtype=DType.float32,
+        #     cache_dir="/helios_cache/osm_sampling",
+        # ),
+        # # osmbig
+        # HeliosDatasetConfig(
+        #     h5py_dir="/weka/dfive-default/helios/dataset/osmbig/h5py_data_w_missing_timesteps_zstd_3/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/324482/",
+        #     training_modalities=TRAINING_MODALITIES,
+        #     # use_samples_with_missing_supported_modalities=False,
+        #     dtype=DType.float32,
+        #     cache_dir="/helios_cache/osmbig",
+        # ),
     ]
     return HeliosConcatDatasetConfig(dataset_configs=dataset_configs)
 
