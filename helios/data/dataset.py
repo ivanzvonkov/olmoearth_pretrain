@@ -231,10 +231,10 @@ class HeliosSample(NamedTuple):
         if self.timestamps is None:
             raise ValueError("Timestamps are not present in the sample")
         for i in range(self.timestamps.shape[0]):
-            unique_timesteps = torch.unique(self.timestamps[i])
+            unique_timesteps = torch.unique(self.timestamps[i], dim=0)
             min_valid_time = min(min_valid_time, unique_timesteps.shape[0])
         if min_valid_time < self.time:
-            logger.warning(
+            logger.debug(
                 f"valid_time is smaller than time: {min_valid_time} < {self.time}"
             )
         return min_valid_time

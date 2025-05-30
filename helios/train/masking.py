@@ -646,6 +646,8 @@ class SpaceTimeMaskingStrategy(MaskingStrategy):
     ) -> MaskedHeliosSample:
         """Apply space or time masking to the input data."""
         has_enough_timesteps = batch.valid_time >= 3
+        if not has_enough_timesteps:
+            logger.debug(f"Valid time: {batch.valid_time}, Time: {batch.time}")
         if (self.generator.random() < 0.5) or (not has_enough_timesteps):
             logger.info("Applying space masking")
             return self.space_strategy.apply_mask(batch, patch_size, **kwargs)
