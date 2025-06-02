@@ -380,7 +380,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
             probe_lr=0.01,
-            eval_interval=Duration.steps(2),
+            eval_interval=Duration.epochs(5),
             input_modalities=["sentinel1"],
         ),
         "sickle-landsat": DownstreamTaskConfig(
@@ -390,7 +390,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
             probe_lr=0.01,
-            eval_interval=Duration.steps(2),
+            eval_interval=Duration.epochs(5),
             input_modalities=["landsat8"],
         ),
         "sickle-landsat-sentinel1": DownstreamTaskConfig(
@@ -400,7 +400,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
             probe_lr=0.01,
-            eval_interval=Duration.steps(2),
+            eval_interval=Duration.epochs(5),
             input_modalities=["landsat8", "sentinel1"],
         ),
         "sen1floods11": DownstreamTaskConfig(
@@ -410,7 +410,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
             probe_lr=0.1,
-            eval_interval=Duration.steps(2),
+            eval_interval=Duration.epochs(5),
         ),
     }
     # Let us not use garbage collector fallback
