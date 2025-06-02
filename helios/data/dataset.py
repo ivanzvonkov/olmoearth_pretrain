@@ -225,8 +225,10 @@ class HeliosSample(NamedTuple):
 
     @property
     def valid_time(self) -> int:
-        """Get the minimum number of valid time steps in the data."""
-        # Go through each sample, check the number of valid timesteps and get the min
+        """Get the minimum number of valid time steps in the data.
+
+        Note that the timestamps are edge padded by repeating the last timestamp.
+        """
         min_valid_time = 12
         if self.timestamps is None:
             raise ValueError("Timestamps are not present in the sample")

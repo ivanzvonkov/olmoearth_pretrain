@@ -114,6 +114,10 @@ class TestHeliosDataset:
         assert np.all(filled_data[..., 1, :] == MISSING_VALUE)
         assert np.all(filled_data[..., 3:, :] == MISSING_VALUE)
 
+        # Check that the valid time is correct
+        assert filled_data.time == max_sequence_length
+        assert filled_data.valid_time == 2
+
     def test_fill_missing_modality(
         self,
         tmp_h5py_dir: UPath,
