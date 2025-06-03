@@ -175,8 +175,6 @@ class TestHeliosDataset:
 
         # Check if timestamps are padded correctly
         assert sample.time == max_sequence_length
-        # Check that the valid time is correct
-        assert sample.valid_time == 3
 
         # Check that sentinel2_l2a has been filled correctly
         assert sample.sentinel2_l2a is not None

@@ -128,17 +128,17 @@ class HeliosSample(NamedTuple):
         """
         return [modality for modality in self.as_dict(ignore_nones=True).keys()]
 
-    @property
-    def valid_modalities(self) -> list[str]:
-        """Get the modalities present in the sample.
+    # @property
+    # def valid_modalities(self) -> list[str]:
+    #     """Get the modalities present in a batch.
 
-        Includes timestamps and latlon
-        """
-        return [
-            modality
-            for modality in self.modalities
-            if not np.all(self.as_dict(ignore_nones=True)[modality] == MISSING_VALUE)
-        ]
+    #     A modality is valid if it is not completely filled with MISSING_VALUE.
+    #     """
+    #     # return [
+    #     #     modality
+    #     #     for modality in self.modalities
+    #     #     if not torch.all(torch.eq(self.as_dict(ignore_nones=True)[modality], MISSING_VALUE))
+    #     # ]
 
     def to_device(self, device: torch.device) -> "HeliosSample":
         """Move all tensors to the specified device.
@@ -227,21 +227,18 @@ class HeliosSample(NamedTuple):
 
     @property
     def valid_time(self) -> int:
-        """Get the minimum number of valid time steps in the data.
+        """Get the minimum number of valid time steps in a batch.
 
         Note that the timestamps are edge padded by repeating the last timestamp.
         """
         min_valid_time = 12
         if self.timestamps is None:
             raise ValueError("Timestamps are not present in the sample")
-        # If without a batch dimension, just get the unique from it directly
-        if len(self.timestamps.shape) == 2:
-            unique_timesteps = np.unique(self.timestamps, axis=0)
+        if len(self.timestamps.shape) != 3:
+            raise ValueError("Valid time is only defined for a batch of samples")
+        for i in range(self.timestamps.shape[0]):
+            unique_timesteps = torch.unique(self.timestamps[i], dim=0)
             min_valid_time = min(min_valid_time, unique_timesteps.shape[0])
-        else:
-            for i in range(self.timestamps.shape[0]):
-                unique_timesteps = torch.unique(self.timestamps[i], dim=0)
-                min_valid_time = min(min_valid_time, unique_timesteps.shape[0])
         if min_valid_time < self.time:
             logger.debug(
                 f"valid_time is smaller than time: {min_valid_time} < {self.time}"
