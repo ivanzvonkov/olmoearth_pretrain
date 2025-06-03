@@ -978,7 +978,7 @@ class Encoder(FlexiHeliosBase):
         random_channel_embs: bool = False,
         num_projection_layers: int = 1,
         aggregate_then_project: bool = True,
-        frozen_patch_embeddings: bool = True,
+        frozen_patch_embeddings: bool = False,
     ):
         """Initialize the encoder.
 
