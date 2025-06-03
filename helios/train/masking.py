@@ -432,6 +432,7 @@ class TimeMaskingStrategy(MaskingStrategy):
                         temporal_mask, "b t -> b h w t b_s", h=h, w=w, b_s=b_s
                     )
                     mask = mask.view(*shape[:-1], b_s).clone()
+                # After setting up encoder and decoder masks, fill in missing values
                 mask = self.fill_mask_with_missing_values(instance, mask, modality)
                 output_dict[modality_name] = instance
                 output_dict[
@@ -760,6 +761,7 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
         self.strategy = strategy
         self.min_encoding_bandsets = min_encoding_bandsets
         self.max_encoding_bandsets = max_encoding_bandsets
+        self.generator = np.random.default_rng(0)
 
     def filter_bandset_indices(self, batch: HeliosSample) -> list[tuple[str, int]]:
         """Filter the bandset indices to only include present modalities."""
@@ -768,16 +770,14 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
         for bandset_idx in ALL_BANDSET_IDXS:
             if bandset_idx[0] not in batch.modalities:
                 continue
-            # Filter out missing modalities
-            if torch.all(
-                torch.eq(
-                    batch.as_dict(ignore_nones=True)[bandset_idx[0]][
-                        ..., bandset_idx[1]
-                    ],  # type: ignore
-                    MISSING_VALUE,
-                )
-            ):
-                continue
+            # # Filter out missing modalities
+            # if torch.any(
+            #     torch.eq(
+            #         batch.as_dict(ignore_nones=True)[bandset_idx[0]],
+            #         MISSING_VALUE
+            #     )
+            # ):
+            #     continue
 
             filtered_bandset_list.append(bandset_idx)
         return filtered_bandset_list
@@ -868,11 +868,13 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
                         modality_mask[..., bandset_idx]
                         == MaskValue.ONLINE_ENCODER.value
                     )
-                    modality_mask[..., bandset_idx] = torch.where(
-                        online_encoder_mask,
-                        MaskValue.TARGET_ENCODER_ONLY.value,
-                        modality_mask[..., bandset_idx],
-                    )
+                    # add a probability of 50% to not encode the bandset
+                    if self.generator.random() < 0.5:
+                        modality_mask[..., bandset_idx] = torch.where(
+                            online_encoder_mask,
+                            MaskValue.TARGET_ENCODER_ONLY.value,
+                            modality_mask[..., bandset_idx],
+                        )
 
                 if not is_decoded:
                     decoder_mask = (
@@ -897,8 +899,8 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
         filtered_bandset_list = self.filter_bandset_indices(batch)
         encoded_bandset_list = self.select_encoded_bandsets(filtered_bandset_list)
         decoded_bandset_idxs = self.select_decoded_bandsets(batch, encoded_bandset_list)
-        logger.info(f"decoded_bandset_idxs: {decoded_bandset_idxs}")
         logger.info(f"encoded_bandset_list: {encoded_bandset_list}")
+        logger.info(f"decoded_bandset_idxs: {decoded_bandset_idxs}")
 
         masked_sample = self.apply_bandset_mask_rules(
             masked_sample, encoded_bandset_list, decoded_bandset_idxs
