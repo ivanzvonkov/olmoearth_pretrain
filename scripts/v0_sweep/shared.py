@@ -380,7 +380,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
         ),
         "m-so2sat": DownstreamTaskConfig(
             dataset="m-so2sat",
-            batchembedding_batch_size_size=128,
+            embedding_batch_size=128,
             num_workers=8,
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
