@@ -57,7 +57,7 @@ def main():
     sample = create_dummy_sample(modalities_to_test, H, W, T)
 
     h_w_p_values = list(range(4, 17))
-    token_budgets = list(range(1000, 15001, 500))
+    token_budgets = list(range(1000, 20001, 500))
 
     results = {}
     for h_w_p in h_w_p_values:
@@ -81,6 +81,8 @@ def main():
     print(f"Sample created with modalities: {modalities_to_test}")
     print(f"Base dimensions: H={H}, W={W}, T={T}\n")
     print(df)
+    # write to csv
+    df.to_csv("token_budget_results.csv")
 
 
 if __name__ == "__main__":
