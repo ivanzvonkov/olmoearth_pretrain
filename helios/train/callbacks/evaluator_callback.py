@@ -106,7 +106,7 @@ class DownstreamEvaluator:
                 batch_size=self.probe_batch_size,
                 lr=self.probe_lr,
                 patch_size=self.patch_size,
-            ),
+            )
         )
 
     def _get_data_loader(self, split: str) -> DataLoader:
