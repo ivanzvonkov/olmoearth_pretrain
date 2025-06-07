@@ -543,6 +543,7 @@ class HeliosDataset(Dataset):
             for modality in self.training_modalities
             if Modality.get(modality).is_multitemporal
         ]
+        print(f"multitemporal training modalities: {multitemporal_training_modalities}")
         if len(multitemporal_training_modalities) == 0:
             raise ValueError("no multi-temporal modalities are specified for training")
         no_multitemporal_indices = metadata_df[
@@ -803,6 +804,7 @@ class HeliosDataset(Dataset):
         sample_dict, missing_timesteps_masks = self.read_h5_file(h5_file_path)
         sample_dict, current_length = self._pad_timestamps(sample_dict)
         # fill sample currently takes like .08 seconds which may bottleneck smaller models
+        logger.debug("args.idx {args.idx}, index {index}")
         sample, missing_modalities = self.fill_sample_with_missing_values(
             sample_dict, missing_timesteps_masks
         )
