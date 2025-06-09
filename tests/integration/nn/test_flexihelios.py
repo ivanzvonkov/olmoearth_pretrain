@@ -606,7 +606,6 @@ class TestPredictor:
         )
         assert output.latlon_mask.shape == (B, latlon_num_band_sets)
         output.sentinel2_l2a.sum().backward()
-        # ensure all named params that should have a gradient after forward pass have a gradient
         for name, param in predictor.named_parameters():
             if not any(
                 x in name

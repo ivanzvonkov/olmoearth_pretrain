@@ -1107,6 +1107,8 @@ class Encoder(FlexiHeliosBase):
             tokens: [B, T, D]
             indices: [B, T]
             updated_mask: [B, T]
+            seqlens: [B]
+            max_length: [1]
             where T is the max number of unmasked tokens for an instance
         """
         sorted_mask, indices = torch.sort(mask, dim=1, descending=True, stable=True)
@@ -1458,6 +1460,10 @@ class Predictor(FlexiHeliosBase):
             tokens_to_decode_mask: Binary mask for x tokens of shape [B, X_len].
             unmasked_tokens_mask: Binary mask for y tokens of shape [B, Y_len].
             indices: Indices for restoring the original token ordering of shape [B, T].
+            seqlens_tokens_to_decode: Sequence lengths of tokens to decode of shape [B].
+            seqlens_unmasked_tokens: Sequence lengths of unmasked tokens of shape [B].
+            max_length_of_decoded_tokens: Maximum length of decoded tokens of shape [1].
+            max_length_of_unmasked_tokens: Maximum length of unmasked tokens of shape [1].
         """
         # Set Missing Masks to Target Encoder ONLY so that we can have all unused tokens in the middle
         org_mask_dtype = mask.dtype
