@@ -292,7 +292,7 @@ class ConvertToH5py:
                 image = convert_to_db(image)
 
             if modality.is_spatial:
-                # Calculate row and column indices for 2x2 grid
+                # Calculate row and column indices for grid
                 row = (sublock_index // self.num_subtiles_per_dim) * self.tile_size
                 col = (sublock_index % self.num_subtiles_per_dim) * self.tile_size
                 logger.info(f"Sublock index: {sublock_index}, row: {row}, col: {col}")
