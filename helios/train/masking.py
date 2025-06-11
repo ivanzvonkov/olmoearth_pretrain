@@ -758,6 +758,7 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
         max_encoded_bandsets: int | None = None,
         min_decoded_bandsets: int | None = None,
         max_decoded_bandsets: int | None = None,
+        only_decode_modalities: list[str] | None = None,
     ) -> None:
         """Initialize the masking strategy."""
         self._encode_ratio = encode_ratio
@@ -768,7 +769,7 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
         self.max_encoded_bandsets = max_encoded_bandsets
         self.min_decoded_bandsets = min_decoded_bandsets
         self.max_decoded_bandsets = max_decoded_bandsets
-
+        self.only_decode_modalities = only_decode_modalities
     def get_sample_present_modalities_bandsets(
         self, batch: MaskedHeliosSample
     ) -> list[list[tuple[str, int]]]:
@@ -824,7 +825,10 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
                 decoded_bandset_idxs = set([present_modalities_bandsets_for_sample[1]])
             # If there are more than two modalities, we randomly select some to encode and the rest to decode
             else:
-                num_present_modalities = len(present_modalities_bandsets_for_sample)
+                # I need to filter here to make sure decode only modalities are only decoded
+                encodable_modalities = ([modality_bandset for modality_bandset in present_modalities_bandsets_for_sample
+                if modality_bandset[0] not in self.only_decode_modalities])
+                num_present_modalities = len(encodable_modalities)
                 max_encoded_bandsets = min(
                     self.max_encoded_bandsets, num_present_modalities
                 ) if self.max_encoded_bandsets is not None else num_present_modalities
@@ -832,12 +836,12 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
                     self.min_encoded_bandsets, max_encoded_bandsets + 1
                 )
                 encoded_idxs = np.random.choice(
-                    len(present_modalities_bandsets_for_sample),
+                    len(encodable_modalities),
                     size=num_encoded_bandsets,
                     replace=False,
                 )
                 encoded_bandset_idxs = set(
-                    [present_modalities_bandsets_for_sample[i] for i in encoded_idxs]
+                    [encodable_modalities[i] for i in encoded_idxs]
                 )
                 # If not allow overlapping bandsets, we make encoded and decoded bandsets disjoint
                 # Otherwise we allow them to overlap
@@ -1004,6 +1008,7 @@ class ModalityCrossSpaceMaskingStrategy(ModalityCrossMaskingStrategy):
         max_encoded_bandsets: int | None = None,
         min_decoded_bandsets: int | None = None,
         max_decoded_bandsets: int | None = None,
+        only_decode_modalities: list[str] | None = None,
     ) -> None:
         """Initialize the masking strategy."""
         space_strategy = SpaceMaskingStrategy(encode_ratio, decode_ratio)
@@ -1016,6 +1021,7 @@ class ModalityCrossSpaceMaskingStrategy(ModalityCrossMaskingStrategy):
             max_encoded_bandsets=max_encoded_bandsets,
             min_decoded_bandsets=min_decoded_bandsets,
             max_decoded_bandsets=max_decoded_bandsets,
+            only_decode_modalities=only_decode_modalities,
         )
 
     def overide_random_mask_condition(self, modality_spec: ModalitySpec) -> bool:
@@ -1038,6 +1044,7 @@ class ModalityCrossTimeMaskingStrategy(ModalityCrossMaskingStrategy):
         max_encoded_bandsets: int | None = None,
         min_decoded_bandsets: int | None = None,
         max_decoded_bandsets: int | None = None,
+        only_decode_modalities: list[str] | None = None,
     ) -> None:
         """Initialize the masking strategy."""
         space_strategy = SpaceMaskingStrategy(encode_ratio, decode_ratio)
@@ -1050,6 +1057,7 @@ class ModalityCrossTimeMaskingStrategy(ModalityCrossMaskingStrategy):
             max_encoded_bandsets=max_encoded_bandsets,
             min_decoded_bandsets=min_decoded_bandsets,
             max_decoded_bandsets=max_decoded_bandsets,
+            only_decode_modalities=only_decode_modalities,
         )
 
     def overide_random_mask_condition(self, modality_spec: ModalitySpec) -> bool:
@@ -1072,6 +1080,7 @@ class ModalityCrossSpaceTimeMaskingStrategy(MaskingStrategy):
         max_encoded_bandsets: int | None = None,
         min_decoded_bandsets: int | None = None,
         max_decoded_bandsets: int | None = None,
+        only_decode_modalities: list[str] | None = None,
     ) -> None:
         """Initialize the masking strategy."""
         self._encode_ratio = encode_ratio
@@ -1084,6 +1093,7 @@ class ModalityCrossSpaceTimeMaskingStrategy(MaskingStrategy):
             max_encoded_bandsets=max_encoded_bandsets,
             min_decoded_bandsets=min_decoded_bandsets,
             max_decoded_bandsets=max_decoded_bandsets,
+            only_decode_modalities=only_decode_modalities,
         )
         self.space_strategy = ModalityCrossSpaceMaskingStrategy(
             encode_ratio,
@@ -1093,6 +1103,7 @@ class ModalityCrossSpaceTimeMaskingStrategy(MaskingStrategy):
             max_encoded_bandsets=max_encoded_bandsets,
             min_decoded_bandsets=min_decoded_bandsets,
             max_decoded_bandsets=max_decoded_bandsets,
+            only_decode_modalities=only_decode_modalities,
         )
         self.generator = np.random.default_rng(0)
 
