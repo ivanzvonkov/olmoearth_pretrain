@@ -2,7 +2,7 @@
 
 import logging
 
-from olmo_core.config import Config, DType
+from olmo_core.config import Config
 from olmo_core.distributed.parallel.data_parallel import (
     DataParallelConfig,
     DataParallelType,
@@ -132,10 +132,11 @@ def build_train_module_config(
         max_grad_norm=1.0,
         scheduler=CosWithWarmup(),
         ema_decay=(0.996, 1.0),
+        find_unused_parameters=False,
         dp_config=DataParallelConfig(
-            name=DataParallelType.fsdp,
-            param_dtype=DType.bfloat16,
-            reduce_dtype=DType.float32,
+            name=DataParallelType.ddp,
+            # param_dtype=DType.bfloat16,
+            # reduce_dtype=DType.float32,
         ),
     )
 
