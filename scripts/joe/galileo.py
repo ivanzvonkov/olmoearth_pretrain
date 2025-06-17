@@ -88,7 +88,7 @@ def build_train_module_config(
     return GalileoTrainModuleConfig(
         optim_config=AdamWConfig(lr=0.0001, weight_decay=0.02),
         warmup_duration=Duration.steps(15000),
-        rank_microbatch_size=16,  # Can be 256 on titan, needs to be <= 64 (i think) on jupiter
+        rank_microbatch_size=64,  # Can be 256 on titan, needs to be <= 64 (i think) on jupiter
         masking_config_a=MaskingConfig(
             strategy_config={
                 "type": "space_time",
@@ -120,22 +120,31 @@ def build_train_module_config(
             }
         ),
         token_exit_cfg_a={
-            Modality.SENTINEL2_L2A.name: model_size["encoder_depth"],
-            Modality.LATLON.name: model_size["encoder_depth"],
-            Modality.SENTINEL1.name: model_size["encoder_depth"],
+            Modality.SENTINEL2_L2A.name: 40,
+            Modality.LATLON.name: 40,
+            Modality.SENTINEL1.name: 40,
             Modality.WORLDCOVER.name: 0,
-            Modality.SRTM.name: model_size["encoder_depth"] // 2,
+            Modality.SRTM.name: 40,
             Modality.OPENSTREETMAP_RASTER.name: 0,
-            Modality.LANDSAT.name: model_size["encoder_depth"],
+            Modality.LANDSAT.name: 40,
         },
+        # token_exit_cfg_a={
+        #    Modality.SENTINEL2_L2A.name: model_size["encoder_depth"],
+        #    Modality.LATLON.name: model_size["encoder_depth"],
+        #    Modality.SENTINEL1.name: model_size["encoder_depth"],
+        #    Modality.WORLDCOVER.name: 0,
+        #    Modality.SRTM.name: model_size["encoder_depth"] // 2,
+        #    Modality.OPENSTREETMAP_RASTER.name: 0,
+        #    Modality.LANDSAT.name: model_size["encoder_depth"],
+        # },
         token_exit_cfg_b={modality: 0 for modality in common.training_modalities},
         max_grad_norm=1.0,
         scheduler=ConstantWithWarmup(),
         ema_decay=(1.0, 1.0),
         dp_config=DataParallelConfig(
-            name=DataParallelType.ddp,
-            # param_dtype=DType.bfloat16,
-            # reduce_dtype=DType.float32,
+            name=DataParallelType.fsdp,
+            param_dtype=DType.bfloat16,
+            reduce_dtype=DType.float32,
         ),
     )
 
