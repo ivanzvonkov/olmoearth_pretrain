@@ -573,39 +573,8 @@ class InfoNCELoss(Loss):
         #     PoolingType.MEAN, spatial_pooling=False
         # )
 
-        logger.warning(predictions.shape)
-        logger.warning(targets.shape)
-        if torch.isnan(predictions).any():
-            logger.warning("nans in predictions")
-            print(predictions)
-        if torch.isnan(targets).any():
-            logger.warning("nans in targets")
-            print(targets)
-        if torch.isinf(predictions).any():
-            logger.warning("inf in predictions")
-            print(predictions)
-        if torch.isinf(targets).any():
-            logger.warning("inf in targets")
-            print(targets)
-
         predictions = F.normalize(predictions, p=2, dim=-1)
         targets = F.normalize(targets, p=2, dim=-1)
-
-        logger.warning("After Normalizing")
-        logger.warning(predictions.shape)
-        logger.warning(targets.shape)
-        if torch.isnan(predictions).any():
-            logger.warning("nans in predictions")
-            print(predictions)
-        if torch.isnan(targets).any():
-            logger.warning("nans in targets")
-            print(targets)
-        if torch.isinf(predictions).any():
-            logger.warning("inf in predictions")
-            print(predictions)
-        if torch.isinf(targets).any():
-            logger.warning("inf in targets")
-            print(targets)
         logits = predictions @ targets.transpose(-2, -1)
 
         logger.warning(logits.shape)

@@ -294,10 +294,12 @@ class HeliosSample(NamedTuple):
             raise ValueError("Can't find good start_t")
         return start_t
 
-    def _get_start_ts(self, missing_timesteps: dict[str, Any]) -> int:
+    def _get_start_ts(self, missing_timesteps: dict[str, Any], max_t: int) -> int:
         start_ts = set()
         for modality in missing_timesteps:
-            start_ts.update(np.flatnonzero(missing_timesteps[modality]))
+            valid_timesteps = np.flatnonzero(missing_timesteps[modality])
+            for t in valid_timesteps:
+                start_ts.update(range(max(0, t - max_t + 1), t + 1))
 
         return sorted(list(start_ts))
 
@@ -340,12 +342,14 @@ class HeliosSample(NamedTuple):
         start_w = np.random.choice(self.width - sampled_hw + 1)
 
         # The timestamps are edge padded and we always want to start from a valid timestep
-        start_ts = self._get_start_ts(missing_timesteps_mask)
+        start_ts = self._get_start_ts(missing_timesteps_mask, max_t)
         if current_length > max_t:
-            valid = [i for i in start_ts if i < current_length - max_t]
+            valid = [i for i in start_ts if i < current_length - max_t + 1]
+            # logger.warning(valid)
             start_t = np.random.choice(valid)
         else:
             start_t = 0
+        # logger.warning(start_t)
 
         new_data_dict: dict[str, ArrayTensor] = {}
 
@@ -785,17 +789,6 @@ class HeliosDataset(Dataset):
                     if k in self.training_modalities
                     or k in [Modality.LATLON.name, "timestamps"]
                 }
-                if (
-                    "sentinel1" not in sample_dict
-                    and "sentinel2_l2a" not in sample_dict
-                    and "worldcover" not in sample_dict
-                ):
-                    logger.warning(
-                        "missing everything in {h5_file_path} sample: {sample_dict}"
-                    )
-                    raise ValueError(
-                        f"missing modalities: {h5_file_path} sample: {sample_dict}"
-                    )
 
                 # Log the dtype for each modality
                 for k, v in sample_dict.items():
@@ -869,7 +862,6 @@ class HeliosDataset(Dataset):
                 sample_dict[modality_name] = np.where(
                     missing_mask, modality_data, normalized_data
                 ).astype(self.dtype)
-
 
         return args.patch_size, HeliosSample(**sample_dict)
 
