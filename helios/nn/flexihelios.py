@@ -186,7 +186,13 @@ class TokensAndMasks(NamedTuple):
                 )
                 return x_for_pooling.max(dim=1).values
             elif pooling_type == PoolingType.MEAN:
-                return x_for_pooling.sum(dim=1) / torch.sum(mask, -1, keepdim=True)
+                num_encoded_timesteps = torch.sum(mask, -1, keepdim=True)
+                logger.warning(f"num_encoded_timesteps: {num_encoded_timesteps}")
+                if (num_encoded_timesteps == 0).any():
+                    raise ValueError(
+                        f"num_encoded_timesteps is 0 for some samples {num_encoded_timesteps}"
+                    )
+                return x_for_pooling.sum(dim=1) / num_encoded_timesteps
             else:
                 raise ValueError(f"Invalid pooling type: {pooling_type}")
         else:

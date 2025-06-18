@@ -16,7 +16,6 @@ from olmo_core.train.train_module.transformer import (
 )
 
 from helios.data.constants import (
-    MISSING_VALUE,
     Modality,
 )
 from helios.data.dataset import HeliosSample
@@ -24,7 +23,7 @@ from helios.data.transform import TransformConfig
 from helios.nn.flexihelios import TokensAndMasks
 from helios.nn.galileo import Galileo
 from helios.train.loss import LossConfig
-from helios.train.masking import MaskedHeliosSample, MaskingConfig, MaskValue
+from helios.train.masking import MaskedHeliosSample, MaskingConfig
 from helios.train.train_module.train_module import (
     HeliosTrainModule,
     HeliosTrainModuleConfig,
@@ -272,6 +271,7 @@ class GalileoTrainModule(HeliosTrainModule):
                     )
                 )
                 loss = (loss_a + loss_b) / 2
+                # log loss before masking loss
                 total_mask_a_loss += (
                     get_local_tensor(loss_a.detach()) / num_microbatches
                 )
@@ -291,7 +291,8 @@ class GalileoTrainModule(HeliosTrainModule):
                         )
                         / num_microbatches
                     )
-
+                # log loss before contrastive loss
+                logger.warning(f"loss before contrastive loss: {loss}")
                 if self.contrastive_loss is not None:
                     contrastive_loss = self.contrastive_loss.compute(pooled_a, pooled_b)
                     logger.info(f"contrastive loss: {contrastive_loss}")
@@ -302,27 +303,27 @@ class GalileoTrainModule(HeliosTrainModule):
                     )
                     loss += contrastive_loss
                     total_batch_con += (
-                        get_local_tensor(contrastive_loss.detach())
-                        / num_microbatches
+                        get_local_tensor(contrastive_loss.detach()) / num_microbatches
                     )
 
                 loss = loss / num_microbatches
                 loss_val = get_local_tensor(loss.detach())
                 total_batch_loss += loss_val
+                logger.warning(f"loss: {loss_val}")
                 # Skip bad batches
                 # this does not work with fsdp need skip step optimizer instead of loss
-                if torch.isnan(loss).any() or torch.isinf(loss).any():
-                    logger.warning(
-                        f"NaN or Inf detected in loss at microbatch {microbatch_idx}. "
-                        f"Skipping batch on rank {self.local_rank}, "
-                        f"step {self.trainer.global_step}, epoch {self.trainer.epoch}"
-                    )
-                    if self.is_fsdp:
-                        raise ValueError(
-                            "FSDP does not support skipping bad batches as the backwards pass will not sync correctly"
-                        )
-                    break
-                del latent_a, latent_b
+                # if torch.isnan(loss).any() or torch.isinf(loss).any():
+                #     logger.warning(
+                #         f"NaN or Inf detected in loss at microbatch {microbatch_idx}. "
+                #         f"Skipping batch on rank {self.local_rank}, "
+                #         f"step {self.trainer.global_step}, epoch {self.trainer.epoch}"
+                #     )
+                #     if self.is_fsdp:
+                #         raise ValueError(
+                #             "FSDP does not support skipping bad batches as the backwards pass will not sync correctly"
+                #         )
+                #     break
+                # del latent_a, latent_b
                 loss.backward()
 
         # what happens if both batches are bad?

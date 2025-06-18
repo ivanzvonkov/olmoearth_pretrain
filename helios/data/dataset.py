@@ -876,9 +876,7 @@ class HeliosDataset(Dataset):
             sample, args, current_length, missing_timesteps_masks
         )
         data = [
-            subset_sample.sentinel1,
-            subset_sample.sentinel2_l2a,
-            subset_sample.worldcover,
+            getattr(subset_sample, modality) for modality in self.training_modalities
         ]
         data = np.concatenate([d.flatten() for d in data])
         if (data == MISSING_VALUE).all():
