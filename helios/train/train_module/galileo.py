@@ -295,21 +295,16 @@ class GalileoTrainModule(HeliosTrainModule):
                 if self.contrastive_loss is not None:
                     contrastive_loss = self.contrastive_loss.compute(pooled_a, pooled_b)
                     logger.info(f"contrastive loss: {contrastive_loss}")
-                    if (
-                        torch.isnan(contrastive_loss).any()
-                        or torch.isinf(contrastive_loss).any()
-                    ):
-                        logger.warning(
-                            f"contrastive loss is nan or inf: {contrastive_loss} not adding to total loss. "
-                            f"rank: {self.local_rank}, epoch: {self.trainer.epoch}, "
-                            f"step: {self.trainer.global_step}"
-                        )
-                    else:
-                        loss += contrastive_loss
-                        total_batch_con += (
-                            get_local_tensor(contrastive_loss.detach())
-                            / num_microbatches
-                        )
+                    logger.warning(
+                        f"contrastive loss is: {contrastive_loss} not adding to total loss. "
+                        f"rank: {self.local_rank}, epoch: {self.trainer.epoch}, "
+                        f"step: {self.trainer.global_step}"
+                    )
+                    loss += contrastive_loss
+                    total_batch_con += (
+                        get_local_tensor(contrastive_loss.detach())
+                        / num_microbatches
+                    )
 
                 loss = loss / num_microbatches
                 loss_val = get_local_tensor(loss.detach())
