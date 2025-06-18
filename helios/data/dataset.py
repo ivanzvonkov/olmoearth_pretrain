@@ -376,7 +376,7 @@ class HeliosSample(NamedTuple):
             modality_spec = Modality.get(attribute)
             if modality_spec.is_spacetime_varying:
                 # check if any start T values are missing
-                for start_t in range(valid_start_ts):
+                for start_t in valid_start_ts:
                     if (modality[:, :, start_t, :] == MISSING_VALUE).any():
                         raise ValueError(
                             f"missing timestep {start_t} for {attribute} with missing_timesteps: {missing_timesteps} and max_t: {max_t} and current_length: {current_length}"
