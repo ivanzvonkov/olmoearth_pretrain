@@ -102,9 +102,7 @@ def build_train_module_config(
                 "only_decode_modalities": [
                     Modality.OPENSTREETMAP_RASTER.name,
                     Modality.WORLDCOVER.name,
-                    Modality.LANDSAT.name,
                     Modality.SRTM.name,
-                    Modality.SENTINEL1.name,
                 ],
             }
         ),
