@@ -49,6 +49,7 @@ Add additional overides as needed.
 
 ### Sessions
 
+[VSCODE/Cursor workflow setup](https://docs.google.com/document/d/1ydiCqIn45xlbrIcfPi8bILn_y00adTAHhIY1MPh9szE/edit?tab=t.0#heading=h.wua78h35aq1n) \
 Be sure your session creation has included the following args
  - `  --secret-env WANDB_API_KEY=<your_beaker_username>_WANDB_API_KEY
     --secret-env BEAKER_TOKEN=<your_beaker_username>__BEAKER_TOKEN `
