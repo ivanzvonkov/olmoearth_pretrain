@@ -1,4 +1,9 @@
-"""Trying to prototype fitting everything into olmo core."""
+"""Train with NAIP using fixed modality masking (mark some modalities decode-only).
+
+It corresponds to this run:
+- Name: v0.2_base_latent_mim_128_naip_moredata_random_fixed_modality_0.5
+- W&B: https://wandb.ai/eai-ai2/v0.2_sweep/runs/m2b8q004/overview
+"""
 
 import logging
 
@@ -118,9 +123,15 @@ def build_train_module_config(
         rank_microbatch_size=64,  # Can be 256 on titan, needs to be <= 64 (i think) on jupiter
         masking_config=MaskingConfig(
             strategy_config={
-                "type": "space_time",
-                "encode_ratio": 0.1,
-                "decode_ratio": 0.75,
+                "type": "random_fixed_modality",
+                "encode_ratio": 0.5,
+                "decode_ratio": 0.5,
+                "decoded_modalities": [
+                    Modality.WORLDCOVER.name,
+                    Modality.SRTM.name,
+                    Modality.OPENSTREETMAP_RASTER.name,
+                    Modality.NAIP_10.name,
+                ],
             }
         ),
         loss_config=LossConfig(
@@ -175,16 +186,6 @@ def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
             h5py_dir="/weka/dfive-default/helios/dataset/osmbig/h5py_data_w_missing_timesteps_zstd_3_128_x_4/landsat_naip_10_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/1297928",
             training_modalities=common.training_modalities,
         ),
-        # presto_neighbor
-        # HeliosDatasetConfig(
-        #    h5py_dir="/weka/dfive-default/helios/dataset/presto_neighbor/h5py_data_w_missing_timesteps_zstd_3_128_x_4/landsat_naip_10_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover_required_naip_10/155796",
-        #    training_modalities=common.training_modalities,
-        # ),
-        # worldcover_sampling
-        # HeliosDatasetConfig(
-        #    h5py_dir="/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_w_missing_timesteps_128_x_4_zstd_3/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/1141152",
-        #    training_modalities=common.training_modalities,
-        # ),
     ]
     return HeliosConcatDatasetConfig(dataset_configs=dataset_configs)
 
