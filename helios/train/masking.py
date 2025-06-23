@@ -417,6 +417,7 @@ class TimeMaskingStrategy(MaskingStrategy):
         timesteps_with_at_least_one_modality = (
             batch.timesteps_with_at_least_one_modality
         )
+        num_valid_timesteps = timesteps_with_at_least_one_modality.shape[0]
         for modality_name in batch.modalities:
             instance = getattr(batch, modality_name)
             if instance is None:
@@ -437,7 +438,7 @@ class TimeMaskingStrategy(MaskingStrategy):
 
                 modality = Modality.get(modality_name)
                 shape = instance.shape
-                if not modality.is_multitemporal:
+                if not modality.is_multitemporal or num_valid_timesteps < 3:
                     mask = self._create_random_mask(modality, shape, patch_size, device)
                 else:
                     if temporal_mask is None:

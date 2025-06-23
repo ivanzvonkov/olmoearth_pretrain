@@ -217,23 +217,8 @@ class HeliosSample(NamedTuple):
     @property
     def valid_time(self) -> int:
         """Get the minimum number of valid time steps in a batch.
-
-        Note that the timestamps are edge padded by repeating the last timestamp.
         """
-        # assumes that every valid timestep is present
-        min_valid_time = MAX_SEQUENCE_LENGTH
-        if self.timestamps is None:
-            raise ValueError("Timestamps are not present in the sample")
-        if len(self.timestamps.shape) != 3:
-            raise ValueError("Valid time is only defined for a batch of samples")
-        for i in range(self.timestamps.shape[0]):
-            unique_timesteps = torch.unique(self.timestamps[i], dim=0)
-            min_valid_time = min(min_valid_time, unique_timesteps.shape[0])
-        if min_valid_time < self.time:
-            logger.debug(
-                f"valid_time is smaller than time: {min_valid_time} < {self.time}"
-            )
-        return min_valid_time
+        return self.timesteps_with_at_least_one_modality.shape[0]
 
     # this is just a draft of something we could do
     @property
@@ -325,14 +310,11 @@ class HeliosSample(NamedTuple):
             else:
                 start_ts = set()
                 for modality in missing_timesteps:
-                    logger.warning(f"modality: {modality}")
                     # all non missing timesteps where we could start from and add max_t timesteps and still be within the
                     valid_timesteps = np.flatnonzero(missing_timesteps[modality])
-                    # logger.warning(f"valid_timesteps: {valid_timesteps}")
                     valid_timesteps = valid_timesteps[
                         valid_timesteps + max_t <= current_length
                     ]
-                    # logger.warning(f"valid_timesteps post filter: {valid_timesteps}")
                     start_ts.update(valid_timesteps)
                 valid_start_ts = list(start_ts)
         else:
@@ -385,14 +367,9 @@ class HeliosSample(NamedTuple):
         start_h = np.random.choice(self.height - sampled_hw + 1)
         start_w = np.random.choice(self.width - sampled_hw + 1)
 
-        # The timestamps are edge padded and we always want to start from a valid timestep
-        logger.warning(
-            f"current_length: {current_length} max_t: {max_t} missing_timesteps: {missing_timesteps}"
-        )
         valid_start_ts = self._get_valid_start_ts(
             missing_timesteps, max_t, current_length
         )
-        logger.warning(f"valid_start_ts: {valid_start_ts}")
         start_t = np.random.choice(valid_start_ts)
 
         new_data_dict: dict[str, ArrayTensor] = {}
@@ -690,10 +667,9 @@ class HeliosDataset(Dataset):
         filled_timesteps = []
         for i, idx in enumerate(present_indices):
             if i < t:  # Only copy if we have data for this timestep
-                logger.warning(f"filling timestep {idx} with timestep {i}")
                 full_timesteps_data[..., idx, :] = modality_data[..., i, :]
                 filled_timesteps.append(idx)
-        logger.warning(f"filled_timesteps: {filled_timesteps}")
+
 
         return full_timesteps_data
 
@@ -739,7 +715,6 @@ class HeliosDataset(Dataset):
                     not np.all(mask) or len(mask) < self.max_sequence_length
                 )
                 if has_missing_timesteps:
-                    logger.warning(f"filling missing timesteps for {modality}")
                     # By default, we will fill missing timesteps with the missing value
                     modality_data = self._fill_missing_timesteps(modality_data, mask)
                 # Update the sample dictionary with the potentially imputed data
@@ -885,8 +860,6 @@ class HeliosDataset(Dataset):
             missing_timesteps_masks[modality] = timestep_mask[
                 first_valid_timestep : last_valid_timestep + 1
             ]
-        logger.warning(f"timestamps: {timestamps}")
-        logger.warning(f"missing_timesteps_masks: {missing_timesteps_masks}")
         return timestamps, missing_timesteps_masks
 
     def __getitem__(self, args: GetItemArgs) -> tuple[int, HeliosSample]:
