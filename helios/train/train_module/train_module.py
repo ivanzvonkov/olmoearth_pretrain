@@ -59,6 +59,7 @@ class HeliosTrainModuleConfig(Config):
         scheduler: Optional learning rate scheduler.
         state_dict_save_opts: Override state dict options for saving.
         state_dict_load_opts: Override state dict options for loading.
+        find_unused_parameters: Whether to find unused parameters for DDP.
     """
 
     # Training settings
@@ -80,9 +81,10 @@ class HeliosTrainModuleConfig(Config):
     compile_loss: bool = False
 
     # Training settings
-    autocast_precision: DType | None = None  # UNTESTED for helios
+    autocast_precision: DType | None = None
     max_grad_norm: float | None = None
     scheduler: Scheduler | None = None
+    find_unused_parameters: bool = True
 
     # Checkpoint settings
     state_dict_save_opts: dict[str, Any] | None = None
@@ -258,7 +260,7 @@ class HeliosTrainModule(TrainModule):
                 self.model.apply_ddp(
                     dp_mesh=dp_mesh,
                     compile_enabled=compile_model,
-                    find_unused_parameters=False,
+                    find_unused_parameters=find_unused_parameters,
                 )
                 logger.info("Applied DDP to the model")
             else:

@@ -271,7 +271,6 @@ class GalileoTrainModule(HeliosTrainModule):
                     )
                 )
                 loss = (loss_a + loss_b) / 2
-                # log loss before masking loss
                 total_mask_a_loss += (
                     get_local_tensor(loss_a.detach()) / num_microbatches
                 )
@@ -291,16 +290,9 @@ class GalileoTrainModule(HeliosTrainModule):
                         )
                         / num_microbatches
                     )
-                # log loss before contrastive loss
-                logger.warning(f"loss before contrastive loss: {loss}")
                 if self.contrastive_loss is not None:
                     contrastive_loss = self.contrastive_loss.compute(pooled_a, pooled_b)
                     logger.info(f"contrastive loss: {contrastive_loss}")
-                    logger.warning(
-                        f"contrastive loss is: {contrastive_loss} adding to total loss. "
-                        f"rank: {self.local_rank}, epoch: {self.trainer.epoch}, "
-                        f"step: {self.trainer.global_step}"
-                    )
                     loss += contrastive_loss
                     total_batch_con += (
                         get_local_tensor(contrastive_loss.detach()) / num_microbatches
@@ -309,29 +301,11 @@ class GalileoTrainModule(HeliosTrainModule):
                 loss = loss / num_microbatches
                 loss_val = get_local_tensor(loss.detach())
                 total_batch_loss += loss_val
-                logger.warning(f"loss: {loss_val}")
-                # Skip bad batches
-                # this does not work with fsdp need skip step optimizer instead of loss
-                # if torch.isnan(loss).any() or torch.isinf(loss).any():
-                #     logger.warning(
-                #         f"NaN or Inf detected in loss at microbatch {microbatch_idx}. "
-                #         f"Skipping batch on rank {self.local_rank}, "
-                #         f"step {self.trainer.global_step}, epoch {self.trainer.epoch}"
-                #     )
-                #     if self.is_fsdp:
-                #         raise ValueError(
-                #             "FSDP does not support skipping bad batches as the backwards pass will not sync correctly"
-                #         )
-                #     break
-                # del latent_a, latent_b
                 loss.backward()
 
-        # what happens if both batches are bad?
         if dry_run:
             return
-        # Remember to detach the loss before recording
 
-        # check if each metric is nan or inf and if so turn to float('inf') tensor
         total_batch_loss = torch.nan_to_num(total_batch_loss, nan=float("inf"))
         total_batch_reg = torch.nan_to_num(total_batch_reg, nan=float("inf"))
         total_batch_con = torch.nan_to_num(total_batch_con, nan=float("inf"))
