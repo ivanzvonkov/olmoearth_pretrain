@@ -855,17 +855,22 @@ class ModalityCrossMaskingStrategy(MaskingStrategy):
                     if modality_bandset[0] not in self.only_decode_modalities
                 ]
                 num_encodable_modalities = len(encodable_modalities)
-                max_encoded_bandsets = (
-                    min(self.max_encoded_bandsets, num_encodable_modalities)
-                    if self.max_encoded_bandsets is not None
-                    else num_encodable_modalities
-                )
+                # if min and max are none we will always encode all encodable bandsets
+                # if min is none, max must be none
+                if self.max_encoded_bandsets is None:
+                    max_encoded_bandsets = num_encodable_modalities
+                else:
+                    max_encoded_bandsets = min(
+                        self.max_encoded_bandsets, num_encodable_modalities
+                    )
 
-                min_encoded_bandsets = (
-                    self.min_encoded_bandsets or num_encodable_modalities
-                )
+                if self.min_encoded_bandsets is None:
+                    min_encoded_bandsets = num_encodable_modalities
+                else:
+                    min_encoded_bandsets = min(
+                        self.min_encoded_bandsets, num_encodable_modalities
+                    )
 
-                # if min and max are none we will encode all encodable bandsets
                 num_encoded_bandsets = np.random.randint(
                     min_encoded_bandsets, max_encoded_bandsets + 1
                 )
