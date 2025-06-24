@@ -299,23 +299,30 @@ class HeliosSample(NamedTuple):
     def _get_valid_start_ts(
         missing_timesteps: dict[str, Any], max_t: int, current_length: int
     ) -> list[int]:
-        # case 1: no missing timesteps mask that means every timestep is valid
-        # what if current length is 12 and max_t is 12
+        """Get valid starting timesteps.
+        """
         if current_length > max_t:
+            # We can randomly sample from the range of valid starting timesteps because current_length exceeds max_t
             if not missing_timesteps:
+                # No missing timesteps info available - all timesteps are potentially valid
+                # Create a range of all possible starting positions that fit within max_t
                 valid_start_ts = list(range(current_length - max_t + 1))
             else:
+                # We have missing timesteps info - need to find valid starting positions
+                # that ensure we have at least some present data at the chosen start_t
                 start_ts = set()
                 for modality in missing_timesteps:
-                    # all non missing timesteps where we could start from and add max_t timesteps and still be within the
+                    # Find indices where this modality has valid data (non-zero values)
                     valid_timesteps = np.flatnonzero(missing_timesteps[modality])
+                    # Filter to only include timesteps where starting there + max_t doesn't exceed current_length
                     valid_timesteps = valid_timesteps[
                         valid_timesteps + max_t <= current_length
                     ]
+                    # Add these valid starting positions to our set
                     start_ts.update(valid_timesteps)
                 valid_start_ts = list(start_ts)
         else:
-            # Assumes that at least 1 modality has the first timestep as valid
+            # Picking the first timestep aims to maximize the number of present timesteps
             valid_start_ts = [0]
         if len(valid_start_ts) == 0:
             logger.warning(
