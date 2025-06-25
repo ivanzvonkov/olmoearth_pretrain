@@ -808,6 +808,7 @@ class HeliosDataset(Dataset):
         timestamps: np.ndarray, missing_timesteps_masks: dict[str, Any]
     ) -> tuple[np.ndarray, dict[str, Any]]:
         """Crop the timestamps to the first and last valid timestep of the present modalities."""
+        # Assumes that the missing timesteps masks has already been filtered for training modalities
         # get first present timestep
         if not missing_timesteps_masks:
             first_valid_timestep = 0
