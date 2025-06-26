@@ -26,7 +26,9 @@ run_cmd = "launch"
 for checkpoint in checkpoints:
     for probe_lr in LP_LRs:
         run_name = (
-            checkpoint.split("/")[-2] + checkpoint.split("/")[-1] + f"_eval_{probe_lr}"
+            checkpoint.split("/")[-2][20:]
+            + checkpoint.split("/")[-1]
+            + f"_eval_{probe_lr}"
         )
         start_command = "python3" if run_cmd == "launch" else "torchrun"
         lr_args = lr_args.format(lr=probe_lr)
