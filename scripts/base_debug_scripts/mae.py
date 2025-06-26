@@ -43,7 +43,7 @@ from helios.train.masking import MaskingConfig
 from helios.train.train_module.mae import MAETrainModuleConfig
 
 logger = logging.getLogger(__name__)
-MAX_PATCH_SIZE = 16  # NOTE: actual patch_size <= max_patch_size
+MAX_PATCH_SIZE = 8  # NOTE: actual patch_size <= max_patch_size
 MIN_PATCH_SIZE = 4
 USE_4_X_128_DATASET = False
 
@@ -155,11 +155,7 @@ def build_dataloader_config(common: CommonComponents) -> HeliosDataLoaderConfig:
     GLOBAL_BATCH_SIZE = 128
     PREFETCH_FACTOR = 4
     TOKEN_BUDGET = 1500
-    if USE_4_X_128_DATASET:
-        # max_patch_size=16, max sampled_hw_p=8 gives us 8*16=128 pixels max
-        SAMPLE_HW_P_LIST = list(range(3, 9))
-    else:
-        SAMPLE_HW_P_LIST = list(range(5, 13))
+    SAMPLE_HW_P_LIST = list(range(5, 13))
 
     dataloader_config = HeliosDataLoaderConfig(
         global_batch_size=GLOBAL_BATCH_SIZE,
