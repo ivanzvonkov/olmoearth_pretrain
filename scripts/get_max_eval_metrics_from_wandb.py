@@ -70,5 +70,8 @@ if __name__ == "__main__":
 
     metrics = get_max_metrics(project_name, run_prefix)
     for metric in METRICS:
-        k = f"eval/{metric}"
-        print(f"{metric} {metrics[k]}")
+        try:
+            k = f"eval/{metric}"
+            print(f"{metric} {metrics[k]}")
+        except KeyError:
+            print(f"Metric {metric} not found")
