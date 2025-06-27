@@ -159,7 +159,7 @@ class DownstreamEvaluator:
             f"test embeddings shape for {self.dataset}: {test_embeddings.shape}"
         )
         eval_results = []
-        for i in range(20):
+        for i in range(1):
             if self.dataset_percentage < 1.0:
                 # Randomly sample a percentage of the test data
                 # log number before sampling
@@ -200,6 +200,11 @@ class DownstreamEvaluator:
         std_eval_result = torch.std(torch.tensor(eval_results))
         logger.info(f"Downstream evaluator {self.evaluation_name} mean score: {mean_eval_result}")
         logger.info(f"Downstream evaluator {self.evaluation_name} std score: {std_eval_result}")
+        # Get min and max of eval_results
+        min_eval_result = torch.min(torch.tensor(eval_results))
+        max_eval_result = torch.max(torch.tensor(eval_results))
+        logger.info(f"Downstream evaluator {self.evaluation_name} min score: {min_eval_result}")
+        logger.info(f"Downstream evaluator {self.evaluation_name} max score: {max_eval_result}")
         # what is the variance of the eval_results
         variance_eval_result = torch.var(torch.tensor(eval_results))
         logger.info(f"Downstream evaluator {self.evaluation_name} variance score: {variance_eval_result}")
