@@ -85,7 +85,7 @@ def build_train_module_config(
 ) -> LatentMIMTrainModuleConfig:
     """Build the train module config for an experiment."""
     scheduler = WSD(
-        decay_steps=100000,
+        decay_steps=0,
         decay_fraction=None,
     )
     return LatentMIMTrainModuleConfig(
