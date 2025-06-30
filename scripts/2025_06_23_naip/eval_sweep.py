@@ -25,7 +25,7 @@ lr_args = [
     "--trainer.callbacks.downstream_evaluator.tasks.breizhcrops.probe_lr={lr}",
 ]
 
-dataset_percentages = [0.01, 0.05, 0.2, 0.5, 1.0]
+dataset_percentages = [0.01, 0.05, 0.2, 0.5]
 dataset_percentage_args = [
     "--trainer.callbacks.downstream_evaluator.tasks.m_eurosat.dataset_percentage={dataset_percentage}",
     "--trainer.callbacks.downstream_evaluator.tasks.m_bigearthnet.dataset_percentage={dataset_percentage}",
