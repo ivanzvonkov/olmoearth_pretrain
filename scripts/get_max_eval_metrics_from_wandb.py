@@ -152,7 +152,12 @@ if __name__ == "__main__":
                         k = f"eval/{metric}"
                         print(f"  {metric}: {partition_metrics[partition][k]}")
                     except KeyError:
-                        print(f"  {metric}: not found")
+                        try:
+                            metric = metric.replace("-", "_")
+                            k = f"eval/{metric}"
+                            print(f"  {metric}: {partition_metrics[partition][k]}")
+                        except KeyError:
+                            print(f"  {metric}: not found")
             else:
                 print(f"\n{partition}: no runs found")
     else:
