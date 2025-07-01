@@ -255,7 +255,7 @@ class DownstreamTaskConfig:
     epochs: int = 50  # Number of training epochs for linear probing task
     eval_interval: Duration = field(default_factory=lambda: Duration.epochs(1))
     eval_mode: str | None = None
-    partition: str = field(default_factory=lambda: EvalDatasetPartition.DEFAULT)
+    partition: str = field(default_factory=lambda: EvalDatasetPartition.TRAIN1X)
 
 
 @dataclass

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class EvalDatasetPartition(StrEnum):
     """Enum for different dataset partitions."""
 
-    DEFAULT = "default"  # 1.0x_train
+    TRAIN1X = "default"
     TRAIN_001X = "0.01x_train"  # Not valid for non train split
     TRAIN_002X = "0.02x_train"
     TRAIN_005X = "0.05x_train"
@@ -33,7 +33,7 @@ def get_eval_dataset(
     split: str,
     norm_stats_from_pretrained: bool = False,
     input_modalities: list[str] = [],
-    partition: str = EvalDatasetPartition.DEFAULT,
+    partition: str = EvalDatasetPartition.TRAIN1X,
 ) -> Dataset:
     """Retrieve an eval dataset from the dataset name."""
     if eval_dataset not in ALL_DATASETS:
