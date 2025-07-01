@@ -31,6 +31,7 @@ torch.multiprocessing.set_sharing_strategy("file_system")
 
 DATA_DIR = UPath("/weka/dfive-default/helios/evaluation/PASTIS-R")
 PASTIS_DIR = UPath("/weka/dfive-default/presto_eval_sets/pastis_r")
+PASTIS_DIR_PARTITION = UPath("/weka/dfive-default/presto_eval_sets/pastis")
 
 
 S2_BAND_STATS = {
@@ -374,6 +375,15 @@ class PASTISRDataset(Dataset):
         self.s1_images_dir = path_to_splits / f"pastis_r_{split}" / "s1_images"
         self.labels = torch.load(path_to_splits / f"pastis_r_{split}" / "targets.pt")
         self.months = torch.load(path_to_splits / f"pastis_r_{split}" / "months.pt")
+        if (partition != "default") and (split == "train"):
+            with open(
+                PASTIS_DIR_PARTITION / f"{partition}_partition.json"
+            ) as json_file:
+                subset_indices = json.load(json_file)
+
+            self.months = self.months[subset_indices]
+            self.labels = self.labels[subset_indices]
+            self.indices = subset_indices
 
     @staticmethod
     def _get_norm_stats(
@@ -390,10 +400,11 @@ class PASTISRDataset(Dataset):
 
     def __len__(self) -> int:
         """Length of the dataset."""
-        return self.labels.shape[0]
+        return len(self.indices)
 
     def __getitem__(self, idx: int) -> tuple[MaskedHeliosSample, torch.Tensor]:
         """Return a single PASTIS data instance."""
+        idx = self.indices[idx]
         s2_image = torch.load(self.s2_images_dir / f"{idx}.pt")
         s2_image = einops.rearrange(s2_image, "t c h w -> h w t c")  # (64, 64, 12, 13)
         s2_image = s2_image[:, :, :, EVAL_TO_HELIOS_S2_BANDS]

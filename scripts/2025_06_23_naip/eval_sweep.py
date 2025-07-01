@@ -23,8 +23,8 @@ lr_args = [
 ]
 
 dataset_paritions = [
-    # "0.01x_train",
-    # "0.05x_train",
+    "0.01x_train",
+    "0.05x_train",
     "0.20x_train",
     "0.50x_train",
 ]
@@ -92,7 +92,7 @@ for probe_lr in LP_LRs:
                 "python",
                 "scripts/2025_06_23_naip/eval_alldata.py",
                 "launch",
-                f"gal_partition_v0.2_base_latent_mim_128_alldata_random_fixed_modality_0.5_eval_{probe_lr}_dp_{dataset_partition}",
+                f"1gal_partition_v0.2_base_latent_mim_128_alldata_random_fixed_modality_0.5_eval_{probe_lr}_dp_{dataset_partition}",
                 args.cluster,
                 "--trainer.load_path=/weka/dfive-default/helios/checkpoints/favyen/v0.2_base_latent_mim_128_alldata_random_fixed_modality_0.5/step320000",
                 "--common.training_modalities=[sentinel2_l2a,sentinel1,worldcover,latlon,srtm,landsat,openstreetmap_raster]",
