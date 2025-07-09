@@ -40,7 +40,7 @@ def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
     band_set = Modality.WORLDCEREAL.band_sets[0]
     raster_dir = window.get_raster_dir(LAYER_NAME, band_set.bands)
     image = GEOTIFF_RASTER_FORMAT.decode_raster(
-        raster_dir, window.projection, window.bounds
+        path=raster_dir, projection=window.projection, bounds=window.bounds
     )
     dst_fname = get_modality_fname(
         helios_path,
