@@ -154,17 +154,34 @@ class CropHarvestDataset(Dataset):
         """Return the sample at idx."""
         x = self.array[idx]
         y = self.labels[idx]
-        # latlon = self.latlons[idx]
+        latlon = self.latlons[idx]
 
         x_hw = repeat(x, "t c -> h w t c", w=1, h=1)
 
-        s2 = x_hw[:, :, :, S2_INPUT_TO_OUTPUT_BAND_MAPPING][
+        s2 = x_hw[:, :, : self.timesteps, S2_INPUT_TO_OUTPUT_BAND_MAPPING][
             :, :, :, EVAL_TO_HELIOS_S2_BANDS
         ]
-        s1 = x_hw[:, :, :, S1_INPUT_TO_OUTPUT_BAND_MAPPING][
+        s1 = x_hw[:, :, : self.timesteps, S1_INPUT_TO_OUTPUT_BAND_MAPPING][
             :, :, :, EVAL_TO_HELIOS_S1_BANDS
         ]
 
+        months = torch.tensor(
+            np.fmod(
+                np.arange(self.START_MONTH - 1, self.START_MONTH - 1 + self.timesteps),
+                12,
+            )
+        ).long()
+        days = torch.ones_like(months)
+        # years are not used. Currently (20250710) flexihelios only uses the months when
+        # computing the composite encodings
+        years = torch.ones_like(months) * 2017
+        timestamp = torch.stack([days, months, years], dim=-1)  # t, c=3
+
         return MaskedHeliosSample.from_heliossample(
-            HeliosSample(sentinel1=s1, sentinel2_l2a=s2, timestamps=y)
+            HeliosSample(
+                sentinel1=torch.tensor(s1).float(),
+                sentinel2_l2a=torch.tensor(s2).float(),
+                latlon=torch.tensor(latlon).float(),
+                timestamps=timestamp,
+            )
         ), y
