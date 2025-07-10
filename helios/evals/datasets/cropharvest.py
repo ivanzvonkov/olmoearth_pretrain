@@ -27,6 +27,58 @@ from .cropharvest_package.utils import memoized
 logger = logging.getLogger("__main__")
 
 
+# ```
+# from helios.evals.datasets.cropharvest_package.utils import load_normalizing_dict
+# d = load_normalizing_dict("normalizing_dict.h5")
+# X_MEAN = d["mean"].tolist()
+# X_STD = d["std"].tolist()
+# ```
+X_MEAN = np.array(
+    [
+        -11.402222508898584,
+        -18.737524460893283,
+        1648.2152191941907,
+        1573.4610874943905,
+        1615.5489068522484,
+        1858.2716898520655,
+        2601.3555762760366,
+        2965.1262098261586,
+        2848.7703773525336,
+        3200.2996027800878,
+        988.3951744805588,
+        2388.875987761158,
+        1603.9434589134196,
+        291.10068757630137,
+        0.002899168594319935,
+        623.3725288552483,
+        4.772892120134574,
+        0.3286759541524565,
+    ]
+)
+X_STD = np.array(
+    [
+        3.9990006137706025,
+        4.746129503502093,
+        1381.082565250503,
+        1291.5253102557383,
+        1476.6850103027462,
+        1422.7793815055568,
+        1343.5806285212616,
+        1396.6833646173918,
+        1336.0620748659192,
+        1406.3412200105693,
+        834.5202295842477,
+        1099.279298427952,
+        947.4737894434511,
+        9.808570091118522,
+        0.0033269562766611444,
+        655.0334629731693,
+        6.18644770735272,
+        0.17878359339732122,
+    ]
+)
+
+
 CROPHARVEST_DIR = UPath("/weka/dfive-default/presto-eval_sets/cropharvest")
 
 
@@ -73,10 +125,6 @@ class CropHarvestDataset(Dataset):
 
     """
     TODO:
-      1. get the norm stats (S1, S2) from the norm dict
-      3. add the timesteps and latlons too
-      4. normalize
-
       Add SRTM to eval constants (but we might not train it?)
     """
 
@@ -150,6 +198,10 @@ class CropHarvestDataset(Dataset):
         # We will always need the normalized to normalize latlons
         self.normalizer_computed = Normalizer(Strategy.COMPUTED)
 
+    @staticmethod
+    def _normalize_from_ch_stats(array: np.ndarray) -> np.ndarray:
+        return (array - X_MEAN) / X_STD
+
     def __len__(self) -> int:
         """Length of the dataset."""
         return self.array.shape[0]
@@ -159,6 +211,9 @@ class CropHarvestDataset(Dataset):
         x = self.array[idx]
         y = self.labels[idx]
         latlon = self.normalizer_computed.normalize(Modality.LATLON, self.latlons[idx])
+
+        if not self.norm_stats_from_pretrained:
+            x = self._normalize_from_ch_stats(x)
 
         x_hw = repeat(x, "t c -> h w t c", w=1, h=1)
 
