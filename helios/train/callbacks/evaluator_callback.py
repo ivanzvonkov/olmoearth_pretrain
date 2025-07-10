@@ -282,9 +282,12 @@ class DownstreamEvaluatorCallbackConfig(CallbackConfig):
 
             # Check that input_modalities is only set for multimodal tasks
             if (
-                (task.dataset not in ["pastis", "sickle"])
-                or not (task.dataset.startswith("cropharvest"))
-            ) and len(task.input_modalities) > 0:
+                not (
+                    (task.dataset in ["pastis", "sickle"])
+                    or task.dataset.startswith("cropharvest")
+                )
+                and len(task.input_modalities) > 0
+            ):
                 raise ValueError(
                     f"input_modalities must be set for multimodal tasks, got {task.dataset}"
                 )
