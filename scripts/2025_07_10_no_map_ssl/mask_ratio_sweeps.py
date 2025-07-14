@@ -30,7 +30,7 @@ for encode_ratio in ENCODE_RATIOS:
             "python",
             "scripts/2025_07_10_no_map_ssl/train_cross_random.py",
             "launch",
-            f"debug_lmim_cross_random_no_map_mask_ratio_sweep_enc_{encode_ratio}_dec_{decode_ratio}",
+            f"1_debug_lmim_cross_random_no_map_mask_ratio_sweep_enc_{encode_ratio}_dec_{decode_ratio}",
             args.cluster,
             "--launch.num_gpus=8",
         ]
@@ -40,3 +40,5 @@ for encode_ratio in ENCODE_RATIOS:
             for arg in masking_args
         ],
     )  # nosec
+
+    break
