@@ -123,7 +123,7 @@ def build_launch_config(
         allow_dirty=False,
         priority=BeakerPriority.high,
         env_vars=[
-            BeakerEnvVar(name="NCCL_DEBUG", value="INFO" if nccl_debug else "WARN"),
+            BeakerEnvVar(name="NCCL_DEBUG", value="DETAIL" if nccl_debug else "WARN"),
             BeakerEnvVar(
                 name="TORCH_NCCL_TRACE_BUFFER_SIZE",
                 value="1000000000" if nccl_debug else "0",
