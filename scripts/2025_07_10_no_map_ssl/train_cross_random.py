@@ -87,7 +87,7 @@ def build_train_module_config(
 ) -> LatentMIMTrainModuleConfig:
     """Build the train module config for an experiment."""
     scheduler = WSD(
-        decay_steps=10,
+        decay_steps=100000,
         decay_fraction=None,
     )
     return LatentMIMTrainModuleConfig(
@@ -101,11 +101,11 @@ def build_train_module_config(
                 "decode_ratio": 0.5,
                 "allow_encoding_decoding_same_bandset": True,
                 "min_decoded_bandsets": None,
-                "only_decode_modalities": [
-                    Modality.OPENSTREETMAP_RASTER.name,
-                    Modality.WORLDCOVER.name,
-                    Modality.SRTM.name,
-                ],
+                # "only_decode_modalities": [
+                #     Modality.OPENSTREETMAP_RASTER.name,
+                #     Modality.WORLDCOVER.name,
+                #     Modality.SRTM.name,
+                # ],
             }
         ),
         loss_config=LossConfig(
@@ -289,12 +289,13 @@ def build_visualize_config(common: CommonComponents) -> HeliosVisualizeConfig:
 def build_common_components_no_maps_ssl(*args: Any) -> CommonComponents:
     """Build the common components for an experiment."""
     common = build_common_components(*args)
-    return common
+    # return common
     NO_MAPS_SSL_MODALITIES = [
         Modality.SENTINEL2_L2A.name,
         Modality.SENTINEL1.name,
         Modality.LANDSAT.name,
         Modality.LATLON.name,
+        Modality.SRTM.name,
     ]
     return CommonComponents(
         run_name=common.run_name,
