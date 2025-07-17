@@ -97,10 +97,15 @@ def build_train_module_config(
         masking_config=MaskingConfig(
             strategy_config={
                 "type": "modality_cross_random",
-                "encode_ratio": 0.1,
-                "decode_ratio": 0.75,
+                "encode_ratio": 0.5,
+                "decode_ratio": 0.5,
                 "allow_encoding_decoding_same_bandset": True,
                 "min_decoded_bandsets": None,
+                "only_decode_modalities": [
+                    Modality.OPENSTREETMAP_RASTER.name,
+                    Modality.WORLDCOVER.name,
+                    Modality.SRTM.name,
+                ],
             }
         ),
         loss_config=LossConfig(
@@ -284,6 +289,7 @@ def build_visualize_config(common: CommonComponents) -> HeliosVisualizeConfig:
 def build_common_components_no_maps_ssl(*args: Any) -> CommonComponents:
     """Build the common components for an experiment."""
     common = build_common_components(*args)
+    return common
     NO_MAPS_SSL_MODALITIES = [
         Modality.SENTINEL2_L2A.name,
         Modality.SENTINEL1.name,
