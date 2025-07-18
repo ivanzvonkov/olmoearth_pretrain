@@ -3,13 +3,15 @@
 # Script to launch latent_mim_all_data.py with varying dataset percentages
 
 PERCENTAGES=(
-    0.0004
-    0.004
-    0.0078125
-    0.015625
-    0.03125
-    0.0625
-    0.125
+    0.00004
+    0.0001
+    # 0.0004
+    # 0.004
+    # 0.0078125
+    # 0.015625
+    # 0.03125
+    # 0.0625
+    # 0.125
 )
 # for i in $(seq $(( (${#PERCENTAGES[@]} + 1) / 2 )) $((${#PERCENTAGES[@]} - 1))); do
 #     pct="${PERCENTAGES[$i]}"
@@ -24,5 +26,5 @@ for pct in "${PERCENTAGES[@]}"; do
     pct_str=$(printf "%.8f" "$pct" | sed 's/^0*//;s/\.$//;s/0*$//')
     name="latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_${pct_str}"
     echo "Launching for percentage $pct as $name"
-    python3 scripts/2025_06_26_dataset_percentage_experiments/latent_mim_all_data.py launch "$name" ai2/jupiter-cirrascale-2 --launch.priority=high --launch.num_gpus=8 --common.dataset_percentage="$pct"
+    python3 scripts/2025_06_26_dataset_percentage_experiments/latent_mim_all_data.py launch "$name" ai2/saturn-cirrascale --launch.priority=high --launch.num_gpus=8 --common.dataset_percentage="$pct"
 done
