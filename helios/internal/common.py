@@ -190,7 +190,8 @@ def build_common_components(
     # Extract nccl_debug from overrides if present
     nccl_debug = False
     for override in overrides:
-        if override.startswith("common.nccl_debug="):
+        if override.startswith("--common.nccl_debug="):
+            logger.info(f"Setting nccl_debug to {override}")
             nccl_debug = override.split("=")[1].lower() in ("true", "1", "yes")
             break
 
