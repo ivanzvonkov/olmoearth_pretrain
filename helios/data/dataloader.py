@@ -61,6 +61,7 @@ class HeliosDataLoader(DataLoaderBase):
         drop_last: bool = True,
         persistent_workers: bool = True,
         multiprocessing_context: str = "spawn",
+        num_dataset_repeats_per_epoch: int = 1,
     ):
         """Initialize the HeliosDataLoader."""
         super().__init__(
@@ -88,6 +89,7 @@ class HeliosDataLoader(DataLoaderBase):
         self._global_indices: np.ndarray | None = None
         self.persistent_workers = persistent_workers
         self.multiprocessing_context = multiprocessing_context
+        self.num_dataset_repeats_per_epoch = num_dataset_repeats_per_epoch
         if self.num_workers > 0 and self.multiprocessing_context == "forkserver":
             # Overhead of loading modules on import by preloading them
             mp.set_forkserver_preload(["torch", "rasterio"])
@@ -95,12 +97,12 @@ class HeliosDataLoader(DataLoaderBase):
     @property
     def total_batches(self) -> int:
         """The total number of batches in an epoch."""
-        return len(self.dataset) // (self.global_batch_size)
+        return len(self.dataset) // (self.global_batch_size * self.num_dataset_repeats_per_epoch)
 
     @property
     def total_size(self) -> int:
         """The total number of instances in an epoch."""
-        return self.total_batches * self.global_batch_size
+        return self.total_batches * self.global_batch_size * self.num_dataset_repeats_per_epoch
 
     @property
     def _global_indices_file(self) -> UPath:
@@ -126,13 +128,15 @@ class HeliosDataLoader(DataLoaderBase):
             # Deterministically shuffle based on epoch and seed
             rng = get_rng(self.seed + self.epoch)  # type: ignore
 
-        indices: np.ndarray
-        indices = np.arange(len(self.dataset), dtype=np.uint32)
-        if rng is not None:
-            rng.shuffle(indices)
-        # Remove tail of data to make it evenly divisible
-        indices = indices[: self.total_size]
-        return indices
+        indices_list = []
+        for _ in range(self.num_dataset_repeats_per_epoch):
+            indices = np.arange(len(self.dataset), dtype=np.uint32)
+            if rng is not None:
+                rng.shuffle(indices)
+            # Remove tail of data to make it evenly divisible
+            indices = indices[: self.total_size]
+            indices_list.append(indices)
+        return np.concatenate(indices_list)
 
     def build_and_save_global_indices(self, in_memory: bool = False) -> None:
         """Build and save global indices."""
@@ -162,6 +166,7 @@ class HeliosDataLoader(DataLoaderBase):
                         f"Global data order indices saved to:\n'{self._global_indices_file}'"
                     )
         barrier()
+
 
     def reshuffle(
         self, epoch: int | None = None, in_memory: bool = False, **kwargs: Any
@@ -215,7 +220,6 @@ class HeliosDataLoader(DataLoaderBase):
         instances_per_batch = self.global_batch_size
         indices = indices.reshape(-1, instances_per_batch)
 
-        # Offset by the number of batches already processed.
         if self.batches_processed > 0:  # type: ignore
             indices = indices[self.batches_processed :]  # type: ignore
 
@@ -223,7 +227,7 @@ class HeliosDataLoader(DataLoaderBase):
         if (worker_info := self.worker_info) is not None:
             indices = indices[worker_info.id :: worker_info.num_workers]
 
-        # Finally slice batches into micro batches for the local DP rank.
+        # Finally step batches into micro batches for the local DP rank.
         indices = indices[:, self.dp_rank :: self.dp_world_size].reshape((-1,))
         return indices
 
@@ -283,7 +287,10 @@ class HeliosDataLoader(DataLoaderBase):
                 parts.append(f"{key}{value}")
         return "_".join(parts)
 
-    def _get_mock_sample(self, rng: np.random.Generator) -> HeliosSample:
+    def get_mock_batch(self) -> HeliosSample:
+        """Get a mock batch, for dry-run of forward and backward pass."""
+        logger.info("Getting mock batch NOT FROM DATASET")
+        rng = get_rng(42)
         output_dict = {}
         # ToDO: change to training modalities
         logger.info(f"Training modalities: {self.dataset.training_modalities}")
@@ -320,26 +327,19 @@ class HeliosDataLoader(DataLoaderBase):
         timestamps = np.concatenate([days, months, years], axis=1)  # shape: (12, 3)
 
         output_dict["timestamps"] = timestamps
-        return HeliosSample(**output_dict)
 
-    def get_mock_batch(self) -> HeliosSample:
-        """Get a mock batch, for dry-run of forward and backward pass."""
-        logger.info("Getting mock batch NOT FROM DATASET")
-        rng = get_rng(42)
-        batch_size = self.global_batch_size // self.dp_world_size
         patch_size = 1
         collated_sample = self.collator(
             [
                 (
                     patch_size,
-                    self._get_mock_sample(rng).subset(
+                    HeliosSample(**output_dict).subset(
                         patch_size,
                         max_tokens_per_instance=1500,
                         sampled_hw_p=6,
                         current_length=12,
                     ),
                 )
-                for num in range(batch_size)
             ]
         )
         return collated_sample
