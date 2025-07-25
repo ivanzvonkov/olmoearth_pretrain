@@ -49,9 +49,9 @@ def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
     ndarrays: list[np.ndarray | None] = []
     assert len(Modality.WORLDCEREAL.band_sets) == 1
     band_set = Modality.WORLDCEREAL.band_sets[0]
+    window = Window.load(window_path)
+    window_metadata = get_window_metadata(window)
     for band in band_set.bands:
-        window = Window.load(window_path)
-        window_metadata = get_window_metadata(window)
         # layer name does not include "-confidence"
         layer_name = "-".join(band.split("-")[:-1])
         if not window.is_layer_completed(layer_name):
@@ -65,6 +65,9 @@ def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
             )
         )
 
+        assert len(ndarrays) == len(
+            band_set.bands
+        ), f"Expected {len(band_set.bands)} arrays, got {len(ndarrays)}"
         concatenated_arrays = _fill_nones_with_zeros(ndarrays)
         if concatenated_arrays is None:
             return None
@@ -77,8 +80,12 @@ def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
 
         # all values should now be confidences between
         # 0 and 100
-        assert concatenated_arrays.min() >= 0
-        assert concatenated_arrays.max() <= 100
+        assert (
+            concatenated_arrays.min() >= 0
+        ), f"Got min value of {concatenated_arrays.min()}"
+        assert (
+            concatenated_arrays.max() <= 100
+        ), f"Got max value of {concatenated_arrays.max()}"
 
         dst_fname = get_modality_fname(
             helios_path,
