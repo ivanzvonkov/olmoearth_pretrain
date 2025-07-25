@@ -65,61 +65,61 @@ def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
             )
         )
 
-        assert len(ndarrays) == len(
-            band_set.bands
-        ), f"Expected {len(band_set.bands)} arrays, got {len(ndarrays)}"
-        concatenated_arrays = _fill_nones_with_zeros(ndarrays)
-        if concatenated_arrays is None:
-            return None
+    assert len(ndarrays) == len(
+        band_set.bands
+    ), f"Expected {len(band_set.bands)} arrays, got {len(ndarrays)}"
+    concatenated_arrays = _fill_nones_with_zeros(ndarrays)
+    if concatenated_arrays is None:
+        return None
 
-        # 255 = missing data, which we will treat as 0s
-        # 254 = not cropland. This only occurs in crop type products
-        # and is the 0 value from the cropland product.
-        concatenated_arrays[concatenated_arrays == 255] = 0
-        concatenated_arrays[concatenated_arrays == 254] = 0
+    # 255 = missing data, which we will treat as 0s
+    # 254 = not cropland. This only occurs in crop type products
+    # and is the 0 value from the cropland product.
+    concatenated_arrays[concatenated_arrays == 255] = 0
+    concatenated_arrays[concatenated_arrays == 254] = 0
 
-        # all values should now be confidences between
-        # 0 and 100
-        assert (
-            concatenated_arrays.min() >= 0
-        ), f"Got min value of {concatenated_arrays.min()}"
-        assert (
-            concatenated_arrays.max() <= 100
-        ), f"Got max value of {concatenated_arrays.max()}"
+    # all values should now be confidences between
+    # 0 and 100
+    assert (
+        concatenated_arrays.min() >= 0
+    ), f"Got min value of {concatenated_arrays.min()}"
+    assert (
+        concatenated_arrays.max() <= 100
+    ), f"Got max value of {concatenated_arrays.max()}"
 
-        dst_fname = get_modality_fname(
-            helios_path,
-            Modality.WORLDCEREAL,
-            TimeSpan.STATIC,
-            window_metadata,
-            band_set.get_resolution(),
-            "tif",
-        )
-        GEOTIFF_RASTER_FORMAT.encode_raster(
-            path=dst_fname.parent,
-            projection=window.projection,
-            bounds=window.bounds,
-            array=concatenated_arrays,
-            fname=dst_fname.name,
-        )
-        metadata_fname = get_modality_temp_meta_fname(
-            helios_path, Modality.WORLDCEREAL, TimeSpan.STATIC, window.name
-        )
-        metadata_fname.parent.mkdir(parents=True, exist_ok=True)
-        with metadata_fname.open("w") as f:
-            writer = csv.DictWriter(f, fieldnames=METADATA_COLUMNS)
-            writer.writeheader()
-            writer.writerow(
-                dict(
-                    crs=window_metadata.crs,
-                    col=window_metadata.col,
-                    row=window_metadata.row,
-                    tile_time=window_metadata.time.isoformat(),
-                    image_idx="0",
-                    start_time=START_TIME.isoformat(),
-                    end_time=END_TIME.isoformat(),
-                )
+    dst_fname = get_modality_fname(
+        helios_path,
+        Modality.WORLDCEREAL,
+        TimeSpan.STATIC,
+        window_metadata,
+        band_set.get_resolution(),
+        "tif",
+    )
+    GEOTIFF_RASTER_FORMAT.encode_raster(
+        path=dst_fname.parent,
+        projection=window.projection,
+        bounds=window.bounds,
+        array=concatenated_arrays,
+        fname=dst_fname.name,
+    )
+    metadata_fname = get_modality_temp_meta_fname(
+        helios_path, Modality.WORLDCEREAL, TimeSpan.STATIC, window.name
+    )
+    metadata_fname.parent.mkdir(parents=True, exist_ok=True)
+    with metadata_fname.open("w") as f:
+        writer = csv.DictWriter(f, fieldnames=METADATA_COLUMNS)
+        writer.writeheader()
+        writer.writerow(
+            dict(
+                crs=window_metadata.crs,
+                col=window_metadata.col,
+                row=window_metadata.row,
+                tile_time=window_metadata.time.isoformat(),
+                image_idx="0",
+                start_time=START_TIME.isoformat(),
+                end_time=END_TIME.isoformat(),
             )
+        )
 
 
 if __name__ == "__main__":
