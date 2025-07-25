@@ -74,11 +74,9 @@ def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
 
     # 255 = missing data, which we will treat as 0s
     # 254 = not cropland. This only occurs in crop type products
-    # 253 is unknown but lets also treat is as 0s
-    # and is the 0 value from the cropland product.
-    concatenated_arrays[concatenated_arrays == 255] = 0
-    concatenated_arrays[concatenated_arrays == 254] = 0
-    concatenated_arrays[concatenated_arrays == 253] = 0
+    # in addition, because of our resampling we rarely get
+    # other values (e.g. 252). Lets set them all to 0
+    concatenated_arrays[concatenated_arrays < 100] = 0
 
     # all values should now be confidences between
     # 0 and 100
