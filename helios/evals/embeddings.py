@@ -67,6 +67,7 @@ def get_embeddings(
                 masked_helios_sample_dict
             )
             spatial_pool = task_type == TaskType.SEGMENTATION
+            is_multi_timestep = masked_helios_sample.timestamps.shape[1] > 1
             with torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16):
                 # TODO: Model expects masked helios sample we need to pass empty masks
                 # Likely we want to have a flag that checks for eval mode and passes empty masks
@@ -76,10 +77,7 @@ def get_embeddings(
                 # I need to make this agnostic to the input modality
                 if spatial_pool:
                     # Intermediate features are not yet working because of some bug internal to the model
-                    batch_embeddings = model.forward_features(masked_helios_sample)["x_norm_patchtokens"]
-                    num_tokens = batch_embeddings.shape[1]
-                    height = int(math.sqrt(num_tokens))
-                    batch_embeddings = rearrange(batch_embeddings, "b (h w) d -> b h w d", h=height, w=height)
+                    batch_embeddings = model.forward_features(masked_helios_sample)
                     print(f"shape of batch_embeddings: {batch_embeddings.shape}")
                 else:
                     batch_embeddings = model(masked_helios_sample)

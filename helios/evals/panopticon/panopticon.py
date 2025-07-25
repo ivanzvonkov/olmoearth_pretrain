@@ -9,7 +9,7 @@ from torch import nn
 import yaml
 from helios.train.masking import MaskedHeliosSample
 from helios.data.constants import Modality
-
+import math
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class PanopticonWrapper(nn.Module):
         self.model = self.model.to(device=self.device)
         logger.info(f"Loaded panopticon model {torchhub_id} on device {self.device}")
 
-    def _process_modality_data(self, data: torch.Tensor) -> torch.Tensor:
+    def _process_modality_data(self, data: torch.Tensor) -> list[torch.Tensor]:
         """Process individual modality data.
 
         Args:
@@ -60,20 +60,24 @@ class PanopticonWrapper(nn.Module):
             Processed tensor of shape [B, C*T, H, W]
         """
         # Rearrange from "b h w t c -> b (c t) h w" for DinoV2/Panopticon format
-        data = rearrange(data, "b h w t c -> b (c t) h w")
+        t_dim = data.shape[3]
 
         # Get original dimensions
         original_height = data.shape[2]
+        data_list = []
+        for i in range(t_dim):
+            data_i = rearrange(data[:, :, :, i, :], "b h w c -> b c h w")
 
-        # Resize the image to the Panopticon pre-training input size
-        image_size = 224
-        data = F.interpolate(
-            data,
-            size=(image_size, image_size),
-            mode="bilinear",
-            align_corners=False
-        )
-        return data
+            # Resize the image to the Panopticon pre-training input size
+            image_size = 224
+            data_i = F.interpolate(
+                data_i,
+                size=(image_size, image_size),
+                mode="bilinear",
+                align_corners=False
+            )
+            data_list.append(data_i)
+        return data_list
 
     def _create_channel_ids(self, modality: str, batch_size: int) -> torch.Tensor:
         """Create channel IDs for the panopticon model.
@@ -112,7 +116,7 @@ class PanopticonWrapper(nn.Module):
             Dictionary with 'imgs' and 'chn_ids' keys for panopticon model
         """
         # Process each modality
-        input_data = []
+        input_data_timesteps = {}
         channel_ids_list = []
         for modality in masked_helios_sample.modalities:
             if modality in ["timestamps", "latlon"]:
@@ -126,30 +130,31 @@ class PanopticonWrapper(nn.Module):
 
             # Process the modality data
             processed_data = self._process_modality_data(data)
-            input_data.append(processed_data)
-            batch_size = processed_data.shape[0]
+            for i, data_i in enumerate(processed_data):
+                # start the list if it doesn't exist
+                if i not in input_data_timesteps:
+                    input_data_timesteps[i] = []
+                input_data_timesteps[i].append(data_i)
+            batch_size = processed_data[0].shape[0]
             # I need to convert the helios channel ordering to get the right panopticon channel value
             chn_ids = self._create_channel_ids(modality, batch_size)
             channel_ids_list.append(chn_ids)
-            logger.info(f"Processed {modality}: {processed_data.shape}")
 
-        if not input_data:
+        if not input_data_timesteps:
             raise ValueError("No valid modalities found for processing")
-
-        # Concatenate all modality data along channel dimension
-        concatenated_imgs = torch.cat(input_data, dim=1)
-        batch_size = concatenated_imgs.shape[0]
-
-        print(f"Concatenated imgs: {concatenated_imgs.shape}")
-        print(f"Channel ids: {chn_ids.shape}")
-        panopticon_input = {
-            "imgs": concatenated_imgs,
-            "chn_ids": chn_ids,
-        }
-
-        logger.info(f"Final input shape - imgs: {concatenated_imgs.shape}, chn_ids: {chn_ids.shape}")
-
-        return panopticon_input
+        # chn ids are shared across all the timesteps so we cna concatenate just once
+        chn_ids = torch.cat(channel_ids_list, dim=1)
+        per_timestep_panopticon_inputs = []
+        for i, input_data_i in input_data_timesteps.items():
+            # Concatenate all modality data along channel dimension
+            concatenated_imgs = torch.cat(input_data_i, dim=1)
+            panopticon_input = {
+                "imgs": concatenated_imgs,
+                "chn_ids": chn_ids,
+            }
+            per_timestep_panopticon_inputs.append(panopticon_input)
+        # I want to return a list of panopticon inputs, one for each timestep
+        return per_timestep_panopticon_inputs
 
     def forward(self, masked_helios_sample: MaskedHeliosSample) -> torch.Tensor:
         """Forward pass through the panopticon model.
@@ -220,8 +225,20 @@ class PanopticonWrapper(nn.Module):
 
         Returns:
         """
-        panopticon_input = self.prepare_input(masked_helios_sample)
-        return self.model.forward_features(panopticon_input)
+        # supports multi-timestep input single timestep output
+        per_timestep_panopticon_inputs = self.prepare_input(masked_helios_sample)
+        output_features = []
+        for panopticon_input in per_timestep_panopticon_inputs:
+            timestep_output = self.model.forward_features(panopticon_input)["x_norm_patchtokens"]
+            num_tokens = timestep_output.shape[1]
+            height = int(math.sqrt(num_tokens))
+            timestep_output = rearrange(timestep_output, "b (h w) d -> b h w d", h=height, w=height)
+            output_features.append(timestep_output.unsqueeze(0))
+        # stack in the timestep dimension and take the mean or maybe the max?
+        output_features = torch.cat(output_features, dim=0).max(dim=0)
+        return output_features
+
+
 
     def __call__(self, masked_helios_sample: MaskedHeliosSample) -> torch.Tensor:
         """Make the wrapper callable."""
