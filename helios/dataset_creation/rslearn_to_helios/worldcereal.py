@@ -69,6 +69,12 @@ def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
         if concatenated_arrays is None:
             return None
 
+        # 255 = missing data, which we will treat as 0s
+        # 254 = not cropland. This only occurs in crop type products
+        # and is the 0 value from the cropland product.
+        concatenated_arrays[concatenated_arrays == 255] = 0
+        concatenated_arrays[concatenated_arrays == 254] = 0
+
         dst_fname = get_modality_fname(
             helios_path,
             Modality.WORLDCEREAL,
