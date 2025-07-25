@@ -355,6 +355,7 @@ class PASTISRDataset(Dataset):
 
         self.input_modalities = input_modalities
 
+        # Does not support 12 band L2A data
         self.s2_means, self.s2_stds = self._get_norm_stats(
             S2_BAND_STATS, EVAL_S2_BAND_NAMES
         )
@@ -407,17 +408,17 @@ class PASTISRDataset(Dataset):
     def __getitem__(self, idx: int) -> tuple[MaskedHeliosSample, torch.Tensor]:
         """Return a single PASTIS data instance."""
         image_idx = self.indices[idx]
+        # why would we load both datasets if we only want one? or is it insignificant?
         s2_image = torch.load(self.s2_images_dir / f"{image_idx}.pt")
         s2_image = einops.rearrange(s2_image, "t c h w -> h w t c")  # (64, 64, 12, 13)
-        s2_image = s2_image[:, :, :, EVAL_TO_HELIOS_S2_BANDS]
 
         s1_image = torch.load(self.s1_images_dir / f"{image_idx}.pt")
         s1_image = einops.rearrange(s1_image, "t c h w -> h w t c")  # (64, 64, 12, 2)
-        s1_image = s1_image[:, :, :, EVAL_TO_HELIOS_S1_BANDS]
 
         labels = self.labels[idx]  # (64, 64)
         months = self.months[idx]  # (12)
 
+        # If using norm stats from pretrained we should normalize before we rearrange
         if not self.norm_stats_from_pretrained:
             s2_image = normalize_bands(
                 s2_image.numpy(), self.s2_means, self.s2_stds, self.norm_method
@@ -426,6 +427,8 @@ class PASTISRDataset(Dataset):
                 s1_image.numpy(), self.s1_means, self.s1_stds, self.norm_method
             )
 
+        s2_image = s2_image[:, :, :, EVAL_TO_HELIOS_S2_BANDS]
+        s1_image = s1_image[:, :, :, EVAL_TO_HELIOS_S1_BANDS]
         if self.norm_stats_from_pretrained:
             s2_image = self.normalizer_computed.normalize(
                 Modality.SENTINEL2_L2A, s2_image
