@@ -42,11 +42,6 @@ def get_embeddings(
     """Get embeddings from model for the data in data_loader."""
     embeddings = []
     labels = []
-    torch.hub._validate_not_a_forked_repo=lambda a,b,c: True
-    # torchhub_id = "dinov2_vitb14"
-    # model = torch.hub.load("facebookresearch/dinov2", torchhub_id)
-    model = DINOv2Wrapper(apply_imagenet_normalization=apply_imagenet_normalization, use_cls_token=True)
-
     model = model.eval()
     # move model to GPU
     model = model.to(device="cuda")
@@ -72,10 +67,8 @@ def get_embeddings(
                 if spatial_pool:
                     # Intermediate features are not yet working because of some bug internal to the model
                     batch_embeddings = model.forward_features(masked_helios_sample)
-                    print(f"shape of batch_embeddings: {batch_embeddings.shape}")
                 else:
                     batch_embeddings = model(masked_helios_sample)
-                    print(f"shape of batch_embeddings: {batch_embeddings.shape}")
             averaged_embeddings = batch_embeddings
             embeddings.append(averaged_embeddings.cpu())
             labels.append(label)

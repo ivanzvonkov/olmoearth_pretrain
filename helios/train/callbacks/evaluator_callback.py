@@ -140,10 +140,14 @@ class DownstreamEvaluator:
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Get the embeddings for the given data loader."""
         print(f"Getting embeddings for {self.dataset} with norm method {self.norm_method}")
+        if hasattr(self.trainer.train_module.model, "encoder"):
+            model = self.trainer.train_module.model.encoder
+        else:
+            model = self.trainer.train_module.model
         return get_embeddings(
             data_loader=data_loader,
             task_type=self.config.task_type,
-            model=self.trainer.train_module.model.encoder,
+            model=model,
             patch_size=self.patch_size,
             pooling_type=self.pooling_type,
             concat_features=(self.probe_type == ProbeType.ATTNPOOL),
