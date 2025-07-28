@@ -113,17 +113,15 @@ class GeobenchDataset(Dataset):
         ):
             if task.dataset_name == dataset:
                 break
-
+        self.is_landsat = task.bands_info[0].__class__.__name__ == "Landsat8"
         # hack: https://github.com/ServiceNow/geo-bench/issues/22
         task.get_dataset_dir = MethodType(
             lambda self: geobench_dir / f"{config.task_type.value}_v1.0" / dataset,
             task,
         )
-        self.task = task
 
-        self.dataset = self.task.get_dataset(
-            split=self.split, partition_name=self.partition
-        )
+        self.dataset = task.get_dataset(split=self.split, partition_name=self.partition)
+
         original_band_names = [
             self.dataset[0].bands[i].band_info.name
             for i in range(len(self.dataset[0].bands))
@@ -149,11 +147,6 @@ class GeobenchDataset(Dataset):
         if dataset == "m-so2sat":
             logging.info(f"self.multiply_by_10_000 set to True for {dataset}")
             self.multiply_by_10_000 = True
-
-    @property
-    def is_landsat(self) -> bool:
-        """Returns true if the task is landsat (i.e. forest net). We assume its S2 otherwise."""
-        return self.task.bands_info[0].__class__.__name__ == "Landsat8"
 
     @staticmethod
     def _get_norm_stats(
