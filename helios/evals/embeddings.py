@@ -13,7 +13,6 @@ from helios.data.constants import Modality
 from einops import rearrange, repeat
 import torch.nn.functional as F
 from helios.evals.panopticon.panopticon import PanopticonWrapper
-from helios.evals.dinov2.dinov2 import DINOv2Wrapper
 from torchvision import transforms
 
 logger = logging.getLogger(__name__)
