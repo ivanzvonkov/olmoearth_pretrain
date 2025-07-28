@@ -39,35 +39,6 @@ def _fill_nones_with_zeros(ndarrays: list[np.ndarray | None]) -> np.ndarray | No
     return np.concatenate(return_list, axis=0)
 
 
-def scale_confidences(x: np.ndarray) -> np.ndarray:
-    """From eq.1 of the worldcereal paper.
-
-    As a complementary product of the binary prediction,
-    the models also provide binary class probabilities which we
-    used to assess the pixel-based model's confidence in its prediction.
-    Unconfident model predictions are characterized by binary probabilities
-    close to 0.5, while confident model predictions are close to 0 or 1.
-    Therefore, we defined model confidence as a value between 0 and 100, computed
-    using Eq. (1):
-
-    confidence = ((probability - 0.5) / 0.5) * 100
-
-    This function reverses eq. (1) to return to a probability.
-    Probability is between 0.5 and 1, where 0.5 == not confident, and 1 == confident.
-    """
-    return ((x / 100) / 2) + 0.5
-
-
-def to_probabilities(binary: np.ndarray, confidence: np.ndarray) -> np.ndarray:
-    """Take the binary (1, 0) and confidence (< 0.5) values and return probabilities."""
-    confidences = scale_confidences(confidence)
-    # the resampling may have made the values non-binary, so lets binarize them again.
-    binary = binary >= 0.5
-    # since the output of scale_confidences, c, is between 0.5 and 1, I want
-    # (1 - c) where binary == 0 and (c) where binary == 1
-    return (binary * confidences) + ((1 - binary) * (1 - confidences))
-
-
 def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
     """Add WorldCereal data for this window to the Helios dataset.
 
@@ -81,34 +52,13 @@ def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
     window = Window.load(window_path)
     window_metadata = get_window_metadata(window)
     for band in band_set.bands:
-        confidence_layer = f"{band}-confidence"
-        classification_layer = f"{band}-classification"
-        both_done = [
-            window.is_layer_completed(confidence_layer),
-            window.is_layer_completed(classification_layer),
-        ]
-        if sum(both_done) == 0:
+        if not window.is_layer_completed(band):
             ndarrays.append(None)
-            continue
-        elif sum(both_done) == 1:
-            raise RuntimeError(
-                "Expected both the confidence and classification layers, or neither. "
-                f"Got one for {window_path}, {band}"
-            )
-
-        binary_dir = window.get_raster_dir(classification_layer, [classification_layer])
-        confidence_dir = window.get_raster_dir(confidence_layer, [confidence_layer])
+        window_dir = window.get_raster_dir(band, [band])
 
         ndarrays.append(
-            to_probabilities(
-                binary=GEOTIFF_RASTER_FORMAT.decode_raster(
-                    path=binary_dir, projection=window.projection, bounds=window.bounds
-                ),
-                confidence=GEOTIFF_RASTER_FORMAT.decode_raster(
-                    path=confidence_dir,
-                    projection=window.projection,
-                    bounds=window.bounds,
-                ),
+            GEOTIFF_RASTER_FORMAT.decode_raster(
+                path=window_dir, projection=window.projection, bounds=window.bounds
             )
         )
 
@@ -121,7 +71,7 @@ def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
         return None
 
     assert concatenated_arrays.min() >= 0
-    assert concatenated_arrays.max() <= 1
+    assert concatenated_arrays.max() <= 100
 
     dst_fname = get_modality_fname(
         helios_path,
