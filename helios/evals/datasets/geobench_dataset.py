@@ -9,8 +9,7 @@ import geobench
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.multiprocessing
-from einops import repeat, rearrange
-import torch.nn.functional as F
+from einops import repeat
 from geobench.dataset import Stats
 from torch.utils.data import Dataset
 from upath import UPath

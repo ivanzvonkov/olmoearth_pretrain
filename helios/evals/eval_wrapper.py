@@ -9,6 +9,7 @@ from helios.nn.flexihelios import PoolingType
 from helios.train.masking import MaskedHeliosSample
 from helios.nn.flexihelios import TokensAndMasks
 from helios.nn.flexihelios import FlexiHeliosBase
+from helios.nn.st_model import STBase
 from helios.evals.panopticon.panopticon import Panopticon
 from helios.evals.dinov2.dinov2 import DINOv2
 from logging import getLogger
@@ -100,7 +101,7 @@ def get_eval_wrapper(model: nn.Module, **kwargs) -> EvalWrapper:
     """
     Factory function to get the appropriate eval wrapper for a given model.
     """
-    if isinstance(model, FlexiHeliosBase):
+    if isinstance(model, FlexiHeliosBase) or isinstance(model, STBase):
         logger.info("Using HeliosEvalWrapper")
         return HeliosEvalWrapper(model=model, **kwargs)
     elif isinstance(model, Panopticon):

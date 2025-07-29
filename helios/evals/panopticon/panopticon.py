@@ -24,19 +24,15 @@ class Panopticon(nn.Module):
         self,
         torchhub_id: str = "panopticon_vitb14",
         patch_size: int = 14,
-        device: str = "cuda"
     ):
         """Initialize the Panopticon wrapper.
 
         Args:
             torchhub_id: The torch hub model ID for panopticon
             patch_size: Patch size for the vision transformer (default 14)
-            device: Device to run the model on
         """
         super().__init__()
         self.patch_size = patch_size
-        self.device = device
-
         # Load the panopticon model
         self._load_model(torchhub_id)
 
@@ -58,9 +54,6 @@ class Panopticon(nn.Module):
                 time.sleep(5)
         else:
             raise RuntimeError(f"Failed to load panopticon model {torchhub_id} after retrying.")
-        self.model = self.model.eval()
-        self.model = self.model.to(device=self.device)
-        logger.info(f"Loaded panopticon model {torchhub_id} on device {self.device}")
 
     def _process_modality_data(self, data: torch.Tensor) -> list[torch.Tensor]:
         """Process individual modality data.
@@ -100,7 +93,7 @@ class Panopticon(nn.Module):
             data_list.append(data_i)
         return data_list
 
-    def _create_channel_ids(self, modality: str, batch_size: int) -> torch.Tensor:
+    def _create_channel_ids(self, modality: str, batch_size: int, device: torch.device) -> torch.Tensor:
         """Create channel IDs for the panopticon model.
 
         Args:
@@ -129,7 +122,7 @@ class Panopticon(nn.Module):
                 continue
             band = band.upper()
             chn_ids.append(sensor_config["bands"][band]["gaussian"]["mu"])
-        chn_ids = torch.tensor(chn_ids, dtype=torch.float32, device=self.device)
+        chn_ids = torch.tensor(chn_ids, dtype=torch.float32, device=device)
         chn_ids = repeat(chn_ids, "c -> b c", b=batch_size)
         return chn_ids
 
@@ -148,10 +141,8 @@ class Panopticon(nn.Module):
         for modality in masked_helios_sample.modalities:
             if modality in ["timestamps", "latlon"]:
                 continue  # Skip non-image modalities
-
             data = getattr(masked_helios_sample, modality)
-
-            print(f"Modality: {modality}, data: shape {data.shape}")
+            device = data.device
             if data is None:
                 continue
 
@@ -164,7 +155,7 @@ class Panopticon(nn.Module):
                 input_data_timesteps[i].append(data_i)
             batch_size = processed_data[0].shape[0]
             # I need to convert the helios channel ordering to get the right panopticon channel value
-            chn_ids = self._create_channel_ids(modality, batch_size)
+            chn_ids = self._create_channel_ids(modality, batch_size, device)
             channel_ids_list.append(chn_ids)
 
         if not input_data_timesteps:
@@ -198,60 +189,14 @@ class Panopticon(nn.Module):
         output_features = []
         for panopticon_input in per_timestep_panopticon_inputs:
             timestep_output = self.model(panopticon_input)
-            print(f"timestep_output shape: {timestep_output.shape}")
             output_features.append(timestep_output.unsqueeze(0))
         # stack in the timestep dimension and take the mean or maybe the max?
         if pooling == PoolingType.MEAN:
             output_features = torch.cat(output_features, dim=0).mean(dim=0)
         elif pooling == PoolingType.MAX:
             output_features = torch.max(torch.cat(output_features, dim=0), dim=0)[0]
-        print(f"output_features shape: {output_features}")
-        # Do we need this to work for both single pixel and full images
         return output_features
 
-    def get_intermediate_layers(self, masked_helios_sample: MaskedHeliosSample, n: list[int], return_class_token: bool = False) -> list[torch.Tensor]:
-        """Get intermediate layers from the panopticon model.
-
-        Args:
-            masked_helios_sample: Input MaskedHeliosSample object
-            n: List of layer indices to return
-            return_class_token: Whether to return the class token
-
-        Returns:
-            List of intermediate layers
-        """
-        # Currently seems to not be working
-        print(f" is chunked blocks: {self.model.chunked_blocks}")
-        panopticon_input = self.prepare_input(masked_helios_sample)
-        embeddings = self.model.get_intermediate_layers(panopticon_input, n, return_class_token)
-        return embeddings
-
-    def get_intermediate_layers(
-        self,
-        x: torch.Tensor,
-        n: int | list[int] = 1,  # Layers or n last layers to take
-        reshape: bool = False,
-        return_class_token: bool = False,
-        norm=True,
-    ) -> torch.Tensor | tuple[torch.Tensor]:
-        if self.model.chunked_blocks:
-            outputs = self.model._get_intermediate_layers_chunked(x, n)
-        else:
-            outputs = self.model._get_intermediate_layers_not_chunked(x, n)
-        if norm:
-            outputs = [self.model.norm(out) for out in outputs]
-        print(f"outputs: {outputs}")
-        class_tokens = [out[:, 0] for out in outputs]
-        outputs = [out[:, 1 + self.model.num_register_tokens :] for out in outputs]
-        if reshape:
-            B, _, w, h = x.shape
-            outputs = [
-                out.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
-                for out in outputs
-            ]
-        if return_class_token:
-            return tuple(zip(outputs, class_tokens))
-        return tuple(outputs)
 
     # TODO: add a Temporal poolin type option
     def forward_features(self, masked_helios_sample: MaskedHeliosSample, pooling: PoolingType = PoolingType.MEAN) -> torch.Tensor:
@@ -280,9 +225,9 @@ class Panopticon(nn.Module):
 
 
 
-    def __call__(self, masked_helios_sample: MaskedHeliosSample) -> torch.Tensor:
+    def __call__(self, masked_helios_sample: MaskedHeliosSample, pooling: PoolingType = PoolingType.MEAN) -> torch.Tensor:
         """Make the wrapper callable."""
-        return self.forward(masked_helios_sample)
+        return self.forward(masked_helios_sample, pooling)
 
 
 @dataclass
@@ -290,11 +235,9 @@ class PanopticonConfig(Config):
     """olmo_core style config for PanopticonWrapper."""
     torchhub_id: str = "panopticon_vitb14"
     patch_size: int = 14
-    device: str = "cuda"
 
     def build(self) -> Panopticon:
         return Panopticon(
             torchhub_id=self.torchhub_id,
             patch_size=self.patch_size,
-            device=self.device,
         )

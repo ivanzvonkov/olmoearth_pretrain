@@ -73,6 +73,7 @@ EVAL_TO_HELIOS_S2_L2A_BANDS = [
     _eval_s2_band_index_from_helios_name(b, EVAL_S2_L2A_BAND_NAMES)
     for b in Modality.SENTINEL2_L2A.band_order
 ]
+
 EVAL_TO_HELIOS_S1_BANDS = [
     _eval_s1_band_index_from_helios_name(b) for b in Modality.SENTINEL1.band_order
 ]
@@ -80,4 +81,3 @@ EVAL_TO_HELIOS_S1_BANDS = [
 EVAL_TO_HELIOS_L8_BANDS = [
     _eval_l8_band_index_from_helios_name(b) for b in Modality.LANDSAT.band_order
 ]
-print(f"helios to l8 bands: len {len(EVAL_TO_HELIOS_L8_BANDS)} names {EVAL_TO_HELIOS_L8_BANDS}")

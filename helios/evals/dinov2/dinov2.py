@@ -129,7 +129,6 @@ class DINOv2(nn.Module):
         """
         # Process each modality
         input_data_timesteps = {}
-        channel_ids_list = []
         for modality in masked_helios_sample.modalities:
             if modality not in ["sentinel2_l2a", "landsat"]:
                 continue  # Skip non-rgb modalities

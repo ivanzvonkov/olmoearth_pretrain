@@ -408,7 +408,6 @@ class PASTISRDataset(Dataset):
     def __getitem__(self, idx: int) -> tuple[MaskedHeliosSample, torch.Tensor]:
         """Return a single PASTIS data instance."""
         image_idx = self.indices[idx]
-        # why would we load both datasets if we only want one? or is it insignificant?
         s2_image = torch.load(self.s2_images_dir / f"{image_idx}.pt")
         s2_image = einops.rearrange(s2_image, "t c h w -> h w t c")  # (64, 64, 12, 13)
 
