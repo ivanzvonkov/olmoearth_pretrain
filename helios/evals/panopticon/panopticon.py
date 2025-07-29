@@ -17,8 +17,8 @@ from dataclasses import dataclass
 logger = logging.getLogger(__name__)
 
 
-class PanopticonWrapper(nn.Module):
-    """Wrapper for the Panopticon model that can ingest MaskedHeliosSample objects."""
+class Panopticon(nn.Module):
+    """Class containing the Panopticon model that can ingest MaskedHeliosSample objects."""
 
     def __init__(
         self,

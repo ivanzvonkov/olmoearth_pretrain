@@ -31,12 +31,7 @@ def make_normalize_transform(
 
 def get_embeddings(
     data_loader: DataLoader,
-    task_type: TaskType,
-    model: Encoder,
-    patch_size: int,
-    pooling_type: PoolingType = PoolingType.MAX,
-    concat_features: bool = False,
-    apply_imagenet_normalization: bool = False,
+    model: EvalWrapper,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Get embeddings from model for the data in data_loader."""
     embeddings = []
@@ -60,16 +55,10 @@ def get_embeddings(
             masked_helios_sample = MaskedHeliosSample.from_dict(
                 masked_helios_sample_dict
             )
-            spatial_pool = task_type == TaskType.SEGMENTATION
-            is_multi_timestep = masked_helios_sample.timestamps.shape[1] > 1
             with torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16):
-                if spatial_pool:
-                    # Intermediate features are not yet working because of some bug internal to the model
-                    batch_embeddings = model.forward_features(masked_helios_sample)
-                else:
-                    batch_embeddings = model(masked_helios_sample)
-            averaged_embeddings = batch_embeddings
-            embeddings.append(averaged_embeddings.cpu())
+                batch_embeddings = model(masked_helios_sample)
+
+            embeddings.append(batch_embeddings.cpu())
             labels.append(label)
             logger.debug(f"Processed {i} / {total_samples}")
 

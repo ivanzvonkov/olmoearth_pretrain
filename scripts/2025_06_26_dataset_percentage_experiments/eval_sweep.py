@@ -3,7 +3,8 @@
 import argparse
 import subprocess  # nosec
 
-LP_LRs = [1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1]
+# LP_LRs = [1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1]
+LP_LRs = [0.1]
 
 lr_args = " ".join(
     [
@@ -20,11 +21,11 @@ lr_args = " ".join(
     ]
 )
 checkpoints = [
-    "/weka/dfive-default/helios/checkpoints/henryh/latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_1.0/step440000",
+    # "/weka/dfive-default/helios/checkpoints/henryh/latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_1.0/step440000",
     "/weka/dfive-default/helios/checkpoints/henryh/latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_0.0625/step100000",
-    "/weka/dfive-default/helios/checkpoints/henryh/latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_0.5/step360000",
-    "/weka/dfive-default/helios/checkpoints/henryh/latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_0.25/step190000",
-    "/weka/dfive-default/helios/checkpoints/henryh/latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_0.125/step220000",
+    # "/weka/dfive-default/helios/checkpoints/henryh/latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_0.5/step360000",
+    # "/weka/dfive-default/helios/checkpoints/henryh/latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_0.25/step190000",
+    # "/weka/dfive-default/helios/checkpoints/henryh/latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_0.125/step220000",
 ]
 
 parser = argparse.ArgumentParser()
@@ -46,4 +47,4 @@ for checkpoint in checkpoints:
         print(formatted_lr_args)
         cmd = f"{start_command} scripts/2025_06_26_dataset_percentage_experiments/eval.py {run_cmd} {run_name} {args.cluster} --launch.priority=high {formatted_lr_args} --trainer.load_path={checkpoint} --launch.task_name=eval"
         print(cmd)
-        subprocess.run(cmd, shell=True)  # nosec
+        # subprocess.run(cmd, shell=True)  # nosec

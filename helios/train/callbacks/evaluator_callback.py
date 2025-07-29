@@ -144,14 +144,19 @@ class DownstreamEvaluator:
             model = self.trainer.train_module.model.encoder
         else:
             model = self.trainer.train_module.model
+
+        # Superset of the kwargs the wrapper may need
+        wrapper_kwargs = {
+            "task_type": self.config.task_type,
+            "patch_size": self.patch_size,
+            "pooling_type": self.pooling_type,
+            "concat_features": (self.probe_type == "attn_pool"),
+            "apply_imagenet_normalization": self.norm_method == NormMethod.NO_NORM
+        }
+        model = get_eval_wrapper(model, **wrapper_kwargs)
         return get_embeddings(
             data_loader=data_loader,
-            task_type=self.config.task_type,
             model=model,
-            patch_size=self.patch_size,
-            pooling_type=self.pooling_type,
-            concat_features=(self.probe_type == ProbeType.ATTNPOOL),
-            apply_imagenet_normalization=self.norm_method == NormMethod.NO_NORM,
         )
 
     def val(self) -> float:
