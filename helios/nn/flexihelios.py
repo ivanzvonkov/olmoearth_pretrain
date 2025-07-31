@@ -12,7 +12,7 @@ from olmo_core.config import Config
 from torch import Tensor, nn
 from torch.distributed.fsdp import fully_shard
 
-from helios.data.constants import Modality, ModalitySpec
+from helios.data.constants import Modality, ModalitySpec, BASE_GSD
 from helios.dataset.utils import get_modality_specs_from_names
 from helios.nn.attention import Block
 from helios.nn.encodings import (
@@ -45,9 +45,6 @@ def return_modalities_from_dict(
         key for key in per_modality_input_tokens.keys() if not key.endswith("_mask")
     ]
 
-
-# Resolution of the input data in meters
-BASE_GSD = 10
 
 
 class PoolingType(str, Enum):

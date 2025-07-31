@@ -1,8 +1,8 @@
 """ Alternate Predictor that pools the tokens across modalities. And then predicts all the other modalities from that spatiall pooled representation"""
 
 from typing import Any
-from helios.nn.flexihelios import Predictor, TokensAndMasks, return_modalities_from_dict, get_modalities_to_process, Encoder, EncoderConfig
-from helios.data.constants import Modality, ModalitySpec
+from helios.nn.flexihelios import Predictor, TokensAndMasks, return_modalities_from_dict, get_modalities_to_process, Encoder, EncoderConfig, PredictorConfig
+from helios.data.constants import Modality, ModalitySpec, BASE_GSD
 from helios.train.masking import MaskedHeliosSample, MaskValue
 import torch
 from torch import Tensor
@@ -283,7 +283,7 @@ class PooledModalityPredictorV2(Predictor):
         super().__init__(*args, **kwargs)
         self.attn_pool = AttnPool(self.embedding_size, self.embedding_size)
 
-      def apply_attn(
+    def apply_attn(
         self,
         x: dict[str, Tensor],
         pooled_dict: dict[str, Tensor],
@@ -572,6 +572,7 @@ class EncoderAttnPoolConfig(EncoderConfig):
         return EncoderAttnPool(**kwargs)
 
 
+# Need to make evals optionally use the pooled tokens or not
 # V1 Pool modality tokens and use those for evals as wel
 # V2 Pool temporally and across modalities and predict
 # V3 pool spatially and temporally and acrosss modality and predict
