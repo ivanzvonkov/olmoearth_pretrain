@@ -54,6 +54,7 @@ def convert_worldcereal(window_path: UPath, helios_path: UPath) -> None:
     for band in band_set.bands:
         if not window.is_layer_completed(band):
             ndarrays.append(None)
+            continue
         window_dir = window.get_raster_dir(band, [band])
 
         ndarrays.append(
