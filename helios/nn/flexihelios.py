@@ -52,6 +52,7 @@ class PoolingType(str, Enum):
 
     MAX = "max"
     MEAN = "mean"
+    ENCODER_MODALITY = "encoder_modality" # using the tokens pooled across modality in the encoder
 
 
 class TokensAndMasks(NamedTuple):

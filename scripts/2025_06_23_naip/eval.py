@@ -62,38 +62,6 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
         "m_eurosat": DownstreamTaskConfig(
             dataset="m-eurosat",
             embedding_batch_size=128,
-<<<<<<< HEAD
-            num_workers=0,
-            pooling_type=PoolingType.MEAN,
-            norm_stats_from_pretrained=True,
-            eval_interval=Duration.epochs(5),
-            patch_size=1,
-        ),
-        # "m_bigearthnet": DownstreamTaskConfig(
-        #     dataset="m-bigearthnet",
-        #     embedding_batch_size=64,
-        #     num_workers=8,
-        #     pooling_type=PoolingType.MEAN,
-        #     norm_stats_from_pretrained=True,
-        #     eval_interval=Duration.epochs(5),
-        # ),
-        # "m_so2sat": DownstreamTaskConfig(
-        #     dataset="m-so2sat",
-        #     embedding_batch_size=128,
-        #     num_workers=8,
-        #     pooling_type=PoolingType.MEAN,
-        #     norm_stats_from_pretrained=True,
-        #     eval_interval=Duration.epochs(5),
-        # ),
-        # "m_brick_kiln": DownstreamTaskConfig(
-        #     dataset="m-brick-kiln",
-        #     embedding_batch_size=128,
-        #     num_workers=8,
-        #     pooling_type=PoolingType.MEAN,
-        #     norm_stats_from_pretrained=True,
-        #     eval_interval=Duration.epochs(5),
-        # ),
-=======
             num_workers=8,
             pooling_type=PoolingType.MEAN,
             norm_stats_from_pretrained=True,
@@ -123,7 +91,6 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             norm_stats_from_pretrained=True,
             eval_interval=Duration.epochs(5),
         ),
->>>>>>> main
         "mados": DownstreamTaskConfig(
             dataset="mados",
             embedding_batch_size=128,

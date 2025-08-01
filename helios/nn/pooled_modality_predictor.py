@@ -5,6 +5,7 @@ from helios.nn.flexihelios import Predictor, TokensAndMasks, return_modalities_f
 from helios.data.constants import Modality, ModalitySpec, BASE_GSD
 from helios.train.masking import MaskedHeliosSample, MaskValue
 import torch
+from enum import StrEnum
 from torch import Tensor
 from olmo_core.config import Config
 from dataclasses import dataclass
@@ -303,8 +304,8 @@ class PooledModalityPredictorV2(Predictor):
         )
         tokens_dict.update(original_masks_dict)
 
-        pooled_tokens = pooled_dict["modality_pooled_tokens"]
-        pooled_attn_mask = pooled_dict["modality_pooled_masks"]
+        pooled_tokens = rearrange(pooled_dict["modality_pooled_tokens"], "b ... d -> b (...) d")
+        pooled_attn_mask = rearrange(pooled_dict["modality_pooled_masks"], "b ... -> b (...)")
 
         (
             _,
@@ -483,15 +484,108 @@ class PooledModalityPredictorV2Config(PredictorConfig):
 
 
 
+# I can do Modality Pooling then Temporal pooling then spaital pooling
+# Or I can just pool altogether in whatever dimensions I want (Try this first)
+# Design Options
+# Pooling can be deeper
+# Pooling can be normed after pooling? (start with no but this may be needed)
 
+class DimsToPool(StrEnum):
+    MODALITY = "modality" # 1
+    TEMPORAL = "temporal" # 2
+    SPATIAL = "spatial"
+    MODALITY_TEMPORAL = "modality_temporal" # 3
+    MODALITY_SPATIAL = "modality_spatial"
+    TEMPORAL_SPATIAL = "temporal_spatial"
+    ALL = "all" # 4
+
+# Try doing each seperately first then 1 predictor for each
 
 # Encoder Pooling predictor
-
+# in the end the pooled tokens dict should just be a more granular option depending on the task so we don't have to worry about mean max pooling average pooling or anyhting like that
 class EncoderAttnPool(Encoder):
     """Encoder that pools the tokens across modalities."""
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, dims_to_pool: str, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.attn_pool = AttnPool(self.embedding_size, self.embedding_size)
+
+        self.dims_to_pool = dims_to_pool
+
+    def _get_reduce_and_expand_args(self, shape: tuple[int, ...]) -> tuple[str, str, dict[str, int], dict[str, int]]:
+        """Get the reduction and expansion arguments for the dimensions to pool."""
+        B, H, W, T, M, D = shape
+        # Make a reduction args and expand args for each dim pooling type
+        if self.dims_to_pool == DimsToPool.MODALITY:
+            reduction_args = f"(b h w t) m d"
+            reduction_mask_args = "(b h w t) m"
+            pre_expand_args = "(b h w t) d"
+            expand_args = "b h w t d"
+            expand_mask_kwargs = {"b": B, "h": H, "w": W, "t": T}
+            expand_kwargs = {"b": B, "h": H, "w": W, "t": T, "d": D}
+        elif self.dims_to_pool == DimsToPool.TEMPORAL:
+            reduction_args = f"(b h w m) t d"
+            reduction_mask_args = "(b h w m) t"
+            pre_expand_args = "(b h w m) d"
+            expand_args = "b h w m d"
+            expand_mask_kwargs = {"b": B, "h": H, "w": W, "m": M}
+            expand_kwargs = {"b": B, "h": H, "w": W, "m": M, "d": D}
+        elif self.dims_to_pool == DimsToPool.SPATIAL:
+            reduction_args = f"(b t m) (h w) d"
+            reduction_mask_args = "(b t m) (h w)"
+            pre_expand_args = "(b t m) d"
+            expand_args = "b t m d"
+            expand_mask_kwargs = {"b": B, "t": T, "m": M}
+            expand_kwargs = {"b": B, "t": T, "m": M, "d": D}
+            # Next do Modality and Temporal
+            # Then do All
+        elif self.dims_to_pool == DimsToPool.MODALITY_TEMPORAL:
+            reduction_args = f"(b h w ) (t m) d"
+            reduction_mask_args = "(b h w ) (t m)"
+            pre_expand_args = "(b h w) d"
+            expand_args = "b h w d"
+            expand_mask_kwargs = {"b": B, "h": H, "w": W}
+            expand_kwargs = {"b": B, "h": H, "w": W, "d": D}
+        elif self.dims_to_pool == DimsToPool.ALL:
+            reduction_args = f"b (h w t m)  d"
+            reduction_mask_args = "b (h w t m)"
+            pre_expand_args = "(b n) d"
+            expand_args = "b n d"
+            expand_mask_kwargs = {"b": B, "n": 1}
+            expand_kwargs = {"b": B, "n": 1, "d": D}
+        else:
+            raise ValueError(f"Invalid dimensions to pool options: {self.dims_to_pool}")
+        pre_expand_mask_args = pre_expand_args.replace(" d", "")
+        expand_mask_args = expand_args.replace(" d", "")
+        return reduction_args, reduction_mask_args, pre_expand_args, pre_expand_mask_args, expand_args, expand_mask_args, expand_mask_kwargs, expand_kwargs
+
+    def apply_attn_pooling(self, spatial_tokens: torch.Tensor, spatial_masks: torch.Tensor) -> dict[str, torch.Tensor]:
+        """Attentive pool the tokens across the dimensions specified in self.dims_to_pool."""
+        reduction_args, reduction_mask_args, pre_expand_args, pre_expand_mask_args, expand_args, expand_mask_args, expand_mask_kwargs, expand_kwargs = self._get_reduce_and_expand_args(spatial_tokens.shape)
+        # Here is where I pick which dimensions to collapse out of modality, time, and space
+        spatial_tokens = rearrange(spatial_tokens, f"b h w t m d -> {reduction_args}")
+
+        spatial_masks = rearrange(spatial_masks, f"b h w t m -> {reduction_mask_args}")
+        # print the unique values of the masks
+        logger.info(f"unique values of the masks: {torch.unique(spatial_masks)}")
+        pooled_attn_mask = spatial_masks == MaskValue.ONLINE_ENCODER.value
+        # Do I potentially need to filter out tokens that have no online marked modalities? Maybe not because we will just disgard those
+        logger.info(f"shape of spatial tokens before pooling: {spatial_tokens.shape}")
+        pooled_tokens = self.attn_pool(spatial_tokens, pooled_attn_mask)
+        logger.info(f"shape of pooled tokens: {pooled_tokens.shape}")
+        pooled_tokens = rearrange(pooled_tokens, f"{pre_expand_args} -> {expand_args}", **expand_kwargs)
+        # for spatial_masks if any in the modality dimension is online encode, set the token to online encoder only
+        # otherwise set to Missing Value
+        online_encoder_only_mask = (spatial_masks == MaskValue.ONLINE_ENCODER.value).any(dim=-1)
+        pooled_attn_mask = torch.where(online_encoder_only_mask, MaskValue.ONLINE_ENCODER.value, MaskValue.MISSING.value)
+
+        pooled_attn_mask = rearrange(pooled_attn_mask, f"{pre_expand_mask_args} -> {expand_mask_args}", **expand_mask_kwargs)
+        # TODO: Update names so they make sense for all the different options
+        pooled_dict = {
+            "modality_pooled_tokens": pooled_tokens,
+            "modality_pooled_masks": pooled_attn_mask,
+        }
+        return pooled_dict
+
 
     def forward(
         self,
@@ -530,37 +624,14 @@ class EncoderAttnPool(Encoder):
         ## Extra code for modality pooling
 
         spatial_tokens, spatial_masks = self.stack_spatial_modalities_and_masks(patchified_tokens_and_masks)
-        # I want to get to a shape of (B, H, W T) x M x D and then attentive pool across modalities
-        B, H, W, T, M, D = spatial_tokens.shape
-        spatial_tokens = rearrange(spatial_tokens, "b h w t m d -> (b h w t) m d")
-
-        spatial_masks = rearrange(spatial_masks, "b h w t m -> (b h w t) m")
-        # print the unique values of the masks
-        logger.info(f"unique values of the masks: {torch.unique(spatial_masks)}")
-        pooled_attn_mask = spatial_masks == MaskValue.ONLINE_ENCODER.value
-        # Do I potentially need to filter out tokens that have no online marked modalities? Maybe not because we will just disgard those
-
-
-        pooled_tokens = self.attn_pool(spatial_tokens, pooled_attn_mask)
-        logger.info(f"shape of pooled tokens: {pooled_tokens.shape}")
-        pooled_tokens = rearrange(pooled_tokens, "(b h w t) d -> b (h w t) d", b=B, h=H, w=W, t=T, d=D)
-        # for spatial_masks if any in the modality dimension is online encode, set the token to online encoder only
-        # otherwise set to Missing Value
-        online_encoder_only_mask = (spatial_masks == MaskValue.ONLINE_ENCODER.value).any(dim=-1)
-        pooled_attn_mask = torch.where(online_encoder_only_mask, MaskValue.ONLINE_ENCODER.value, MaskValue.MISSING.value)
-
-        pooled_attn_mask = rearrange(pooled_attn_mask, "(b h w t) -> b (h w t)", b=B, h=H, w=W, t=T)
-        pooled_dict = {
-            "modality_pooled_tokens": pooled_tokens,
-            "modality_pooled_masks": pooled_attn_mask,
-        }
-        logger.info(f"shape of pooled tokens: {pooled_tokens.shape}")
+        pooled_dict = self.apply_attn_pooling(spatial_tokens, spatial_masks)
         output = TokensAndMasks(**patchified_tokens_and_masks)
         return output, self.project_and_aggregate(output), pooled_dict
 
 @dataclass
 class EncoderAttnPoolConfig(EncoderConfig):
     """Configuration for the EncoderAttnPool."""
+    dims_to_pool: DimsToPool = DimsToPool.MODALITY
     def build(self) -> "EncoderAttnPool":
         """Build the encoder."""
         self.validate()

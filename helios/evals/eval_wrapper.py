@@ -75,16 +75,32 @@ class HeliosEvalWrapper(EvalWrapper):
 
     def __call__(self, masked_helios_sample: MaskedHeliosSample) -> torch.Tensor:
         """Forward pass through the model produces the embedding specified by initialization."""
-        batch_embeddings: TokensAndMasks = self.model(
-            masked_helios_sample, patch_size=self.patch_size
-        )[0]  # (bsz, dim)
-        # Concat features across modalities in space averaged across time
-        tokens_and_masks = batch_embeddings.pool_unmasked_tokens(
-            self.pooling_type,
-            spatial_pooling=self.spatial_pool,
-            concat_features=self.concat_features,
-        )
-        return tokens_and_masks
+        if self.pooling_type != PoolingType.ENCODER_MODALITY:
+            batch_embeddings: TokensAndMasks = self.model(
+                masked_helios_sample, patch_size=self.patch_size
+            )[0]  # (bsz, dim)
+                # Concat features across modalities in space averaged across time
+            batch_embeddings = batch_embeddings.pool_unmasked_tokens(
+                self.pooling_type,
+                spatial_pooling=self.spatial_pool,
+                concat_features=self.concat_features,
+            )
+        else:
+            pooled_tokens_dict = self.model(
+                masked_helios_sample, patch_size=self.patch_size
+            )[2]
+            pooled_tokens = pooled_tokens_dict["modality_pooled_tokens"]
+            # spatial pool is true means we want to keep the spatial dimensions
+            # so here we just need to pool across time
+            logger.info(f"pooled tokens shape in eval wrapper: {pooled_tokens.shape}")
+            if self.spatial_pool:
+                # B H W T C
+                pooled_tokens = pooled_tokens.mean(dim=-2)
+                logger.info(f"pooled tokens shape after pooling: {pooled_tokens.shape}")
+            else:
+                pooled_tokens = pooled_tokens.mean(dim=(1, 2, 3))
+            batch_embeddings = pooled_tokens
+        return batch_embeddings
 
 
 class PanopticonEvalWrapper(EvalWrapper):
