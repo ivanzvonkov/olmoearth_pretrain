@@ -9,7 +9,7 @@ from olmo_core.distributed.parallel.data_parallel import (
     DataParallelType,
 )
 from olmo_core.optim import AdamWConfig
-from olmo_core.optim.scheduler import WSD
+from olmo_core.optim.scheduler import WSD, ConstantWithWarmup
 from olmo_core.train.callbacks import (
     BeakerCallback,
     CheckpointerCallback,
@@ -87,13 +87,11 @@ def build_train_module_config(
     common: CommonComponents,
 ) -> LatentMIMTrainModuleConfig:
     """Build the train module config for an experiment."""
-    scheduler = WSD(
-        decay_steps=100000,
-        decay_fraction=None,
+    scheduler = ConstantWithWarmup(
+        warmup_steps=8000,
     )
     return LatentMIMTrainModuleConfig(
         optim_config=AdamWConfig(lr=0.0001, weight_decay=0.02, fused=True),
-        warmup_duration=Duration.steps(8000),
         rank_microbatch_size=64,  # Can be 256 on titan, needs to be <= 64 (i think) on jupiter
         masking_config=MaskingConfig(
             strategy_config={
