@@ -286,8 +286,9 @@ class PooledModalityPredictorConfig(Config):
 # Pooled modality predictor V2
 class PooledModalityPredictorV2(Predictor):
     """Predictor that pools the tokens across modalities."""
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, include_encoder_encodings: bool = True, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.include_encoder_encodings = include_encoder_encodings
 
     def apply_attn(
         self,
@@ -309,7 +310,12 @@ class PooledModalityPredictorV2(Predictor):
         )
         tokens_dict.update(original_masks_dict)
 
-        pooled_tokens = rearrange(pooled_dict["modality_pooled_tokens"], "b ... d -> b (...) d")
+        pooled_tokens = pooled_dict["modality_pooled_tokens"]
+        if self.include_encoder_encodings:
+            logger.info("Applying encoder encodings")
+            logger.info(f"pooled_tokens shape: {pooled_tokens.shape}")
+            pooled_tokens = self.composite_encodings._apply_encodings_per_modality(Modality.SENTINEL2_L2A.name, pooled_tokens, timestamps, patch_size, input_res, use_modality_encodings=False)
+        pooled_tokens = rearrange(pooled_tokens, "b ... d -> b (...) d")
         pooled_attn_mask = rearrange(pooled_dict["modality_pooled_masks"], "b ... -> b (...)")
 
         (
@@ -476,6 +482,7 @@ class PooledModalityPredictorV2(Predictor):
 @dataclass
 class PooledModalityPredictorV2Config(PredictorConfig):
     """Configuration for the PooledModalityPredictorV2."""
+    include_encoder_encodings: bool = True
     def build(self) -> "Predictor":
         """Build the predictor."""
         self.validate()

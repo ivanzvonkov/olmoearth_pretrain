@@ -720,6 +720,7 @@ class FlexiHeliosCompositeEncodings(nn.Module):
         """Calculate the Ground Sample Distance ratio."""
         return input_res * patch_size / BASE_GSD
 
+
     def _apply_encodings_per_modality(
         self,
         modality_name: str,
@@ -727,6 +728,7 @@ class FlexiHeliosCompositeEncodings(nn.Module):
         timestamps: Tensor | None = None,
         patch_size: int | None = None,
         input_res: int | None = None,
+        use_modality_encodings: bool = True,
     ) -> Tensor:
         """Apply the encodings to the patchified data based on modality type.
 
@@ -744,36 +746,43 @@ class FlexiHeliosCompositeEncodings(nn.Module):
 
         modality = Modality.get(modality_name)
         logger.debug(f"Applying encodings to modality {modality}")
-
-        if modality_tokens.ndim == 3:
-            # modality_tokens = [B, Band_Sets, D]; static in space, static in time
-            b, b_s, _ = modality_tokens.shape
-            ein_string, ein_dict = "b b_s d", {"b": b, "b_s": b_s}
-        elif modality_tokens.ndim == 4:
-            b, t, b_s, _ = modality_tokens.shape
-            ein_string, ein_dict = "b t b_s d", {"b": b, "t": t, "b_s": b_s}
-        elif modality_tokens.ndim == 5:
-            b, h, w, b_s, _ = modality_tokens.shape
-            ein_string, ein_dict = "b h w b_s d", {"b": b, "h": h, "w": w, "b_s": b_s}
-        elif modality_tokens.ndim == 6:
-            b, h, w, t, b_s, _ = modality_tokens.shape
+        if not use_modality_encodings:
+            b, h, w, t,  _ = modality_tokens.shape
             ein_string, ein_dict = (
-                "b h w t b_s d",
-                {"b": b, "h": h, "w": w, "t": t, "b_s": b_s},
+                "b h w t d",
+                {"b": b, "h": h, "w": w, "t": t},
             )
         else:
-            raise ValueError(f"Unsupported tokens shape: {modality_tokens.shape}")
+            if modality_tokens.ndim == 3:
+                # modality_tokens = [B, Band_Sets, D]; static in space, static in time
+                b, b_s, _ = modality_tokens.shape
+                ein_string, ein_dict = "b b_s d", {"b": b, "b_s": b_s}
+            elif modality_tokens.ndim == 4:
+                b, t, b_s, _ = modality_tokens.shape
+                ein_string, ein_dict = "b t b_s d", {"b": b, "t": t, "b_s": b_s}
+            elif modality_tokens.ndim == 5:
+                b, h, w, b_s, _ = modality_tokens.shape
+                ein_string, ein_dict = "b h w b_s d", {"b": b, "h": h, "w": w, "b_s": b_s}
+            elif modality_tokens.ndim == 6:
+                b, h, w, t, b_s, _ = modality_tokens.shape
+                ein_string, ein_dict = (
+                    "b h w t b_s d",
+                    {"b": b, "h": h, "w": w, "t": t, "b_s": b_s},
+                )
+            else:
+                raise ValueError(f"Unsupported tokens shape: {modality_tokens.shape}")
 
         device = modality_tokens.device
         modality_embed = torch.zeros(modality_tokens.shape, device=device)
         n = self.embedding_dim_per_embedding_type
 
         # Channel embeddings
-        channel_embed = self.per_modality_channel_embeddings[modality.name]
-        channel_embed = repeat(channel_embed, f"b_s d -> {ein_string}", **ein_dict).to(
-            device
-        )
-        modality_embed[..., :n] += channel_embed
+        if use_modality_encodings:
+            channel_embed = self.per_modality_channel_embeddings[modality.name]
+            channel_embed = repeat(channel_embed, f"b_s d -> {ein_string}", **ein_dict).to(
+                device
+            )
+            modality_embed[..., :n] += channel_embed
 
         if modality.is_multitemporal:
             # Time position encodings
