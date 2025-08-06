@@ -54,7 +54,7 @@ class AttnPool(nn.Module):
             hidden_dim = in_dim
         self.out_layer: Mlp = Mlp(in_dim, hidden_dim)
         self.init_weights()
-        self.out_norm = nn.LayerNorm(i_dim)
+        self.out_norm = nn.LayerNorm(in_dim)
 
     def init_weights(self) -> None:
         """Initialize weights for the probe."""
