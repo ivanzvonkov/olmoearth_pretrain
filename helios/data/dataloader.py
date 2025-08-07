@@ -298,7 +298,7 @@ class HeliosDataLoader(DataLoaderBase):
 
     def _get_mock_sample(self, rng: np.random.Generator) -> HeliosSample:
         output_dict = {}
-        standard_hw = 128
+        standard_hw = 64
         if Modality.SENTINEL2_L2A.name in self.dataset.training_modalities:
             mock_sentinel2_l2a = rng.random(
                 (standard_hw, standard_hw, 12, 12), dtype=np.float32
