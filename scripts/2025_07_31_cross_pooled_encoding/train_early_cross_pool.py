@@ -34,7 +34,6 @@ from helios.nn.flexihelios import (
 )
 from helios.nn.latent_mim import LatentMIMConfig
 from helios.nn.pooled_modality_predictor import (
-    EncoderAttnPoolConfig,
     EncoderEarlyAttnPoolConfig,
     PooledModalityPredictorV2Config,
 )
@@ -148,12 +147,17 @@ def build_dataset_config(common: CommonComponents) -> HeliosDatasetConfig:
     dataset_configs = [
         # presto
         HeliosDatasetConfig(
-            h5py_dir="/weka/dfive-default/helios/dataset/presto/h5py_data_w_missing_timesteps_128_x_4_zstd_3/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/469892",
+            h5py_dir="/weka/dfive-default/helios/dataset/presto/h5py_data_w_missing_timesteps_zstd_3_128_x_4/era5_10_landsat_naip_10_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/469728",
             training_modalities=common.training_modalities,
         ),
         # osm_sampling
         HeliosDatasetConfig(
-            h5py_dir="/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_w_missing_timesteps_128_x_4_zstd_3/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/1141152",
+            h5py_dir="/weka/dfive-default/helios/dataset/osm_sampling/h5py_data_w_missing_timesteps_zstd_3_128_x_4/gse_landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/1141152",
+            training_modalities=common.training_modalities,
+        ),
+        # osmbig
+        HeliosDatasetConfig(
+            h5py_dir="/weka/dfive-default/helios/dataset/osmbig/h5py_data_w_missing_timesteps_zstd_3_128_x_4/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/1297928",
             training_modalities=common.training_modalities,
         ),
     ]
@@ -237,7 +241,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
             norm_stats_from_pretrained=True,
             probe_lr=0.1,
             eval_interval=Duration.steps(10000),
-        )
+        ),
     }
     trainer_config = (
         TrainerConfig(
