@@ -23,6 +23,12 @@ MISSING_VALUE = -99999
 # Default maximum sequence length.
 MAX_SEQUENCE_LENGTH = 12
 
+# Default nodata value for Sentinel-1 data.
+SENTINEL1_NODATA = -32768
+
+# Number of timesteps for YEAR data.
+YEAR_NUM_TIMESTEPS = 12
+
 
 def get_resolution(resolution_factor: int) -> float | int:
     """Compute the resolution.
