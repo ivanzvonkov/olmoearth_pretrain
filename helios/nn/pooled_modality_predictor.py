@@ -396,6 +396,8 @@ class EncodeEarlyAttnPool(Encoder):
         self.num_pre_modality_pooling_layers = num_pre_modality_pooling_layers
 
         self.dims_to_pool = dims_to_pool
+        if self.use_flash_attn:
+            raise NotImplementedError("Flash attn not implemented")
 
     def _get_reduce_and_expand_args(
         self, shape: tuple[int, ...]
@@ -710,15 +712,11 @@ class EncodeEarlyAttnPool(Encoder):
         spatial_tokens, spatial_masks = self.stack_spatial_modalities_and_masks(
             tokens_dict
         )
-        logger.info(f"spatial_tokens shape: {spatial_tokens.shape}")
-        logger.info(f"spatial_masks shape: {spatial_masks.shape}")
+
         tokens_dict = self.apply_attn_pooling(spatial_tokens, spatial_masks)
         pooled_dims = tokens_dict["modality_pooled_tokens"].shape
-        logger.info(f"pooled_dims: {pooled_dims}")
         original_pooled_masks = tokens_dict["modality_pooled_masks"]
-        logger.info(f"original_pooled_masks shape: {original_pooled_masks.shape}")
         tokens, mask = self.collapse_and_combine_hwtc_pooled_tokens(tokens_dict)
-        logger.info(f"tokens shape: {tokens.shape}")
         bool_mask = mask == MaskValue.ONLINE_ENCODER.value
 
         tokens, indices, new_mask, seq_lengths, max_seqlen = self.remove_masked_tokens(
@@ -733,10 +731,7 @@ class EncodeEarlyAttnPool(Encoder):
                 exited_tokens, bool_mask
             )
         cu_seqlens = get_cumulative_sequence_lengths(seq_lengths)
-        # Pack x tokens
-        if self.use_flash_attn:
-            og_shape = tokens.shape
-            tokens = self.pack_tokens(tokens, new_mask)
+
 
         attn_mask = self.get_attn_or_none_mask(
             new_mask, always_pass_none_mask_to_transformer
@@ -770,8 +765,6 @@ class EncodeEarlyAttnPool(Encoder):
                 attn_mask=attn_mask,
             )
 
-        if self.use_flash_attn:
-            tokens = self.unpack_tokens(tokens, new_mask, og_shape)
 
         if exit_ids_seq is not None:
             # this should only ever be called by the target encoder,
