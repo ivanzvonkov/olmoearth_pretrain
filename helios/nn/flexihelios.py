@@ -3,7 +3,6 @@
 import logging
 import math
 from dataclasses import dataclass
-from enum import Enum
 from enum import StrEnum
 from typing import Any, NamedTuple
 
@@ -13,7 +12,7 @@ from olmo_core.config import Config
 from torch import Tensor, nn
 from torch.distributed.fsdp import fully_shard
 
-from helios.data.constants import Modality, ModalitySpec, BASE_GSD
+from helios.data.constants import BASE_GSD, Modality, ModalitySpec
 from helios.dataset.utils import get_modality_specs_from_names
 from helios.nn.attention import Block
 from helios.nn.encodings import (
@@ -45,7 +44,6 @@ def return_modalities_from_dict(
     return [
         key for key in per_modality_input_tokens.keys() if not key.endswith("_mask")
     ]
-
 
 
 class PoolingType(StrEnum):
@@ -91,6 +89,10 @@ class TokensAndMasks(NamedTuple):
     naip_10_mask: Tensor | None = None
     gse: Tensor | None = None
     gse_mask: Tensor | None = None
+    cdl: Tensor | None = None
+    cdl_mask: Tensor | None = None
+    worldcereal: Tensor | None = None
+    worldcereal_mask: Tensor | None = None
 
     @property
     def device(self) -> torch.device:
@@ -687,7 +689,9 @@ class FlexiHeliosCompositeEncodings(nn.Module):
             self.per_modality_channel_embeddings = nn.ParameterDict()
             for modality in self.supported_modalities:
                 shape = (len(modality.band_sets), self.embedding_dim_per_embedding_type)
-                channel_embeddings = nn.Parameter(torch.zeros(shape), requires_grad=False)
+                channel_embeddings = nn.Parameter(
+                    torch.zeros(shape), requires_grad=False
+                )
                 self.per_modality_channel_embeddings[modality.name] = channel_embeddings
         else:
             # Channel embeddings
@@ -720,7 +724,6 @@ class FlexiHeliosCompositeEncodings(nn.Module):
         """Calculate the Ground Sample Distance ratio."""
         return input_res * patch_size / BASE_GSD
 
-
     def _apply_encodings_per_modality(
         self,
         modality_name: str,
@@ -747,7 +750,7 @@ class FlexiHeliosCompositeEncodings(nn.Module):
         modality = Modality.get(modality_name)
         logger.debug(f"Applying encodings to modality {modality}")
         if not use_modality_encodings:
-            b, h, w, t,  _ = modality_tokens.shape
+            b, h, w, t, _ = modality_tokens.shape
             ein_string, ein_dict = (
                 "b h w t d",
                 {"b": b, "h": h, "w": w, "t": t},
@@ -762,7 +765,10 @@ class FlexiHeliosCompositeEncodings(nn.Module):
                 ein_string, ein_dict = "b t b_s d", {"b": b, "t": t, "b_s": b_s}
             elif modality_tokens.ndim == 5:
                 b, h, w, b_s, _ = modality_tokens.shape
-                ein_string, ein_dict = "b h w b_s d", {"b": b, "h": h, "w": w, "b_s": b_s}
+                ein_string, ein_dict = (
+                    "b h w b_s d",
+                    {"b": b, "h": h, "w": w, "b_s": b_s},
+                )
             elif modality_tokens.ndim == 6:
                 b, h, w, t, b_s, _ = modality_tokens.shape
                 ein_string, ein_dict = (
@@ -779,9 +785,9 @@ class FlexiHeliosCompositeEncodings(nn.Module):
         # Channel embeddings
         if use_modality_encodings:
             channel_embed = self.per_modality_channel_embeddings[modality.name]
-            channel_embed = repeat(channel_embed, f"b_s d -> {ein_string}", **ein_dict).to(
-                device
-            )
+            channel_embed = repeat(
+                channel_embed, f"b_s d -> {ein_string}", **ein_dict
+            ).to(device)
             modality_embed[..., :n] += channel_embed
 
         if modality.is_multitemporal:
@@ -947,7 +953,9 @@ class FlexiHeliosBase(nn.Module):
 
         return tokens, masks
 
-    def stack_spatial_modalities_and_masks(self, tokens_dict: dict[str, Tensor]) -> Tensor:
+    def stack_spatial_modalities_and_masks(
+        self, tokens_dict: dict[str, Tensor]
+    ) -> Tensor:
         """Stack the spatial modalities together."""
         available_modalities = return_modalities_from_dict(tokens_dict)
         modalities_to_process = get_modalities_to_process(
@@ -957,8 +965,12 @@ class FlexiHeliosBase(nn.Module):
         data_list = []
         for modality in modalities_to_process:
             if Modality.get(modality).is_spatial:
-                masked_modality_name = MaskedHeliosSample.get_masked_modality_name(modality)
-                logger.info(f"modality: {modality}, masked_modality_name: {masked_modality_name}")
+                masked_modality_name = MaskedHeliosSample.get_masked_modality_name(
+                    modality
+                )
+                logger.info(
+                    f"modality: {modality}, masked_modality_name: {masked_modality_name}"
+                )
                 data = tokens_dict[modality]
                 mask = tokens_dict[masked_modality_name]
                 logger.info(f"shape of data: {data.shape}")
@@ -967,7 +979,6 @@ class FlexiHeliosBase(nn.Module):
                 mask_list.append(mask)
         # stack in the modality dimension
         return torch.cat(data_list, dim=4), torch.cat(mask_list, dim=4)
-
 
     @staticmethod
     def _construct_einops_pattern(
@@ -1238,9 +1249,9 @@ class Encoder(FlexiHeliosBase):
             tokens: Tokens with removed tokens added
             mask: Mask with removed tokens added
         """
-        assert (
-            x.shape[1] > 0
-        ), "x must have at least one token we should not mask all tokens"
+        assert x.shape[1] > 0, (
+            "x must have at least one token we should not mask all tokens"
+        )
         masked_tokens = repeat(
             torch.zeros_like(x[0, 0, :]), "d -> b t d", b=x.shape[0], t=indices.shape[1]
         )
@@ -1273,9 +1284,9 @@ class Encoder(FlexiHeliosBase):
     ) -> tuple[Tensor | None]:
         """Create the exit sequences and tokens."""
         # Check that tokens_only_dict doesn't contain any mask keys
-        assert all(
-            not key.endswith("_mask") for key in tokens_only_dict
-        ), "tokens_only_dict should not contain mask keys"
+        assert all(not key.endswith("_mask") for key in tokens_only_dict), (
+            "tokens_only_dict should not contain mask keys"
+        )
         if token_exit_cfg:
             exit_ids_per_modality = self.create_token_exit_ids(
                 tokens_only_dict, token_exit_cfg
