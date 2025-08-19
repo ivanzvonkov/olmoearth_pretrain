@@ -1167,7 +1167,7 @@ class Encoder(GalileoBase):
             cur_min = x.min()
             new_min = m * (cur_min - 1)
             x = x + new_min
-            return torch.max(x, dim=1)
+            return torch.max(x, dim=1)[0]
 
     @classmethod
     def apply_mask_and_average_tokens_per_patch(
@@ -1780,7 +1780,7 @@ class GalileoWrapper(nn.Module):
             if pooling == PoolingType.MEAN:
                 return torch.mean(s_t_x[:, :, :, :, s_t_channels, :], dim=(3, 4))
             else:
-                return torch.max(s_t_x[:, :, :, :, s_t_channels, :], dim=(3, 4))
+                return torch.max(torch.max(s_t_x[:, :, :, :, s_t_channels, :], dim=3)[0], dim=3)[0]
 
 
 MODEL_SIZE_TO_WEKA_PATH = {
