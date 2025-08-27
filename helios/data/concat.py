@@ -71,6 +71,13 @@ class HeliosConcatDataset(ConcatDataset):
             sha256_hash.update(dataset.fingerprint.encode())
         return sha256_hash.hexdigest()
 
+    def _set_latlon_distribution(self) -> None:
+        """Set the latlon distribution of the dataset based on the latlon distribution of the sub datasets."""
+        dataset_latlons = []
+        for dataset in self.datasets:
+            dataset_latlons.append(dataset.latlon_distribution)
+        self.latlon_distribution = np.concatenate(dataset_latlons, axis=0)
+
     def prepare(self) -> None:
         """Prepare the dataset."""
         # The datasets should already be prepared before initializing
@@ -81,10 +88,7 @@ class HeliosConcatDataset(ConcatDataset):
 
         # We need to compute latlon_distribution attribute since it is expected by some
         # callback.
-        dataset_latlons = []
-        for dataset in self.datasets:
-            dataset_latlons.append(dataset.latlon_distribution)
-        self.latlon_distribution = np.concatenate(dataset_latlons, axis=0)
+        self._set_latlon_distribution()
 
         # Set training modalities attribute (accessed by data loader).
         self.training_modalities = self.datasets[0].training_modalities
@@ -93,6 +97,12 @@ class HeliosConcatDataset(ConcatDataset):
                 raise ValueError(
                     "expected all sub datasets to have same training modalities"
                 )
+
+    def filter_dataset_by_percentage(self, percentage: float, seed: int) -> None:
+        """Filter the dataset by a percentage of the total number of samples."""
+        for dataset in self.datasets:
+            dataset.filter_dataset_by_percentage(percentage, seed)
+        self._set_latlon_distribution()
 
 
 @dataclass
