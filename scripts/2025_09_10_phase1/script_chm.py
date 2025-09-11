@@ -63,10 +63,10 @@ def my_build_train_module_config(
             "decode_ratio": 0.5,
             "allow_encoding_decoding_same_bandset": True,
             "only_decode_modalities": [
-                "worldcover",
-                "srtm",
-                "openstreetmap_raster",
-                "wri_canopy_height_map",
+                Modality.WORLDCOVER.name,
+                Modality.SRTM.name,
+                Modality.OPENSTREETMAP_RASTER.name,
+                Modality.WRI_CANOPY_HEIGHT_MAP.name,
             ],
         }
     )
