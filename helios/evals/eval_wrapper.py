@@ -228,7 +228,7 @@ def get_eval_wrapper(model: nn.Module, **kwargs: Any) -> EvalWrapper:
         return DINOv3EvalWrapper(model=model, **kwargs)
     elif isinstance(model, Croma):
         logger.info("Using CromaEvalWrapper")
-        return DINOv3EvalWrapper(model=model, **kwargs)
+        return CromaEvalWrapper(model=model, **kwargs)
     elif isinstance(model, GalileoWrapper):
         logger.info("Using GalileoEvalWrapper")
         return GalileoEvalWrapper(model=model, **kwargs)

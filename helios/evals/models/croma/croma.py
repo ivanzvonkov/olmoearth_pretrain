@@ -183,6 +183,11 @@ class Croma(nn.Module):
                 # TODO: maybe right?
                 print("Spatial pooling")
                 timestep_output = timestep_output.mean(dim=1)
+            else:
+                side = math.isqrt(timestep_output.shape[1])
+                timestep_output = rearrange(
+                    timestep_output, "b (h w) c -> b h w c", h=side, w=side
+                )
             output_features.append(timestep_output.unsqueeze(0))
         # stack in the timestep dimension and take the mean or maybe the max?
         if pooling == PoolingType.MEAN:
