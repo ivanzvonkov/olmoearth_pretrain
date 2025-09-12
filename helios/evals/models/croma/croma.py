@@ -179,8 +179,9 @@ class Croma(nn.Module):
         output_key = output_keys[self.model.modality]
         for data in per_timestep_inputs:
             timestep_output = self.model(**data)[output_key]
-            if spatial_pool:
+            if not spatial_pool:
                 # TODO: maybe right?
+                print("Spatial pooling")
                 timestep_output = timestep_output.mean(dim=1)
             output_features.append(timestep_output.unsqueeze(0))
         # stack in the timestep dimension and take the mean or maybe the max?
