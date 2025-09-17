@@ -139,6 +139,26 @@ def get_galileo_args(pretrained_normalizer: bool = True) -> str:
     return galileo_args
 
 
+def get_satlas_args(pretrained_normalizer: bool = True) -> str:
+    """Get the satlas arguments."""
+    satlas_args = dataset_args
+    if pretrained_normalizer:
+        # To use galileo pretrained normalizer we want to leave normalization to the galileo wrapper
+        satlas_args = dataset_args
+        satlas_args += " " + " ".join(
+            [
+                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
+                for task_name in EVAL_TASKS.keys()
+            ]
+        )
+
+        satlas_args += " " + "--model.use_pretrained_normalizer=True"
+    else:
+        # IF we use dataset stats we want to turn off the pretrained normalizer
+        satlas_args += " " + "--model.use_pretrained_normalizer=False"
+    return satlas_args
+
+
 def _get_sub_command(args: argparse.Namespace) -> str:
     """Determine the sub command based on args and cluster."""
     if args.dry_run:
@@ -181,6 +201,8 @@ def _get_model_specific_args(args: argparse.Namespace) -> str:
         return get_panopticon_args()
     elif args.galileo:
         return get_galileo_args()
+    elif args.satlas:
+        return get_satlas_args()
     return ""
 
 
@@ -191,6 +213,11 @@ def _get_normalization_args(args: argparse.Namespace, norm_mode: str) -> str:
             return get_galileo_args(pretrained_normalizer=False)
         elif norm_mode == "pre_trained":
             return get_galileo_args(pretrained_normalizer=True)
+    elif args.satlas:
+        if norm_mode == "dataset":
+            return get_satlas_args(pretrained_normalizer=False)
+        elif norm_mode == "pre_trained":
+            return get_satlas_args(pretrained_normalizer=True)
     else:
         if norm_mode == "dataset":
             return dataset_args
