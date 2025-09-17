@@ -408,6 +408,11 @@ def main() -> None:
         action="store_true",
         help="If set, use the galileo normalization settings",
     )
+    parser.add_argument(
+        "--satlas",
+        action="store_true",
+        help="If set, use the satlas normalization settings",
+    )
     args, extra_cli = parser.parse_known_args()
 
     commands_to_run = build_commands(args, extra_cli)
