@@ -51,8 +51,14 @@ class Satlas(nn.Module):
         "base": {
             Modality.SENTINEL2_L2A.name: "sentinel2_swinb_si_ms.pth",
             Modality.LANDSAT.name: "landsat_swinb_si.pth",
-        }
+            Modality.SENTINEL1.name: "sentinel1_swinb_si.pth",
+        },
+        "tiny": {
+            Modality.SENTINEL2_L2A.name: "sentinel2_swint_si_ms.pth",
+        },
     }
+
+    size_to_backbone = {"base": Backbone.SWINB, "tiny": Backbone.SWINT}
 
     def __init__(
         self,
@@ -69,7 +75,7 @@ class Satlas(nn.Module):
         """
         super().__init__()
         self.satlas: satlaspretrain_models.Model | None = None
-        self.size = Backbone.SWINB if size == "base" else Backbone.SWINT
+        self.size = size
         self.dim = 1024 if size == "base" else 768
         self.load_directory = UPath(load_directory)
         self.init_modality: str | None = None
@@ -80,12 +86,13 @@ class Satlas(nn.Module):
     def _initialize_model(self, modality: str, multitemporal: bool) -> None:
         # check init modality to see if we need to reinitialize the model
         weights = torch.load(
-            self.load_directory / "satlas-model-v1-lowres-band.pth", map_location="cpu"
+            self.load_directory / self.modality_size_to_weights[self.size][modality],
+            map_location="cpu",
         )  # todo: how to select this?
         self.satlas = satlaspretrain_models.Model(
             num_channels=len(HELIOS_TO_SATLAS[modality]),
             multi_image=False,
-            backbone=self.size,
+            backbone=self.size_to_backbone[self.size],
             fpn=False,
             head=None,
             num_categories=None,
