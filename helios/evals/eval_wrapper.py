@@ -14,6 +14,7 @@ from helios.evals.models import (
     DINOv3,
     GalileoWrapper,
     Panopticon,
+    Prithvi,
 )
 from helios.nn.flexihelios import FlexiHeliosBase, PoolingType, TokensAndMasks
 from helios.nn.pooled_modality_predictor import EncodeEarlyAttnPool
@@ -250,7 +251,7 @@ def get_eval_wrapper(model: nn.Module, **kwargs: Any) -> EvalWrapper:
     elif isinstance(model, GalileoWrapper):
         logger.info("Using GalileoEvalWrapper")
         return GalileoEvalWrapper(model=model, **kwargs)
-    elif isinstance(model, PrithviEvalWrapper):
+    elif isinstance(model, Prithvi):
         logger.info("Using PrithviEvalWrapper")
         return PrithviEvalWrapper(model=model, **kwargs)
     else:
