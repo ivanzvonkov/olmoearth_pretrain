@@ -177,9 +177,11 @@ class PrithviConfig(Config):
     """olmo_core style config for Prithvi Wrapper."""
 
     load_directory: str = "/weka/dfive-default/helios/models/prithvi"
+    use_pretrained_normalizer: bool = True
 
     def build(self) -> Prithvi:
         """Build the Prithvi model."""
         return Prithvi(
             load_directory=self.load_directory,
+            use_pretrained_normalizer=self.use_pretrained_normalizer,
         )
