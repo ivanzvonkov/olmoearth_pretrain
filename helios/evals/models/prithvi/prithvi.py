@@ -1,13 +1,15 @@
 """Helios wrapper for Prithvi v2."""
 
 import math
-from pathlib import Path
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import yaml
 from einops import rearrange
+from olmo_core.config import Config
+from upath import UPath
 
 from helios.data.constants import Modality
 from helios.evals.models.prithvi.prithvi_mae import PrithviMAE
@@ -33,12 +35,12 @@ PRITHVI_STD = [
 ]
 
 
-class PrithviWrapper(nn.Module):
+class Prithvi(nn.Module):
     """Class containing the Prithvi model that can ingest MaskedHeliosSample objects."""
 
     def __init__(
         self,
-        load_directory: Path,
+        load_directory: str,
         use_pretrained_normalizer: bool = True,
     ):
         """Initialize the Prithvi wrapper.
@@ -49,14 +51,14 @@ class PrithviWrapper(nn.Module):
         """
         super().__init__()
 
-        with (load_directory / "config.json").open("r") as f:
+        with (UPath(load_directory) / "config.json").open("r") as f:
             config = yaml.safe_load(f)["pretrained_cfg"]
 
         config["num_frames"] = 1
 
         self.model = PrithviMAE(**config)
         state_dict = torch.load(
-            load_directory / "Prithvi_EO_V2_300M.pt", map_location="cpu"
+            UPath(load_directory) / "Prithvi_EO_V2_300M.pt", map_location="cpu"
         )
         # discard fixed pos_embedding weight, following
         # https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M/blob/e4aabdc440c8ee703a749def8af5bf4700dee35b/inference.py#L362
@@ -167,3 +169,16 @@ class PrithviWrapper(nn.Module):
         elif pooling == PoolingType.MAX:
             output_features = torch.max(torch.cat(outputs_list, dim=0), dim=0)[0]
         return output_features
+
+
+@dataclass
+class PrithviConfig(Config):
+    """olmo_core style config for Prithvi Wrapper."""
+
+    load_directory: str = "/weka/dfive-default/helios/models/prithvi"
+
+    def build(self) -> Prithvi:
+        """Build the Prithvi model."""
+        return Prithvi(
+            load_directory=self.load_directory,
+        )
