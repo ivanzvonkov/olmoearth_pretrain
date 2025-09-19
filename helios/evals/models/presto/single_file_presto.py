@@ -438,9 +438,11 @@ class Encoder(nn.Module):
         self,
         x: torch.Tensor,
         dynamic_world: torch.Tensor,
-        latlons: torch.Tensor,
-        mask: torch.Tensor | None = None,
-        month: torch.Tensor | int = 0,
+        # different from the original
+        # presto - latlons can be optionally ignored
+        latlons: Optional[torch.Tensor] = None,
+        mask: Optional[torch.Tensor] = None,
+        month: Union[torch.Tensor, int] = 0,
         eval_task: bool = True,
     ):
         device = x.device
@@ -523,8 +525,9 @@ class Encoder(nn.Module):
         x, kept_indices, removed_indices = self.mask_tokens(x, mask)
 
         # append latlon tokens
-        latlon_tokens = self.latlon_embed(self.cartesian(latlons)).unsqueeze(1)
-        x = torch.cat((latlon_tokens, x), dim=1)
+        if latlons is not None:
+            latlon_tokens = self.latlon_embed(self.cartesian(latlons)).unsqueeze(1)
+            x = torch.cat((latlon_tokens, x), dim=1)
 
         # apply Transformer blocks
         for blk in self.blocks:
