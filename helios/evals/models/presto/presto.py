@@ -27,19 +27,29 @@ INPUT_PRESTO_BANDS = [b for b in PRESTO_BANDS if b != "B09"]
 INPUT_PRESTO_S2_BANDS = [b for b in PRESTO_S2_BANDS if b != "B09"]
 
 
+PRESTO_S1_SUBTRACT_VALUE = -25.0
+PRESTO_S1_DIV_VALUE = 25.0
+PRESTO_S2_SUBTRACT_VALUE = 0.0
+PRESTO_S2_DIV_VALUE = 1e4
+
+
 class PrestoWrapper(nn.Module):
     """Class containing the Presto model that can ingest MaskedHeliosSample objects."""
 
     def __init__(
-        self, load_directory: str = "/weka/dfive-default/helios/models/presto"
+        self,
+        load_directory: str = "/weka/dfive-default/helios/models/presto",
+        use_pretrained_normalizer: bool = True,
     ):
         """Initialize the Presto wrapper.
 
         Args:
-            size: The model size
             load_directory: The directory to load from
+            use_pretrained_normalizer: Whether or not to apply presto pretraining normalization
         """
         super().__init__()
+
+        self.use_pretrained_normalizer = use_pretrained_normalizer
 
         model = Presto.construct()
         model.load_state_dict(
@@ -91,6 +101,8 @@ class PrestoWrapper(nn.Module):
             x = torch.zeros(
                 (b, t, len(INPUT_PRESTO_BANDS)), dtype=s2.dtype, device=s2.device
             )
+            if self.use_pretrained_normalizer:
+                s2 = (s2 - PRESTO_S2_SUBTRACT_VALUE) / PRESTO_S2_DIV_VALUE
             x[:, :, self.to_presto_s2_map] = s2[:, :, self.kept_s2_band_idx]
 
         elif s1 is not None:
@@ -108,6 +120,8 @@ class PrestoWrapper(nn.Module):
             x = torch.zeros(
                 (b, t, len(INPUT_PRESTO_BANDS)), dtype=s1.dtype, device=s1.device
             )
+            if self.use_pretrained_normalizer:
+                s1 = (s1 - PRESTO_S1_SUBTRACT_VALUE) / PRESTO_S1_DIV_VALUE
             x[:, :, self.to_presto_s1_map] = s1[:, :, self.kept_s1_band_idx]
 
         else:
@@ -168,9 +182,11 @@ class PrestoConfig(Config):
     """olmo_core style config for PrestoWrapper."""
 
     load_directory: str = "/weka/dfive-default/helios/models/presto"
+    use_pretrained_normalizer: bool = True
 
     def build(self) -> PrestoWrapper:
-        """Build the Croma model."""
+        """Build the Presto model."""
         return PrestoWrapper(
             load_directory=self.load_directory,
+            use_pretrained_normalizer=self.use_pretrained_normalizer,
         )
