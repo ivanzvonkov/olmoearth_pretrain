@@ -125,6 +125,18 @@ def get_panopticon_args() -> str:
     return panopticon_args
 
 
+def get_anysat_args() -> str:
+    """Get the anysat arguments."""
+    anysat = dataset_args
+    anysat += " " + " ".join(
+        [
+            f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
+            for task_name in EVAL_TASKS.keys()
+        ]
+    )
+    return anysat
+
+
 def get_galileo_args(pretrained_normalizer: bool = True) -> str:
     """Get the galileo arguments."""
     galileo_args = dataset_args
@@ -195,6 +207,8 @@ def _get_model_specific_args(args: argparse.Namespace) -> str:
         return get_galileo_args()
     elif args.croma:
         return get_croma_args()
+    elif args.anysat:
+        return get_anysat_args()
     return ""
 
 
@@ -401,6 +415,11 @@ def main() -> None:
         "--croma",
         action="store_true",
         help="If set, use the croma normalization settings",
+    )
+    parser.add_argument(
+        "--anysat",
+        action="store_true",
+        help="If set, use the anysat normalization settings",
     )
     args, extra_cli = parser.parse_known_args()
 
