@@ -415,7 +415,7 @@ class Dynamic_MLP_OFA_spectral(nn.Module):
             inplanes, self.kernel_size, self.kernel_size, self.embed_dim
         )  # 9, 3, 3, 1024
         print("in Dynamic MLP OFA")
-        print(img_feat.shape, dynamic_weight.shape, inplanes.shape)
+        print(img_feat.shape, dynamic_weight.shape, inplanes)
         dynamic_weight = dynamic_weight.permute([3, 0, 1, 2])  # 1024, 9, 3, 3
         print(dynamic_weight.shape)
 
