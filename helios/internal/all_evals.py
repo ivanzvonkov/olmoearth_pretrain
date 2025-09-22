@@ -50,6 +50,7 @@ EVAL_TASKS = {
     "m_eurosat": DownstreamTaskConfig(
         dataset="m-eurosat",
         embedding_batch_size=128,
+        ft_batch_size=32,
         num_workers=0,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -58,6 +59,7 @@ EVAL_TASKS = {
     "m_forestnet": DownstreamTaskConfig(
         dataset="m-forestnet",
         embedding_batch_size=64,
+        ft_batch_size=16,
         num_workers=4,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=False,
@@ -66,6 +68,7 @@ EVAL_TASKS = {
     "m_bigearthnet": DownstreamTaskConfig(
         dataset="m-bigearthnet",
         embedding_batch_size=64,
+        ft_batch_size=16,
         num_workers=4,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -74,6 +77,7 @@ EVAL_TASKS = {
     "m_so2sat": DownstreamTaskConfig(
         dataset="m-so2sat",
         embedding_batch_size=128,
+        ft_batch_size=32,
         num_workers=4,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -82,15 +86,84 @@ EVAL_TASKS = {
     "m_brick_kiln": DownstreamTaskConfig(
         dataset="m-brick-kiln",
         embedding_batch_size=128,
+        ft_batch_size=32,
         num_workers=4,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
         eval_interval=Duration.epochs(5),
     ),
+<<<<<<< HEAD
+=======
+    "mados": DownstreamTaskConfig(
+        dataset="mados",
+        embedding_batch_size=128,
+        probe_batch_size=128,
+        ft_batch_size=32,
+        num_workers=8,
+        pooling_type=PoolingType.MEAN,
+        norm_stats_from_pretrained=False,
+        probe_lr=0.01,
+        eval_interval=Duration.epochs(10),
+    ),
+    "pastis_sentinel2": DownstreamTaskConfig(
+        dataset="pastis",
+        embedding_batch_size=32,
+        probe_batch_size=8,
+        ft_batch_size=8,
+        num_workers=2,
+        pooling_type=PoolingType.MAX,
+        norm_stats_from_pretrained=True,
+        probe_lr=0.1,
+        eval_interval=Duration.epochs(50),
+        input_modalities=[Modality.SENTINEL2_L2A.name],
+        epochs=50,
+    ),
+    "breizhcrops": DownstreamTaskConfig(
+        dataset="breizhcrops",
+        embedding_batch_size=128,
+        probe_batch_size=128,
+        ft_batch_size=32,
+        num_workers=0,
+        pooling_type=PoolingType.MAX,
+        norm_stats_from_pretrained=True,
+        eval_interval=Duration.epochs(50),
+        patch_size=1,
+        eval_mode="linear_probe",
+        probe_lr=0.1,
+        epochs=50,
+    ),
+    "pastis_sentinel1": DownstreamTaskConfig(
+        dataset="pastis",
+        embedding_batch_size=32,
+        probe_batch_size=8,
+        ft_batch_size=8,
+        num_workers=2,
+        pooling_type=PoolingType.MEAN,
+        norm_stats_from_pretrained=True,
+        probe_lr=0.1,
+        eval_interval=Duration.epochs(50),
+        input_modalities=[Modality.SENTINEL1.name],
+        epochs=50,
+    ),
+    "pastis_sentinel1_sentinel2": DownstreamTaskConfig(
+        dataset="pastis",
+        embedding_batch_size=32,
+        probe_batch_size=8,
+        ft_batch_size=8,
+        num_workers=2,
+        pooling_type=PoolingType.MEAN,
+        norm_stats_from_pretrained=True,
+        probe_lr=0.1,
+        eval_interval=Duration.epochs(20),
+        input_modalities=[Modality.SENTINEL1.name, Modality.SENTINEL2_L2A.name],
+        epochs=50,
+    ),
+>>>>>>> 53c43f4b (adjust the ft batch size)
     "m_sa_crop_type": DownstreamTaskConfig(
         dataset="m-sa-crop-type",
         embedding_batch_size=32,
         probe_batch_size=8,
+        ft_batch_size=8,
         num_workers=2,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=False,
@@ -101,6 +174,7 @@ EVAL_TASKS = {
         dataset="m-cashew-plant",
         embedding_batch_size=32,
         probe_batch_size=8,
+        ft_batch_size=8,
         num_workers=2,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -179,6 +253,7 @@ EVAL_TASKS = {
     "cropharvest_Togo_12_sentinel2": DownstreamTaskConfig(
         dataset="cropharvest_Togo_12",
         embedding_batch_size=128,
+        ft_batch_size=32,
         num_workers=2,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -192,6 +267,7 @@ EVAL_TASKS = {
     "cropharvest_Togo_12_sentinel1": DownstreamTaskConfig(
         dataset="cropharvest_Togo_12",
         embedding_batch_size=128,
+        ft_batch_size=32,
         num_workers=2,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -202,11 +278,26 @@ EVAL_TASKS = {
         probe_lr=0.1,
         epochs=50,
     ),
+<<<<<<< HEAD
+=======
+    "sen1floods11": DownstreamTaskConfig(
+        dataset="sen1floods11",
+        embedding_batch_size=128,
+        probe_batch_size=128,
+        ft_batch_size=32,
+        num_workers=4,
+        pooling_type=PoolingType.MEAN,
+        norm_stats_from_pretrained=False,
+        probe_lr=0.1,
+        eval_interval=Duration.epochs(10),
+    ),
+>>>>>>> 53c43f4b (adjust the ft batch size)
     # example of "in season" cropland mapping - 6 indicates only the
     # first 6 timesteps are passed to the model
     "cropharvest_Peoples_Republic_of_China_6": DownstreamTaskConfig(
         dataset="cropharvest_People's Republic of China_6",
         embedding_batch_size=128,
+        ft_batch_size=32,
         num_workers=2,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -220,6 +311,7 @@ EVAL_TASKS = {
     "cropharvest_Peoples_Republic_of_China_6_sentinel1": DownstreamTaskConfig(
         dataset="cropharvest_People's Republic of China_6",
         embedding_batch_size=128,
+        ft_batch_size=32,
         num_workers=2,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -233,6 +325,7 @@ EVAL_TASKS = {
     "cropharvest_Togo_12_sentinel2_sentinel1": DownstreamTaskConfig(
         dataset="cropharvest_Togo_12",
         embedding_batch_size=128,
+        ft_batch_size=32,
         num_workers=2,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -246,6 +339,7 @@ EVAL_TASKS = {
     "cropharvest_Peoples_Republic_of_China_6_sentinel1_sentinel2": DownstreamTaskConfig(
         dataset="cropharvest_People's Republic of China_6",
         embedding_batch_size=128,
+        ft_batch_size=32,
         num_workers=2,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
