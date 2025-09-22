@@ -127,14 +127,20 @@ def get_panopticon_args() -> str:
 
 def get_anysat_args() -> str:
     """Get the anysat arguments."""
-    anysat = dataset_args
-    anysat += " " + " ".join(
+    anysat_args = dataset_args
+    anysat_args += " " + " ".join(
         [
             f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
             for task_name in EVAL_TASKS.keys()
         ]
     )
-    return anysat
+    anysat_args += " " + " ".join(
+        [
+            f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.embedding_batch_size=8"
+            for task_name in EVAL_TASKS.keys()
+        ]
+    )
+    return anysat_args
 
 
 def get_galileo_args(pretrained_normalizer: bool = True) -> str:
