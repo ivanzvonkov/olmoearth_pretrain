@@ -20,7 +20,7 @@ from helios.nn.flexihelios import PoolingType
 # Linear probe learning rates to sweep over
 LP_LRs = [1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 1e-1, 5e-1]
 # Fine-tune learning rates to sweep over
-FT_LRs = [1e-4, 3e-4, 6e-4, 1e-3]  # 1e-5, 3e-5, 6e-5,
+FT_LRs = [1e-5, 3e-5, 6e-5, 1e-4, 3e-4, 6e-4, 1e-3]
 
 Normalization_MODES = ["pre_trained", "dataset"]
 pooling_types = [PoolingType.MEAN, PoolingType.MAX]
@@ -104,7 +104,7 @@ def no_norm_sweep() -> Generator[dict[str, Any], None, None]:
 
 
 def ft_loop_through_params() -> Generator[dict[str, Any], None, None]:
-    """Yield FT sweep points (ft_lr × norm_mode × pooling)."""
+    """Yield FT sweep points (ft_lr * norm_mode * pooling)."""
     for lr in FT_LRs:
         for norm_mode in Normalization_MODES:
             for pooling_type in pooling_types:

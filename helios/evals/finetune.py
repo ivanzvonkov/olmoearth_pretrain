@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from logging import getLogger
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,6 +16,8 @@ from helios.evals.eval_wrapper import get_eval_wrapper
 from helios.evals.metrics import mean_iou
 from helios.evals.utils import adjust_learning_rate
 from helios.train.masking import MaskedHeliosSample
+
+logger = getLogger(__name__)
 
 
 class _BackboneWithHead(nn.Module):
@@ -51,8 +55,8 @@ class _BackboneWithHead(nn.Module):
         else:
             logits_per_patch = int(self.num_classes * self.patch_size * self.patch_size)
             self._head = nn.Linear(emb_dim, logits_per_patch, bias=True)
-        nn.init.trunc_normal_(self._head.weight, std=0.02)
-        nn.init.zeros_(self._head.bias)
+        # nn.init.trunc_normal_(self._head.weight, std=0.02)
+        # nn.init.zeros_(self._head.bias)
         self._head = self._head.to(device=device)
         self._inited = True
 
@@ -197,19 +201,21 @@ def run_finetune_eval(
                             align_corners=True,
                         )
                 loss = loss_fn(logits, label)
-
-            loss.backward()
-            adjust_learning_rate(
-                optimizer=opt,
-                epoch=epoch + (i / max(1, len(train_loader))),
-                total_epochs=epochs,
-                warmup_epochs=max(1, int(0.1 * epochs)),
-                max_lr=lr,
-                min_lr=1.0e-5,
-            )
-            torch.nn.utils.clip_grad_norm_(ft.parameters(), 1.0)
-            opt.step()
-            opt.zero_grad(set_to_none=True)
+                logger.info(
+                    f"Finetune Epoch [{epoch + 1}/{epochs}] Step [{i + 1}/{len(train_loader)}] Loss: {loss.item():.4f}"
+                )
+                loss.backward()
+                adjust_learning_rate(
+                    optimizer=opt,
+                    epoch=epoch + (i / max(1, len(train_loader))),
+                    total_epochs=epochs,
+                    warmup_epochs=max(1, int(0.1 * epochs)),
+                    max_lr=lr,
+                    min_lr=1.0e-5,
+                )
+                torch.nn.utils.clip_grad_norm_(ft.parameters(), 1.0)
+                opt.step()
+                opt.zero_grad()
 
     if task_config.task_type == TaskType.CLASSIFICATION:
         return _eval_cls(ft, val_loader, device)
