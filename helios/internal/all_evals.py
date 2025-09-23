@@ -502,6 +502,19 @@ FT_EVAL_TASKS = {
         probe_lr=0.1,
         eval_interval=Duration.epochs(10),
     ),
+    "cropharvest_Togo_12_sentinel2": DownstreamTaskConfig(
+        dataset="cropharvest_Togo_12",
+        ft_batch_size=64,
+        num_workers=2,
+        pooling_type=PoolingType.MEAN,
+        norm_stats_from_pretrained=True,
+        eval_interval=Duration.epochs(20),
+        input_modalities=[Modality.SENTINEL2_L2A.name],
+        patch_size=1,
+        eval_mode="linear_probe",
+        probe_lr=0.1,
+        epochs=50,
+    ),
 }
 
 
