@@ -227,6 +227,11 @@ def _get_normalization_args(args: argparse.Namespace, norm_mode: str) -> str:
             return get_galileo_args(pretrained_normalizer=False)
         elif norm_mode == "pre_trained":
             return get_galileo_args(pretrained_normalizer=True)
+    if args.clay:
+        if norm_mode == "dataset":
+            return get_clay_args(pretrained_normalizer=False)
+        elif norm_mode == "pre_trained":
+            return get_clay_args(pretrained_normalizer=True)
     else:
         if norm_mode == "dataset":
             return dataset_args
