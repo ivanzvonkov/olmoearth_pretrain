@@ -543,7 +543,7 @@ def _build_default_ft_command(
         f"TRAIN_SCRIPT_PATH={module_path} {launch_command} helios/internal/all_evals.py "
         f"{sub_command} {run_name} {args.cluster} --launch.priority=high "
         f"--launch.task_name=eval {checkpoint_args} --trainer.callbacks.wandb.project={project_name}{extra} {cmd_args} "
-        # This is needed to disable DP for Helios FT runs
+        # We need to disable FSDP as that will create DTensor and also not loading optimizer states
         "--train_module.dp_config.name=ddp "
         "--train_module.state_dict_load_opts.ignore_optimizer_states=True"
     )
@@ -581,7 +581,7 @@ def _build_ft_hyperparameter_command(
         f"TRAIN_SCRIPT_PATH={module_path} {launch_command} helios/internal/all_evals.py "
         f"{sub_command} {run_name} {args.cluster} --launch.priority=high {cmd_args} "
         f"--launch.task_name=eval {checkpoint_args} --trainer.callbacks.wandb.project={project_name}{extra} "
-        # This is needed to disable DP for Helios FT runs
+        # # We need to disable FSDP as that will create DTensor and also not loading optimizer states
         "--train_module.dp_config.name=ddp "
         "--train_module.state_dict_load_opts.ignore_optimizer_states=True"
     )

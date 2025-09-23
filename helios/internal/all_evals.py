@@ -394,9 +394,7 @@ FT_EVAL_TASKS = {
         num_workers=2,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
-        probe_lr=0.1,
-        eval_interval=Duration.epochs(50),
-        input_modalities=[Modality.SENTINEL2_L2A.name],
+        eval_interval=Duration.epochs(5),
         epochs=50,
     ),
     "nandi_sentinel2": DownstreamTaskConfig(
