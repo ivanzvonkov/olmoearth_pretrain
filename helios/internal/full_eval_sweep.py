@@ -794,11 +794,10 @@ def main() -> None:
     )
     args, extra_cli = parser.parse_known_args()
 
-    commands_to_run = build_commands(args, extra_cli)
     env = os.environ.copy()
     if args.finetune:
         env["FINETUNE"] = "1"
-
+    commands_to_run = build_commands(args, extra_cli)
     for cmd in commands_to_run:
         logger.info(cmd)
         subprocess.run(cmd, shell=True, check=True, env=env)  # nosec
