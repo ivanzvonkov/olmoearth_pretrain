@@ -17,7 +17,6 @@ from helios.nn.flexihelios import PoolingType
 from helios.train.masking import MaskedHeliosSample
 
 logger = logging.getLogger(__name__)
-
 CLAY_SENTINEL2_BANDS = [
     Modality.SENTINEL2_L2A.band_order.index(b)
     for b in [
@@ -35,14 +34,14 @@ CLAY_SENTINEL2_BANDS = [
 ]
 
 CLAY_LANDSAT_BANDS = [
-    Modality.SENTINEL1.band_order.index(b)
+    Modality.LANDSAT.band_order.index(b)
     for b in [
-        "B04",
-        "B03",
-        "B02",
-        "B05",
-        "B06",
-        "B07",
+        "B4",
+        "B3",
+        "B2",
+        "B5",
+        "B6",
+        "B7",
     ]
 ]
 
