@@ -50,8 +50,8 @@ class Clay(nn.Module):
     """Class containing the Clay model that can ingest MaskedHeliosSample objects."""
 
     patch_size: int = 8
-    image_resolution: int = 256
-    use_cls_token: bool = False
+    image_resolution: int = 128
+    use_cls_token: bool = True
     supported_modalities: list[str] = [
         Modality.SENTINEL2_L2A.name,
         Modality.SENTINEL1.name,
@@ -233,7 +233,7 @@ class Clay(nn.Module):
                 }
                 embeddings, *_ = self.model.encoder(cube)
                 if self.use_cls_token and not spatial_pool:
-                    embeddings = embeddings[:, 0, :]  # cls_token
+                    embeddings = embeddings[:, :1, :]  # cls_token
                 else:
                     embeddings = embeddings[:, 1:, :]  # exclude cls_token
                 embedding_list.append(embeddings)
