@@ -97,6 +97,7 @@ EVAL_TASKS = {
         norm_stats_from_pretrained=False,
         probe_lr=0.01,
         eval_interval=Duration.epochs(10),
+        epochs=50,
     ),
     "pastis_sentinel2": DownstreamTaskConfig(
         dataset="pastis",
@@ -123,54 +124,6 @@ EVAL_TASKS = {
         probe_lr=0.1,
         epochs=50,
     ),
-    "sickle_landsat": DownstreamTaskConfig(
-        dataset="sickle",
-        embedding_batch_size=32,
-        probe_batch_size=16,
-        num_workers=2,
-        pooling_type=PoolingType.MEAN,
-        norm_stats_from_pretrained=True,
-        probe_lr=0.01,
-        eval_interval=Duration.epochs(10),
-        input_modalities=[Modality.LANDSAT.name],
-        epochs=50,
-    ),
-    "sickle_sentinel1": DownstreamTaskConfig(
-        dataset="sickle",
-        embedding_batch_size=32,
-        probe_batch_size=16,
-        num_workers=2,
-        pooling_type=PoolingType.MEAN,
-        norm_stats_from_pretrained=False,
-        probe_lr=0.01,
-        eval_interval=Duration.epochs(10),
-        input_modalities=[Modality.SENTINEL1.name],
-        epochs=50,
-    ),
-    "sickle_sentinel1_landsat": DownstreamTaskConfig(
-        dataset="sickle",
-        embedding_batch_size=32,
-        probe_batch_size=16,
-        num_workers=2,
-        pooling_type=PoolingType.MEAN,
-        norm_stats_from_pretrained=False,
-        probe_lr=0.002,
-        eval_interval=Duration.epochs(10),
-        input_modalities=[Modality.SENTINEL1.name, Modality.LANDSAT.name],
-        epochs=50,
-    ),
-    "sickle_sentinel1_sentinel2": DownstreamTaskConfig(
-        dataset="sickle",
-        embedding_batch_size=32,
-        probe_batch_size=16,
-        num_workers=2,
-        pooling_type=PoolingType.MEAN,
-        norm_stats_from_pretrained=False,
-        probe_lr=0.002,
-        eval_interval=Duration.epochs(10),
-        input_modalities=[Modality.SENTINEL1.name, Modality.SENTINEL2_L2A.name],
-        epochs=50,
-    ),
     "pastis_sentinel1": DownstreamTaskConfig(
         dataset="pastis",
         embedding_batch_size=32,
@@ -185,7 +138,7 @@ EVAL_TASKS = {
     ),
     "pastis_sentinel1_sentinel2": DownstreamTaskConfig(
         dataset="pastis",
-        embedding_batch_size=512,
+        embedding_batch_size=32,
         probe_batch_size=8,
         num_workers=2,
         pooling_type=PoolingType.MEAN,
@@ -215,32 +168,6 @@ EVAL_TASKS = {
         probe_lr=0.1,
         eval_interval=Duration.epochs(10),
     ),
-    "cropharvest_Togo_12_sentinel2": DownstreamTaskConfig(
-        dataset="cropharvest_Togo_12",
-        embedding_batch_size=128,
-        num_workers=2,
-        pooling_type=PoolingType.MEAN,
-        norm_stats_from_pretrained=True,
-        eval_interval=Duration.epochs(20),
-        input_modalities=[Modality.SENTINEL2_L2A.name],
-        patch_size=1,
-        eval_mode="linear_probe",
-        probe_lr=0.1,
-        epochs=50,
-    ),
-    "cropharvest_Togo_12_sentinel1": DownstreamTaskConfig(
-        dataset="cropharvest_Togo_12",
-        embedding_batch_size=128,
-        num_workers=2,
-        pooling_type=PoolingType.MEAN,
-        norm_stats_from_pretrained=True,
-        eval_interval=Duration.epochs(20),
-        input_modalities=[Modality.SENTINEL1.name],
-        patch_size=1,
-        eval_mode="linear_probe",
-        probe_lr=0.1,
-        epochs=50,
-    ),
     "sen1floods11": DownstreamTaskConfig(
         dataset="sen1floods11",
         embedding_batch_size=128,
@@ -250,63 +177,6 @@ EVAL_TASKS = {
         norm_stats_from_pretrained=False,
         probe_lr=0.1,
         eval_interval=Duration.epochs(10),
-    ),
-    # example of "in season" cropland mapping - 6 indicates only the
-    # first 6 timesteps are passed to the model
-    "cropharvest_Peoples_Republic_of_China_6": DownstreamTaskConfig(
-        dataset="cropharvest_People's Republic of China_6",
-        embedding_batch_size=128,
-        num_workers=2,
-        pooling_type=PoolingType.MEAN,
-        norm_stats_from_pretrained=True,
-        eval_interval=Duration.epochs(20),
-        input_modalities=[Modality.SENTINEL2_L2A.name],
-        patch_size=1,
-        eval_mode="linear_probe",
-        probe_lr=0.1,
-        epochs=50,
-    ),
-    "cropharvest_Peoples_Republic_of_China_6_sentinel1": DownstreamTaskConfig(
-        dataset="cropharvest_People's Republic of China_6",
-        embedding_batch_size=128,
-        num_workers=2,
-        pooling_type=PoolingType.MEAN,
-        norm_stats_from_pretrained=True,
-        eval_interval=Duration.epochs(20),
-        input_modalities=[Modality.SENTINEL1.name],
-        patch_size=1,
-        eval_mode="linear_probe",
-        probe_lr=0.1,
-        epochs=50,
-    ),
-    "cropharvest_Togo_12_sentinel2_sentinel1": DownstreamTaskConfig(
-        dataset="cropharvest_Togo_12",
-        embedding_batch_size=128,
-        num_workers=2,
-        pooling_type=PoolingType.MEAN,
-        norm_stats_from_pretrained=True,
-        eval_interval=Duration.epochs(20),
-        input_modalities=[Modality.SENTINEL2_L2A.name, Modality.SENTINEL1.name],
-        patch_size=1,
-        eval_mode="linear_probe",
-        probe_lr=0.1,
-        epochs=50,
-    ),
-    "cropharvest_Peoples_Republic_of_China_6_sentinel1_sentinel2": DownstreamTaskConfig(
-        dataset="cropharvest_People's Republic of China_6",
-        embedding_batch_size=128,
-        num_workers=2,
-        pooling_type=PoolingType.MEAN,
-        norm_stats_from_pretrained=True,
-        eval_interval=Duration.epochs(20),
-        input_modalities=[
-            Modality.SENTINEL2_L2A.name,
-            Modality.SENTINEL1.name,
-        ],
-        patch_size=1,
-        eval_mode="linear_probe",
-        probe_lr=0.1,
-        epochs=50,
     ),
 }
 
@@ -333,7 +203,6 @@ FT_EVAL_TASKS = {
         probe_lr=0.01,
         eval_interval=Duration.epochs(10),
     ),
-<<<<<<< HEAD
     "pastis_sentinel2": DownstreamTaskConfig(
         dataset="pastis",
         embedding_batch_size=32,
@@ -506,8 +375,6 @@ FT_EVAL_TASKS = {
         probe_lr=0.1,
         epochs=50,
     ),
-=======
->>>>>>> 1bc55514 (only a subset tasks doing finetuning)
     "sen1floods11": DownstreamTaskConfig(
         dataset="sen1floods11",
         embedding_batch_size=128,
@@ -523,7 +390,7 @@ FT_EVAL_TASKS = {
         dataset="pastis",
         embedding_batch_size=32,
         probe_batch_size=8,
-        ft_batch_size=4,
+        ft_batch_size=8,
         num_workers=2,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -631,17 +498,6 @@ FT_EVAL_TASKS = {
 }
 
 
-def _select_tasks_from_env() -> dict[str, DownstreamTaskConfig]:
-    """If FINETUNE=1 use FT_EVAL_TASKS, otherwise use EVAL_TASKS."""
-    finetune_flag = os.environ.get("FINETUNE", "0")
-    use_ft = finetune_flag == "1"
-    tasks = FT_EVAL_TASKS if use_ft else EVAL_TASKS
-    logger.info(
-        f"Using {'FT_EVAL_TASKS' if use_ft else 'EVAL_TASKS'} (FINETUNE={finetune_flag})"
-    )
-    return tasks
-
-
 def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     """Build the trainer config for an experiment."""
     MAX_DURATION = Duration.epochs(300)
@@ -650,8 +506,6 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
     LOAD_STRATEGY = LoadStrategy.if_available
     WANDB_USERNAME = "eai-ai2"  # nosec
     WANDB_PROJECT = "helios_in_loop_evals"
-
-    selected_tasks = _select_tasks_from_env()
     checkpointer_config = CheckpointerConfig(work_dir=common.save_folder)
     wandb_callback = HeliosWandBCallback(
         name=common.run_name,
@@ -677,7 +531,7 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
         .with_callback(
             "downstream_evaluator",
             DownstreamEvaluatorCallbackConfig(
-                tasks=selected_tasks,
+                tasks=EVAL_TASKS,
                 eval_on_startup=True,
                 cancel_after_first_eval=True,
                 run_on_test=False,
