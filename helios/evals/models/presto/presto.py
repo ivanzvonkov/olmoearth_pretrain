@@ -213,6 +213,8 @@ class PrestoConfig(Config):
 
     def build(self) -> PrestoWrapper:
         """Build the Presto model."""
+        if not (UPath(self.load_directory) / "default_model.pt").exists():
+            raise RuntimeError(f"Missing file {self.load_directory}'/default_model.pt")
         return PrestoWrapper(
             load_directory=self.load_directory,
             use_pretrained_normalizer=self.use_pretrained_normalizer,
