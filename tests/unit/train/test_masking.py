@@ -1181,13 +1181,18 @@ class TestModalityCrossMaskingStrategy:
         )
         strat = ModalityCrossMaskingStrategy(RandomMaskingStrategy())
         expected_present = [
-            [("sentinel2_l2a", 0), ("sentinel2_l2a", 1), ("latlon", 0), ("latlon", 1)],
             [
-                ("sentinel2_l2a", 0),
-                ("sentinel2_l2a", 1),
-                ("worldcover", 0),
-                ("latlon", 0),
-                ("latlon", 1),
+                (Modality.SENTINEL2_L2A.name, 0),
+                (Modality.SENTINEL2_L2A.name, 1),
+                (Modality.LATLON.name, 0),
+                (Modality.LATLON.name, 1),
+            ],
+            [
+                (Modality.SENTINEL2_L2A.name, 0),
+                (Modality.SENTINEL2_L2A.name, 1),
+                (Modality.WORLDCOVER.name, 0),
+                (Modality.LATLON.name, 0),
+                (Modality.LATLON.name, 1),
             ],
         ]
         present = strat.get_sample_present_modalities_bandsets(batch)
@@ -1218,13 +1223,17 @@ class TestModalityCrossMaskingStrategy:
         present = strat.get_sample_present_modalities_bandsets(batch)
         logger.info(f"present: {present}")
         expected_present = [
-            [("worldcover", 0), ("latlon", 0), ("latlon", 1)],
             [
-                ("sentinel2_l2a", 0),
-                ("sentinel2_l2a", 1),
-                ("worldcover", 0),
-                ("latlon", 0),
-                ("latlon", 1),
+                (Modality.WORLDCOVER.name, 0),
+                (Modality.LATLON.name, 0),
+                (Modality.LATLON.name, 1),
+            ],
+            [
+                (Modality.SENTINEL2_L2A.name, 0),
+                (Modality.SENTINEL2_L2A.name, 1),
+                (Modality.WORLDCOVER.name, 0),
+                (Modality.LATLON.name, 0),
+                (Modality.LATLON.name, 1),
             ],
         ]
         assert expected_present == present
@@ -1251,13 +1260,88 @@ class TestModalityCrossMaskingStrategy:
         strat = ModalityCrossMaskingStrategy(RandomMaskingStrategy())
         present = strat.get_sample_present_modalities_bandsets(batch)
         expected_present = [
-            [("sentinel2_l2a", 0), ("sentinel2_l2a", 1), ("latlon", 0), ("latlon", 1)],
             [
-                ("sentinel2_l2a", 0),
-                ("sentinel2_l2a", 1),
-                ("worldcover", 0),
-                ("latlon", 0),
-                ("latlon", 1),
+                (Modality.SENTINEL2_L2A.name, 0),
+                (Modality.SENTINEL2_L2A.name, 1),
+                (Modality.LATLON.name, 0),
+                (Modality.LATLON.name, 1),
+            ],
+            [
+                (Modality.SENTINEL2_L2A.name, 0),
+                (Modality.SENTINEL2_L2A.name, 1),
+                (Modality.WORLDCOVER.name, 0),
+                (Modality.LATLON.name, 0),
+                (Modality.LATLON.name, 1),
             ],
         ]
         assert expected_present == present
+
+    def test_select_encoded_decoded_bandsets(self) -> None:
+        """Test select encoded decoded bandsets."""
+        present_modalities_bandsets = [
+            [
+                (Modality.SENTINEL2_L2A.name, 0),
+                (Modality.SENTINEL2_L2A.name, 1),
+                (Modality.LATLON.name, 0),
+                (Modality.LATLON.name, 1),
+            ],
+            [
+                (Modality.SENTINEL2_L2A.name, 0),
+                (Modality.SENTINEL2_L2A.name, 1),
+                (Modality.WORLDCOVER.name, 0),
+                (Modality.LATLON.name, 0),
+                (Modality.LATLON.name, 1),
+            ],
+        ]
+        expected_encoded_decoded_bandsets = [
+            (
+                set([(Modality.SENTINEL2_L2A.name, 0)]),
+                set([(Modality.SENTINEL2_L2A.name, 1)]),
+            ),
+            (
+                set([(Modality.SENTINEL2_L2A.name, 0)]),
+                set([(Modality.SENTINEL2_L2A.name, 1)]),
+            ),
+        ]
+        strat = ModalityCrossMaskingStrategy(RandomMaskingStrategy())
+        encoded_decoded_bandsets = strat.select_encoded_decoded_bandsets(
+            present_modalities_bandsets
+        )
+        logger.info(f"encoded_decoded_bandsets: {encoded_decoded_bandsets}")
+        assert expected_encoded_decoded_bandsets == encoded_decoded_bandsets
+
+    def test_select_encoded_decoded_bandsets_only_decode_modalities(self) -> None:
+        """Test select encoded decoded bandsets with only decode modalities."""
+        present_modalities_bandsets = [
+            [
+                (Modality.SENTINEL2_L2A.name, 0),
+                (Modality.SENTINEL2_L2A.name, 1),
+                (Modality.LATLON.name, 0),
+                (Modality.LATLON.name, 1),
+            ],
+            [
+                (Modality.SENTINEL2_L2A.name, 0),
+                (Modality.SENTINEL2_L2A.name, 1),
+                (Modality.WORLDCOVER.name, 0),
+                (Modality.LATLON.name, 0),
+                (Modality.LATLON.name, 1),
+            ],
+        ]
+        expected_encoded_decoded_bandsets = [
+            (
+                set([(Modality.SENTINEL2_L2A.name, 0)]),
+                set([(Modality.SENTINEL2_L2A.name, 1)]),
+            ),
+            (
+                set([(Modality.SENTINEL2_L2A.name, 0)]),
+                set([(Modality.SENTINEL2_L2A.name, 1)]),
+            ),
+        ]
+        strat = ModalityCrossMaskingStrategy(
+            RandomMaskingStrategy(), only_decode_modalities=[Modality.WORLDCOVER.name]
+        )
+        encoded_decoded_bandsets = strat.select_encoded_decoded_bandsets(
+            present_modalities_bandsets
+        )
+        logger.info(f"encoded_decoded_bandsets: {encoded_decoded_bandsets}")
+        assert expected_encoded_decoded_bandsets == encoded_decoded_bandsets
