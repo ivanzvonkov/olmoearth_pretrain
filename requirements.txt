@@ -10,6 +10,7 @@ matplotlib
 numpy
 pandas>=2.2 # Force this higher than 1.x
 rasterio
+rslearn
 shapely>=2 # temporary hack to force shapely 2.x
 torch>=2.7, <2.8
 torchvision
