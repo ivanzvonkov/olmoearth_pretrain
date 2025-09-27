@@ -77,7 +77,7 @@ def build_rslearn_model_dataset(
 
     transforms = []
     if input_size is not None:
-        # Use the rslearn Pad to match its loader pipeline (avoid import collisions)
+        # Use the rslearn Pad to match its loader pipeline
         transforms.append(
             RsPad(
                 size=input_size,

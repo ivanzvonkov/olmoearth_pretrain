@@ -55,6 +55,8 @@ EVAL_TASKS = {
         norm_stats_from_pretrained=True,
         input_modalities=[Modality.SENTINEL2_L2A.name],
         input_layers=["sentinel2"],
+        # Set patch size as 1 to be consistent with AEF experiments
+        patch_size=1,
     ),
     "m_forestnet": DownstreamTaskConfig(
         dataset="m-forestnet",
@@ -88,6 +90,8 @@ EVAL_TASKS = {
         norm_stats_from_pretrained=True,
         input_modalities=[Modality.SENTINEL1.name],
         input_layers=["sentinel1_ascending"],
+        # Set patch size as 1 to be consistent with AEF experiments
+        patch_size=1,
     ),
     "nandi_landset": DownstreamTaskConfig(
         dataset="nandi",
@@ -97,10 +101,12 @@ EVAL_TASKS = {
         norm_stats_from_pretrained=True,
         input_modalities=[Modality.LANDSAT.name],
         input_layers=["landsat"],
+        # Set patch size as 1 to be consistent with AEF experiments
+        patch_size=1,
     ),
     "awf_sentinel2": DownstreamTaskConfig(
         dataset="awf",
-        embedding_batch_size=64,
+        embedding_batch_size=128,
         num_workers=0,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -109,7 +115,7 @@ EVAL_TASKS = {
     ),
     "awf_sentinel1": DownstreamTaskConfig(
         dataset="awf",
-        embedding_batch_size=64,
+        embedding_batch_size=128,
         num_workers=0,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
@@ -118,7 +124,7 @@ EVAL_TASKS = {
     ),
     "awf_landsat": DownstreamTaskConfig(
         dataset="awf",
-        embedding_batch_size=64,
+        embedding_batch_size=128,
         num_workers=0,
         pooling_type=PoolingType.MEAN,
         norm_stats_from_pretrained=True,
