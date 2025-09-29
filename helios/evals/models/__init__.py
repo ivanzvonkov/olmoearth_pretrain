@@ -21,7 +21,7 @@ def get_launch_script_path(model_name: str) -> str:
     if model_name == "dino_v2":
         return "helios/evals/models/dinov2/dinov2_launch.py"
     elif model_name == "dino_v3":
-        return "helios/evals/models/dinov3/dinov3_launch.py"
+        return "helios/evals/models/dinov3/dino_v3_launch.py"
     elif model_name == "galileo":
         return "helios/evals/models/galileo/galileo_launch.py"
     elif model_name == "panopticon":
