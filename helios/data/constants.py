@@ -144,16 +144,8 @@ class ModalitySpec:
         return indices
 
     @property
-    def all_bands(self) -> list[str]:
-        """Get all band names."""
-        all_bands = []
-        for band_set in self.band_sets:
-            all_bands.extend(band_set.bands)
-        return all_bands
-
-    @property
     def band_order(self) -> list[str]:
-        """Get band order."""
+        """Get all bands."""
         return sum((list(band_set.bands) for band_set in self.band_sets), [])
 
     @property

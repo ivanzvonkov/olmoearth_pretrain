@@ -1,8 +1,5 @@
 """Convert rslearn dataset to Helios evaluation dataset format."""
 
-# --- must be directly after the module docstring ---
-from __future__ import annotations
-
 from collections import defaultdict
 from datetime import datetime
 from typing import Any
@@ -10,8 +7,6 @@ from typing import Any
 import torch
 from dateutil.relativedelta import relativedelta
 from einops import rearrange
-
-# rslearn
 from rslearn.dataset.dataset import Dataset as RslearnDataset
 from rslearn.train.dataset import DataInput as RsDataInput
 from rslearn.train.dataset import ModelDataset as RsModelDataset
@@ -30,11 +25,11 @@ from helios.train.masking import HeliosSample, MaskedHeliosSample
 
 # rslearn layer name -> (helios modality name, all bands)
 RSLEARN_TO_HELIOS: dict[str, tuple[str, list[str]]] = {
-    "sentinel2": ("sentinel2_l2a", DataModality.SENTINEL2_L2A.all_bands),
-    "sentinel1": ("sentinel1", DataModality.SENTINEL1.all_bands),
-    "sentinel1_ascending": ("sentinel1", DataModality.SENTINEL1.all_bands),
-    "sentinel1_descending": ("sentinel1", DataModality.SENTINEL1.all_bands),
-    "landsat": ("landsat", DataModality.LANDSAT.all_bands),
+    "sentinel2": ("sentinel2_l2a", DataModality.SENTINEL2_L2A.band_order),
+    "sentinel1": ("sentinel1", DataModality.SENTINEL1.band_order),
+    "sentinel1_ascending": ("sentinel1", DataModality.SENTINEL1.band_order),
+    "sentinel1_descending": ("sentinel1", DataModality.SENTINEL1.band_order),
+    "landsat": ("landsat", DataModality.LANDSAT.band_order),
 }
 
 
@@ -116,7 +111,7 @@ def build_rslearn_model_dataset(
         dataset=rslearn_dataset,
         split_config=split_config,
         inputs=inputs,
-        # TODO: add task type if later we would like to support segmentation task
+        # TODO: add task type later if we also want to support segmentation task
         task=RsClassificationTask(
             property_name=property_name,
             classes=classes,
