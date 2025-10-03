@@ -14,6 +14,7 @@ from olmo_core.config import Config
 from upath import UPath
 
 from helios.data.constants import Modality
+from helios.evals.models.prithviv2.constants import MODEL_TO_HF_INFO, PrithviV2Models
 from helios.evals.models.prithviv2.prithvi_mae import PrithviMAE
 from helios.nn.flexihelios import PoolingType
 from helios.train.masking import MaskedHeliosSample
@@ -36,8 +37,6 @@ PRITHVI_STD = [
     1049.0,
 ]
 
-HF_HUB_ID = "ibm-nasa-geospatial/Prithvi-EO-2.0-300M"
-
 
 logger = logging.getLogger(__name__)
 
@@ -50,22 +49,32 @@ class PrithviV2(nn.Module):
     def __init__(
         self,
         load_directory: str,
+        model_name: PrithviV2Models.VIT_300,
         use_pretrained_normalizer: bool = True,
     ):
         """Initialize the PrithviV2 wrapper.
 
         Args:
             load_directory: The directory to load from
+            model_name: one of VIT_300 or VIT_600
             use_pretrained_normalizer: Whether or not to apply prithvi pretraining normalization
         """
         super().__init__()
 
+        hub_id = MODEL_TO_HF_INFO[model_name]["hf_hub_id"]
+        revision = MODEL_TO_HF_INFO[model_name]["revison"]
+        weights_path = MODEL_TO_HF_INFO[model_name]["weights"]
+
         if not (UPath(load_directory) / "config.json").exists():
-            _ = hf_hub_download(
+            # even though we have a nosec here we actually follow the advice in
+            # https://bandit.readthedocs.io/en/latest/plugins/b615_huggingface_unsafe_download.html
+            # and pin the download to a specific commit, but our bandit can't tell because
+            # "revision" is now a variable instead of a string
+            _ = hf_hub_download(  # nosec
                 local_dir=UPath(load_directory),
-                repo_id=HF_HUB_ID,
+                repo_id=hub_id,
                 filename="config.json",
-                revision="b2f2520ab889f42a25c5361ba18761fcb4ea44ad",
+                revision=revision,
             )
         with (UPath(load_directory) / "config.json").open("r") as f:
             config = yaml.safe_load(f)["pretrained_cfg"]
@@ -74,16 +83,20 @@ class PrithviV2(nn.Module):
 
         self.model = PrithviMAE(**config)
 
-        if not (UPath(load_directory) / "Prithvi_EO_V2_300M.pt").exists():
-            _ = hf_hub_download(
+        if not (UPath(load_directory) / weights_path).exists():
+            # even though we have a nosec here we actually follow the advice in
+            # https://bandit.readthedocs.io/en/latest/plugins/b615_huggingface_unsafe_download.html
+            # and pin the download to a specific commit, but our bandit can't tell because
+            # "revision" is now a variable instead of a string
+            _ = hf_hub_download(  # nosec
                 local_dir=UPath(load_directory),
-                repo_id=HF_HUB_ID,
-                filename="Prithvi_EO_V2_300M.pt",
-                revision="b2f2520ab889f42a25c5361ba18761fcb4ea44ad",
+                repo_id=hub_id,
+                filename=weights_path,
+                revision=revision,
             )
 
         state_dict = torch.load(
-            UPath(load_directory) / "Prithvi_EO_V2_300M.pt", map_location="cpu"
+            UPath(load_directory) / weights_path, map_location="cpu"
         )
         # discard fixed pos_embedding weight, following
         # https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M/blob/e4aabdc440c8ee703a749def8af5bf4700dee35b/inference.py#L362
@@ -204,11 +217,13 @@ class PrithviV2Config(Config):
     """olmo_core style config for PrithviV2 Wrapper."""
 
     load_directory: str = "/weka/dfive-default/helios/models/prithvi"
+    model_name: PrithviV2Models = PrithviV2Models.VIT_300
     use_pretrained_normalizer: bool = True
 
     def build(self) -> PrithviV2:
         """Build the PrithviV2 model."""
         return PrithviV2(
             load_directory=self.load_directory,
+            model_name=self.model_name,
             use_pretrained_normalizer=self.use_pretrained_normalizer,
         )
