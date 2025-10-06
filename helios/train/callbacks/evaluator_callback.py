@@ -125,7 +125,7 @@ class DownstreamEvaluator:
         self.norm_method = task.norm_method
         self.use_pooled_tokens = task.use_pooled_tokens
         if self.eval_mode is None:
-            self.eval_mode = get_eval_mode(self.config.task_type)
+            self.eval_mode = get_eval_mode(self.config.task_type)  # type: ignore
         if isinstance(self.eval_mode, str):
             self.eval_mode = EvalMode(self.eval_mode)
 
