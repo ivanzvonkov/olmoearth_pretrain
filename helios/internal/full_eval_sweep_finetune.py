@@ -1,4 +1,10 @@
-"""Launch fine-tune evaluation sweeps for Helios checkpoints."""
+"""Launch fine-tune evaluation sweeps for Helios checkpoints.
+
+Example run:
+python helios/internal/full_eval_sweep_finetune.py --project_name 2025_10_06_phase1_finetune --module_path helios/evals/models/dinov3/dino_v3_launch.py --cluster ai2/jupiter --model_name dino_v3
+
+python helios/internal/full_eval_sweep_finetune.py --checkpoint_path /weka/dfive-default/helios/checkpoints/yawenzzzz/base_v6_default/step400000 --project_name 2025_10_06_phase1_finetune --module_path scripts/2025_09_10_phase1/script.py --cluster ai2/jupiter --defaults_only
+"""
 
 import argparse
 import os
@@ -12,6 +18,7 @@ from typing import Any
 from helios.evals.models import get_launch_script_path
 from helios.internal.all_evals import FT_EVAL_TASKS
 from helios.internal.experiment import SubCmd
+from helios.train.callbacks.evaluator_callback import EvalMode
 
 logger = getLogger(__name__)
 
@@ -34,7 +41,7 @@ def _format_per_task_args(overrides: dict[str, Any]) -> list[str]:
     return args
 
 
-FT_MODE_ARGS = _format_per_task_args({"eval_mode": "finetune"})
+FT_MODE_ARGS = _format_per_task_args({"eval_mode": EvalMode.FINETUNE})
 DATASET_STATS_ARGS = _format_per_task_args({"norm_stats_from_pretrained": "False"})
 
 
