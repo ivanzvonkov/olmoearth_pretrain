@@ -52,6 +52,7 @@ class ModelPreset:
     launch_script_key: str | None = None
 
 
+# TODO: We need to add the final norm settings for each model.
 MODEL_PRESETS: dict[str, ModelPreset] = {
     "dino_v3": ModelPreset(
         per_task_overrides={"norm_method": "NormMethod.NORM_YES_CLIP_MIN_MAX_INT"},
