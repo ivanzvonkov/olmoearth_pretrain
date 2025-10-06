@@ -71,7 +71,7 @@ class DownstreamTaskConfig:
     # LP / KNN / FT
     patch_size: int = 4
     eval_interval: Duration = field(default_factory=lambda: Duration.epochs(1))
-    eval_mode: EvalMode | None = None
+    eval_mode: str | None = None
     probe_type: ProbeType = ProbeType.LINEAR
     use_pooled_tokens: bool = False
     partition: str = field(default_factory=lambda: EvalDatasetPartition.TRAIN1X)
@@ -127,6 +127,7 @@ class DownstreamEvaluator:
         if self.eval_mode is None:
             self.eval_mode = get_eval_mode(self.config.task_type)  # type: ignore
         if isinstance(self.eval_mode, str):
+            # This will check if the eval mode is valid
             self.eval_mode = EvalMode(self.eval_mode)
 
         assert self.eval_mode in EvalMode, f"Unexpected eval mode {self.eval_mode}"
