@@ -40,29 +40,7 @@ def create_task_arg(task_name: str, field_name: str) -> str:
     return f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.{field_name}={{arg}}"
 
 
-def _ft_task_names() -> list[str]:
-    """When finetune is enabled, we just run *all* tasks as finetune."""
-    return list(FT_EVAL_TASKS.keys())
-
-
-# Set eval_mode to finetune for all tasks that support it
-ft_mode_args = " ".join(
-    [
-        f"--trainer.callbacks.downstream_evaluator.tasks.{t}.eval_mode=finetune"
-        for t in _ft_task_names()
-    ]
-)
-
-ft_lr_args_template = " ".join([create_task_arg(t, "ft_lr") for t in _ft_task_names()])
-
-ft_dataset_args = " ".join(
-    [" "]
-    + [
-        f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_stats_from_pretrained=False"
-        for task_name in FT_EVAL_TASKS.keys()
-    ]
-)
-
+# Linear Probe & KNN args
 lr_args = " ".join(
     [
         create_task_arg(task_name, "probe_lr")
@@ -96,6 +74,26 @@ helios_args = " ".join(
     ]
 )
 
+# Finetune args
+ft_mode_args = " ".join(
+    [
+        f"--trainer.callbacks.downstream_evaluator.tasks.{t}.eval_mode=finetune"
+        for t in FT_EVAL_TASKS.keys()
+    ]
+)
+
+ft_lr_args_template = " ".join(
+    [create_task_arg(t, "ft_lr") for t in FT_EVAL_TASKS.keys()]
+)
+
+ft_dataset_args = " ".join(
+    [" "]
+    + [
+        f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_stats_from_pretrained=False"
+        for task_name in FT_EVAL_TASKS.keys()
+    ]
+)
+
 
 def loop_through_params() -> Generator[dict[str, Any], None, None]:
     """Yield a dict of the hps we are sweeping over."""
@@ -120,17 +118,19 @@ def no_norm_sweep() -> Generator[dict[str, Any], None, None]:
 
 
 def ft_loop_through_params() -> Generator[dict[str, Any], None, None]:
-    """Yield FT sweep points (ft_lr * norm_mode * pooling)."""
+    """Yield FT sweep points (ft_lr only)."""
     for lr in FT_LRs:
         yield {
             "ft_lr": lr,
         }
 
 
-def get_dino_v3_args(finetune: bool = False) -> str:
+def get_dino_v3_args(args: argparse.Namespace) -> str:
     """Get the dino v3 arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    dino_v3_args = dataset_args if not finetune else ft_dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    dino_v3_args = dataset_args if not args.finetune else ft_dataset_args
+    # Normalization strategy is to scale with min max to 0 - 256 and then scale back to 0 - 1
+    # Normalization is then applied by the eval wrapper by default
     dino_v3_args += " " + " ".join(
         [
             f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NORM_YES_CLIP_MIN_MAX_INT"
@@ -140,10 +140,10 @@ def get_dino_v3_args(finetune: bool = False) -> str:
     return dino_v3_args
 
 
-def get_croma_args(finetune: bool = False) -> str:
+def get_croma_args(args: argparse.Namespace) -> str:
     """Get the croma arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    croma_args = dataset_args if not finetune else ft_dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    croma_args = dataset_args if not args.finetune else ft_dataset_args
     croma_args += " " + " ".join(
         [
             f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NORM_YES_CLIP_2_STD"
@@ -153,20 +153,20 @@ def get_croma_args(finetune: bool = False) -> str:
     return croma_args
 
 
-def get_tessera_args(pretrained_normalizer: bool = True, finetune: bool = False) -> str:
+def get_tessera_args(
+    args: argparse.Namespace, pretrained_normalizer: bool = True
+) -> str:
     """Get the tessera arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    tessera_args = dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    tessera_args = dataset_args if not args.finetune else ft_dataset_args
     if pretrained_normalizer:
         # To use galileo pretrained normalizer we want to leave normalization to the galileo wrapper
-        tessera_args = dataset_args
         tessera_args += " " + " ".join(
             [
                 f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
                 for task_name in tasks.keys()
             ]
         )
-
         tessera_args += " " + "--model.use_pretrained_normalizer=True"
     else:
         tessera_args += " " + "--model.use_pretrained_normalizer=False"
@@ -179,10 +179,10 @@ def get_tessera_args(pretrained_normalizer: bool = True, finetune: bool = False)
     return tessera_args
 
 
-def get_panopticon_args(finetune: bool = False) -> str:
+def get_panopticon_args(args: argparse.Namespace) -> str:
     """Get the panopticon arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    panopticon_args = dataset_args if not finetune else ft_dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    panopticon_args = dataset_args if not args.finetune else ft_dataset_args
     panopticon_args += " " + " ".join(
         [
             f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
@@ -193,11 +193,11 @@ def get_panopticon_args(finetune: bool = False) -> str:
 
 
 def get_terramind_args(
-    pretrained_normalizer: bool = True, finetune: bool = False
+    args: argparse.Namespace, pretrained_normalizer: bool = True
 ) -> str:
     """Get the terramind arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    terramind_args = dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    terramind_args = dataset_args if not args.finetune else ft_dataset_args
     if pretrained_normalizer:
         # To use terramind pretrained normalizer we want to leave normalization to the terramind wrapper
         terramind_args += " " + " ".join(
@@ -219,10 +219,10 @@ def get_terramind_args(
     return terramind_args
 
 
-def get_clay_args(pretrained_normalizer: bool = True, finetune: bool = False) -> str:
+def get_clay_args(args: argparse.Namespace, pretrained_normalizer: bool = True) -> str:
     """Get the clay arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    clay_args = dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    clay_args = dataset_args if not args.finetune else ft_dataset_args
     if pretrained_normalizer:
         # To use clay pretrained normalizer we want to leave normalization to the clay wrapper
         clay_args += " " + " ".join(
@@ -244,10 +244,10 @@ def get_clay_args(pretrained_normalizer: bool = True, finetune: bool = False) ->
     return clay_args
 
 
-def get_copernicusfm_args(finetune: bool = False) -> str:
+def get_copernicusfm_args(args: argparse.Namespace) -> str:
     """Get the copernicusfm arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    copernicusfm_args = dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    copernicusfm_args = dataset_args if not args.finetune else ft_dataset_args
     copernicusfm_args += " " + " ".join(
         [
             f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NORM_YES_CLIP_2_STD"
@@ -257,10 +257,10 @@ def get_copernicusfm_args(finetune: bool = False) -> str:
     return copernicusfm_args
 
 
-def get_anysat_args(finetune: bool = False) -> str:
+def get_anysat_args(args: argparse.Namespace) -> str:
     """Get the anysat arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    anysat_args = dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    anysat_args = dataset_args if not args.finetune else ft_dataset_args
     anysat_args += " " + " ".join(
         [
             f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
@@ -276,10 +276,12 @@ def get_anysat_args(finetune: bool = False) -> str:
     return anysat_args
 
 
-def get_galileo_args(pretrained_normalizer: bool = True, finetune: bool = False) -> str:
+def get_galileo_args(
+    args: argparse.Namespace, pretrained_normalizer: bool = True
+) -> str:
     """Get the galileo arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    galileo_args = dataset_args if not finetune else ft_dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    galileo_args = dataset_args if not args.finetune else ft_dataset_args
     if pretrained_normalizer:
         # To use galileo pretrained normalizer we want to leave normalization to the galileo wrapper
         galileo_args += " " + " ".join(
@@ -302,10 +304,12 @@ def get_galileo_args(pretrained_normalizer: bool = True, finetune: bool = False)
     return galileo_args
 
 
-def get_satlas_args(pretrained_normalizer: bool = True, finetune: bool = False) -> str:
+def get_satlas_args(
+    args: argparse.Namespace, pretrained_normalizer: bool = True
+) -> str:
     """Get the satlas arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    satlas_args = dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    satlas_args = dataset_args if not args.finetune else ft_dataset_args
     if pretrained_normalizer:
         # To use satlas pretrained normalizer we want to leave normalization to the satlas wrapper
         satlas_args += " " + " ".join(
@@ -328,13 +332,14 @@ def get_satlas_args(pretrained_normalizer: bool = True, finetune: bool = False) 
     return satlas_args
 
 
-def get_presto_args(pretrained_normalizer: bool = True, finetune: bool = False) -> str:
+def get_presto_args(
+    args: argparse.Namespace, pretrained_normalizer: bool = True
+) -> str:
     """Get the presto arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    presto_args = dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    presto_args = dataset_args if not args.finetune else ft_dataset_args
     if pretrained_normalizer:
         # To use presto pretrained normalizer we want to leave normalization to the presto wrapper
-        presto_args = dataset_args
         presto_args += " " + " ".join(
             [
                 f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
@@ -356,14 +361,13 @@ def get_presto_args(pretrained_normalizer: bool = True, finetune: bool = False) 
 
 
 def get_prithviv2_args(
-    pretrained_normalizer: bool = True, finetune: bool = False
+    args: argparse.Namespace, pretrained_normalizer: bool = True
 ) -> str:
     """Get the Prithvi arguments."""
-    tasks = FT_EVAL_TASKS if finetune else EVAL_TASKS
-    prithvi_args = dataset_args
+    tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    prithvi_args = dataset_args if not args.finetune else ft_dataset_args
     if pretrained_normalizer:
         # To use Prithvi pretrained normalizer we want to leave normalization to the Prithvi wrapper
-        prithvi_args = dataset_args
         prithvi_args += " " + " ".join(
             [
                 f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
@@ -419,32 +423,32 @@ def _get_checkpoint_args(checkpoint_path: str) -> str:
     return ""
 
 
-def _get_model_specific_args(args: argparse.Namespace, finetune: bool = False) -> str:
+def _get_model_specific_args(args: argparse.Namespace) -> str:
     """Get model-specific command arguments."""
     if args.dino_v3:
-        return get_dino_v3_args(finetune=finetune)
+        return get_dino_v3_args(args)
     elif args.panopticon:
-        return get_panopticon_args(finetune=finetune)
+        return get_panopticon_args(args)
     elif args.clay:
-        return get_clay_args(finetune=finetune)
+        return get_clay_args(args)
     elif args.galileo:
-        return get_galileo_args(finetune=finetune)
+        return get_galileo_args(args)
     elif args.terramind:
-        return get_terramind_args(finetune=finetune)
+        return get_terramind_args(args)
     elif args.satlas:
-        return get_satlas_args(finetune=finetune)
+        return get_satlas_args(args)
     elif args.croma:
-        return get_croma_args(finetune=finetune)
+        return get_croma_args(args)
     elif args.copernicusfm:
-        return get_copernicusfm_args(finetune=finetune)
+        return get_copernicusfm_args(args)
     elif args.presto:
-        return get_presto_args(finetune=finetune)
+        return get_presto_args(args)
     elif args.anysat:
-        return get_anysat_args(finetune=finetune)
+        return get_anysat_args(args)
     elif args.tessera:
-        return get_tessera_args(finetune=finetune)
+        return get_tessera_args(args)
     elif args.prithvi_v2:
-        return get_prithviv2_args(finetune=finetune)
+        return get_prithviv2_args(args)
     return ""
 
 
@@ -464,7 +468,8 @@ def _get_normalization_args(
     for model, func in model_map.items():
         if getattr(args, model, False):
             return func(
-                pretrained_normalizer=(norm_mode == NormalizationMode.PRE_TRAINED)
+                args,
+                pretrained_normalizer=(norm_mode == NormalizationMode.PRE_TRAINED),
             )
     if norm_mode == NormalizationMode.DATASET:
         return dataset_args
@@ -564,7 +569,7 @@ def _build_default_ft_command(
     logger.info(f"Running FT defaults: lr={lr}")
     run_name = f"{base_run_name}_FT_defaults"
 
-    cmd_args = _get_model_specific_args(args, finetune=True)
+    cmd_args = _get_model_specific_args(args)
     cmd_args += " " + ft_mode_args
     cmd_args += " " + ft_lr_args_template.format(arg=lr)
 
@@ -605,7 +610,7 @@ def _build_ft_hyperparameter_command(
     cmd_args = ""
     cmd_args += " " + ft_mode_args
     cmd_args += " " + ft_lr_args_template.format(arg=lr)
-    cmd_args += " " + _get_model_specific_args(args, finetune=True)
+    cmd_args += " " + _get_model_specific_args(args)
 
     module_path = (
         args.module_path if args.module_path is not None else _get_module_path(args)

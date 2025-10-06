@@ -366,6 +366,7 @@ FT_EVAL_TASKS = {
         norm_stats_from_pretrained=True,
         eval_interval=Duration.epochs(5),
         epochs=50,
+        eval_mode=EvalMode.FINETUNE,
     ),
     "mados": DownstreamTaskConfig(
         dataset="mados",
@@ -376,6 +377,7 @@ FT_EVAL_TASKS = {
         probe_lr=0.01,
         eval_interval=Duration.epochs(10),
         epochs=50,
+        eval_mode=EvalMode.FINETUNE,
     ),
     "sen1floods11": DownstreamTaskConfig(
         dataset="sen1floods11",
@@ -385,6 +387,8 @@ FT_EVAL_TASKS = {
         norm_stats_from_pretrained=False,
         probe_lr=0.1,
         eval_interval=Duration.epochs(10),
+        epochs=50,
+        eval_mode=EvalMode.FINETUNE,
     ),
     "cropharvest_Togo_12_sentinel2": DownstreamTaskConfig(
         dataset="cropharvest_Togo_12",
@@ -395,9 +399,9 @@ FT_EVAL_TASKS = {
         eval_interval=Duration.epochs(20),
         input_modalities=[Modality.SENTINEL2_L2A.name],
         patch_size=1,
-        eval_mode=EvalMode.FINETUNE,
         probe_lr=0.1,
         epochs=50,
+        eval_mode=EvalMode.FINETUNE,
     ),
 }
 

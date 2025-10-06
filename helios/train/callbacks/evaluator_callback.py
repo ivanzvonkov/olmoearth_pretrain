@@ -174,28 +174,8 @@ class DownstreamEvaluator:
         )
         self.run_on_test = run_on_test
 
-    def _get_data_loader(self, split: str) -> DataLoader:
+    def _get_data_loader(self, split: str, batch_size: int) -> DataLoader:
         """Get the data loader for the given split."""
-        logger.info(
-            f"Getting data loader for {self.dataset} with norm method {self.norm_method} and norm stats from pretrained {self.norm_stats_from_pretrained}"
-        )
-        return DataLoader(
-            get_eval_dataset(
-                eval_dataset=self.dataset,
-                split=split,
-                partition=self.partition,
-                norm_stats_from_pretrained=self.norm_stats_from_pretrained,
-                input_modalities=self.input_modalities,
-                input_layers=self.input_layers,
-                norm_method=self.norm_method,
-            ),
-            collate_fn=eval_collate_fn,
-            batch_size=self.embedding_batch_size,
-            num_workers=self.num_workers,
-        )
-
-    def _get_data_loader_with_batch(self, split: str, batch_size: int) -> DataLoader:
-        """Get the data loader for the given split with custom batch size."""
         logger.info(
             f"Getting data loader for {self.dataset} with norm method {self.norm_method} and norm stats from pretrained {self.norm_stats_from_pretrained}"
         )
@@ -261,9 +241,9 @@ class DownstreamEvaluator:
     def _val_embed_probe(self) -> tuple[float, float]:
         """Validate the model using embeddings and probe (knn or linear probe)."""
         logger.info(f"Validating {self.dataset} with {self.eval_mode}")
-        train_loader = self._get_data_loader("train")
-        val_loader = self._get_data_loader("valid")
-        test_loader = self._get_data_loader("test")
+        train_loader = self._get_data_loader("train", self.embedding_batch_size)
+        val_loader = self._get_data_loader("valid", self.embedding_batch_size)
+        test_loader = self._get_data_loader("test", self.embedding_batch_size)
 
         start_time = time.time()
         logger.info(f"Getting train embeddings for {self.dataset}...")
@@ -320,9 +300,9 @@ class DownstreamEvaluator:
         """Validate the model using finetuning."""
         logger.info(f"Validating {self.dataset} with finetune")
 
-        train_loader = self._get_data_loader_with_batch("train", self.ft_batch_size)  # type: ignore
-        val_loader = self._get_data_loader_with_batch("valid", self.ft_batch_size)  # type: ignore
-        test_loader = self._get_data_loader_with_batch("test", self.ft_batch_size)  # type: ignore
+        train_loader = self._get_data_loader("train", self.ft_batch_size)
+        val_loader = self._get_data_loader("valid", self.ft_batch_size)
+        test_loader = self._get_data_loader("test", self.ft_batch_size)
 
         # Use encoder if present
         if hasattr(self.trainer.train_module.model, "encoder"):
