@@ -1,14 +1,11 @@
-"""Run an evaluation sweep for an arbitrary helios checkpoint.
-
-e.g. python3 scripts/run_all_evals/full_eval_sweep.py --cluster=ai2/saturn-cirrascale --checkpoint_path=/weka/dfive-default/helios/checkpoints/henryh/latent_mim_cross_only_dec_wc_osm_srtm_dataset_percentage_sweep_.0078125/step450000  --module_path=scripts/2025_06_26_dataset_percentage_experiments/latent_mim_all_data.py (extra args here e.g --model.decoder_config.depth=1)
-"""
+"""Launch fine-tune evaluation sweeps for Helios checkpoints."""
 
 import argparse
 import os
 import subprocess  # nosec
 import uuid
-from collections.abc import Generator
-from enum import StrEnum
+from collections.abc import Iterable
+from dataclasses import dataclass, field
 from logging import getLogger
 from typing import Any
 
@@ -16,497 +13,269 @@ from helios.evals.models import get_launch_script_path
 from helios.internal.all_evals import FT_EVAL_TASKS
 from helios.internal.experiment import SubCmd
 
-# Fine-tune learning rates to sweep over
-FT_LRs = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2]
-
-
-class NormalizationMode(StrEnum):
-    """Normalization mode."""
-
-    PRE_TRAINED = "pre_trained"
-    DATASET = "dataset"
-
-
 logger = getLogger(__name__)
 
+# Fine-tune learning rates to sweep over.
+FT_LRS = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2]
 
-def create_task_arg(task_name: str, field_name: str) -> str:
-    """Create a task argument for a given task name."""
-    initial_str = (
-        f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.{field_name}="
-    )
-    return initial_str + "{arg}"
+TASK_ARG_PREFIX = "--trainer.callbacks.downstream_evaluator.tasks"
+FT_TASK_NAMES = list(FT_EVAL_TASKS.keys())
 
 
-ft_mode_args = " ".join(
-    [
-        f"--trainer.callbacks.downstream_evaluator.tasks.{t}.eval_mode=finetune"
-        for t in FT_EVAL_TASKS.keys()
-    ]
-)
-
-ft_lr_args_template = " ".join(
-    [create_task_arg(t, "ft_lr") for t in FT_EVAL_TASKS.keys()]
-)
-
-ft_dataset_args = " ".join(
-    [" "]
-    + [
-        f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_stats_from_pretrained=False"
-        for task_name in FT_EVAL_TASKS.keys()
-    ]
-)
+def _format_per_task_args(overrides: dict[str, Any]) -> list[str]:
+    """Repeat overrides for each downstream task."""
+    if not overrides:
+        return []
+    args: list[str] = []
+    for task in FT_TASK_NAMES:
+        for f, v in overrides.items():  # type: ignore
+            value_str = v if isinstance(v, str) else str(v)
+            args.append(f"{TASK_ARG_PREFIX}.{task}.{f}={value_str}")
+    return args
 
 
-def ft_loop_through_params() -> Generator[dict[str, Any], None, None]:
-    """Yield FT sweep points (ft_lr only)."""
-    for lr in FT_LRs:
-        yield {
-            "ft_lr": lr,
-        }
+FT_MODE_ARGS = _format_per_task_args({"eval_mode": "finetune"})
+DATASET_STATS_ARGS = _format_per_task_args({"norm_stats_from_pretrained": "False"})
 
 
-def get_dino_v3_args() -> str:
-    """Get the dino v3 arguments."""
-    dino_v3_args = ft_dataset_args
-    # Normalization strategy is to scale with min max to 0 - 256 and then scale back to 0 - 1
-    # Normalization is then applied by the eval wrapper by default
-    dino_v3_args += " " + " ".join(
-        [
-            f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NORM_YES_CLIP_MIN_MAX_INT"
-            for task_name in FT_EVAL_TASKS.keys()
-        ]
-    )
-    return dino_v3_args
+def _format_ft_lr_args(lr: float) -> list[str]:
+    return _format_per_task_args({"ft_lr": lr})
 
 
-def get_croma_args() -> str:
-    """Get the croma arguments."""
-    croma_args = ft_dataset_args
-    croma_args += " " + " ".join(
-        [
-            f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NORM_YES_CLIP_2_STD"
-            for task_name in FT_EVAL_TASKS.keys()
-        ]
-    )
-    return croma_args
+@dataclass(frozen=True)
+class ModelPreset:
+    """Model-specific overrides used for evaluation normalisation."""
+
+    help_text: str
+    per_task_overrides: dict[str, Any] = field(default_factory=dict)
+    global_args: tuple[str, ...] = ()
+    include_dataset_stats: bool = True
+    launch_script_key: str | None = None
 
 
-def get_tessera_args(pretrained_normalizer: bool = True) -> str:
-    """Get the tessera arguments."""
-    tessera_args = ft_dataset_args
-    if pretrained_normalizer:
-        # To use galileo pretrained normalizer we want to leave normalization to the galileo wrapper
-        tessera_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
+MODEL_PRESETS: dict[str, ModelPreset] = {
+    "dino_v3": ModelPreset(
+        help_text="Apply DINOv3 evaluation normalisation preset",
+        per_task_overrides={"norm_method": "NormMethod.NORM_YES_CLIP_MIN_MAX_INT"},
+        launch_script_key="dino_v3",
+    ),
+    "panopticon": ModelPreset(
+        help_text="Apply Panopticon evaluation normalisation preset",
+        per_task_overrides={"norm_method": "NormMethod.STANDARDIZE"},
+        launch_script_key="panopticon",
+    ),
+    "terramind": ModelPreset(
+        help_text="Use Terramind pretrained normaliser settings",
+        per_task_overrides={"norm_method": "NormMethod.NO_NORM"},
+        global_args=("--model.use_pretrained_normalizer=True",),
+        launch_script_key="terramind",
+    ),
+    "galileo": ModelPreset(
+        help_text="Use Galileo pretrained normaliser settings",
+        per_task_overrides={
+            "norm_method": "NormMethod.NO_NORM",
+            "embedding_batch_size": "8",
+        },
+        global_args=("--model.use_pretrained_normalizer=True",),
+        launch_script_key="galileo",
+    ),
+    "satlas": ModelPreset(
+        help_text="Use Satlas pretrained normaliser settings",
+        per_task_overrides={"norm_method": "NormMethod.NO_NORM"},
+        global_args=("--model.use_pretrained_normalizer=True",),
+        launch_script_key="satlas",
+    ),
+    "croma": ModelPreset(
+        help_text="Apply Croma evaluation normalisation preset",
+        per_task_overrides={"norm_method": "NormMethod.NORM_YES_CLIP_2_STD"},
+        launch_script_key="croma",
+    ),
+    "clay": ModelPreset(
+        help_text="Use Clay pretrained normaliser settings",
+        per_task_overrides={"norm_method": "NormMethod.NO_NORM"},
+        global_args=("--model.use_pretrained_normalizer=True",),
+        launch_script_key="clay",
+    ),
+    "copernicusfm": ModelPreset(
+        help_text="Apply CopernicusFM evaluation normalisation preset",
+        per_task_overrides={"norm_method": "NormMethod.NORM_YES_CLIP_2_STD"},
+    ),
+    "presto": ModelPreset(
+        help_text="Use Presto pretrained normaliser settings",
+        per_task_overrides={"norm_method": "NormMethod.NO_NORM"},
+        global_args=("--model.use_pretrained_normalizer=True",),
+        launch_script_key="presto",
+    ),
+    "anysat": ModelPreset(
+        help_text="Apply AnySat evaluation normalisation preset",
+        per_task_overrides={
+            "norm_method": "NormMethod.STANDARDIZE",
+            "embedding_batch_size": "4",
+        },
+    ),
+    "tessera": ModelPreset(
+        help_text="Use Tessera pretrained normaliser settings",
+        per_task_overrides={"norm_method": "NormMethod.NO_NORM"},
+        global_args=("--model.use_pretrained_normalizer=True",),
+        launch_script_key="tessera",
+    ),
+    "prithvi_v2": ModelPreset(
+        help_text="Use Prithvi-v2 pretrained normaliser settings",
+        per_task_overrides={"norm_method": "NormMethod.NO_NORM"},
+        global_args=("--model.use_pretrained_normalizer=True",),
+        launch_script_key="prithvi_v2",
+    ),
+}
+
+
+def _selected_model_flag(args: argparse.Namespace) -> str | None:
+    """Get the selected model flag."""
+    flags = [name for name in MODEL_PRESETS if getattr(args, name)]
+    if len(flags) > 1:
+        raise ValueError(
+            f"Specify at most one model preset flag (got: {', '.join(sorted(flags))})."
         )
-        tessera_args += " " + "--model.use_pretrained_normalizer=True"
-    else:
-        tessera_args += " " + "--model.use_pretrained_normalizer=False"
-        tessera_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
-        )
-    return tessera_args
+    return flags[0] if flags else None
 
 
-def get_panopticon_args() -> str:
-    """Get the panopticon arguments."""
-    panopticon_args = ft_dataset_args
-    panopticon_args += " " + " ".join(
-        [
-            f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
-            for task_name in FT_EVAL_TASKS.keys()
-        ]
-    )
-    return panopticon_args
+def _build_model_args(selected_flag: str | None) -> list[str]:
+    """Build the model arguments."""
+    if selected_flag is None:
+        return []
+    preset = MODEL_PRESETS[selected_flag]
+    args = list(DATASET_STATS_ARGS) if preset.include_dataset_stats else []
+    args.extend(_format_per_task_args(preset.per_task_overrides))
+    args.extend(preset.global_args)
+    return args
 
 
-def get_terramind_args(pretrained_normalizer: bool = True) -> str:
-    """Get the terramind arguments."""
-    terramind_args = ft_dataset_args
-    if pretrained_normalizer:
-        # To use terramind pretrained normalizer we want to leave normalization to the terramind wrapper
-        terramind_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
-        )
-        terramind_args += " " + "--model.use_pretrained_normalizer=True"
-    else:
-        # IF we use dataset stats we want to turn off the pretrained normalizer
-        terramind_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
-        )
-        terramind_args += " " + "--model.use_pretrained_normalizer=False"
-    return terramind_args
+def _resolve_module_path(args: argparse.Namespace, selected_flag: str | None) -> str:
+    """Get the module path."""
+    if args.module_path:
+        logger.info(f"Using module path {args.module_path}")
+        return args.module_path
 
-
-def get_clay_args(pretrained_normalizer: bool = True) -> str:
-    """Get the clay arguments."""
-    clay_args = ft_dataset_args
-    if pretrained_normalizer:
-        # To use clay pretrained normalizer we want to leave normalization to the clay wrapper
-        clay_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
-        )
-        clay_args += " " + "--model.use_pretrained_normalizer=True"
-    else:
-        # IF we use dataset stats we want to turn off the pretrained normalizer
-        clay_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
-        )
-        clay_args += " " + "--model.use_pretrained_normalizer=False"
-    return clay_args
-
-
-def get_copernicusfm_args() -> str:
-    """Get the copernicusfm arguments."""
-    copernicusfm_args = ft_dataset_args
-    copernicusfm_args += " " + " ".join(
-        [
-            f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NORM_YES_CLIP_2_STD"
-            for task_name in FT_EVAL_TASKS.keys()
-        ]
-    )
-    return copernicusfm_args
-
-
-def get_anysat_args() -> str:
-    """Get the anysat arguments."""
-    anysat_args = ft_dataset_args
-    anysat_args += " " + " ".join(
-        [
-            f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
-            for task_name in FT_EVAL_TASKS.keys()
-        ]
-    )
-    anysat_args += " " + " ".join(
-        [
-            f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.embedding_batch_size=4"
-            for task_name in FT_EVAL_TASKS.keys()
-        ]
-    )
-    return anysat_args
-
-
-def get_galileo_args(pretrained_normalizer: bool = True) -> str:
-    """Get the galileo arguments."""
-    galileo_args = ft_dataset_args
-    if pretrained_normalizer:
-        # To use galileo pretrained normalizer we want to leave normalization to the galileo wrapper
-        galileo_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
-        )
-        galileo_args += " " + "--model.use_pretrained_normalizer=True"
-    else:
-        # IF we use dataset stats we want to turn off the pretrained normalizer
-        galileo_args += " " + "--model.use_pretrained_normalizer=False"
-
-    galileo_args += " " + " ".join(
-        [
-            f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.embedding_batch_size=8"
-            for task_name in FT_EVAL_TASKS.keys()
-        ]
-    )
-    return galileo_args
-
-
-def get_satlas_args(pretrained_normalizer: bool = True) -> str:
-    """Get the satlas arguments."""
-    satlas_args = ft_dataset_args
-    if pretrained_normalizer:
-        # To use satlas pretrained normalizer we want to leave normalization to the satlas wrapper
-        satlas_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
+    if selected_flag is None:
+        raise ValueError(
+            "Provide --module_path or specify a model preset flag that implies one."
         )
 
-        satlas_args += " " + "--model.use_pretrained_normalizer=True"
-    else:
-        satlas_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NORM_YES_CLIP"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
-        )
-        # IF we use dataset stats we want to turn off the pretrained normalizer
-        satlas_args += " " + "--model.use_pretrained_normalizer=False"
-    return satlas_args
-
-
-def get_presto_args(pretrained_normalizer: bool = True) -> str:
-    """Get the presto arguments."""
-    presto_args = ft_dataset_args
-    if pretrained_normalizer:
-        # To use presto pretrained normalizer we want to leave normalization to the presto wrapper
-        presto_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
+    preset = MODEL_PRESETS[selected_flag]
+    if preset.launch_script_key is None:
+        raise ValueError(
+            f"--{selected_flag} has no default launch script. Pass --module_path explicitly."
         )
 
-        presto_args += " " + "--model.use_pretrained_normalizer=True"
-    else:
-        # IF we use dataset stats we want to turn off the pretrained normalizer
-        presto_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
-        )
-        presto_args += " " + "--model.use_pretrained_normalizer=False"
-    return presto_args
-
-
-def get_prithviv2_args(pretrained_normalizer: bool = True) -> str:
-    """Get the Prithvi arguments."""
-    prithvi_args = ft_dataset_args
-    if pretrained_normalizer:
-        # To use Prithvi pretrained normalizer we want to leave normalization to the Prithvi wrapper
-        prithvi_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.NO_NORM"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
-        )
-
-        prithvi_args += " " + "--model.use_pretrained_normalizer=True"
-    else:
-        prithvi_args += " " + " ".join(
-            [
-                f"--trainer.callbacks.downstream_evaluator.tasks.{task_name}.norm_method=NormMethod.STANDARDIZE"
-                for task_name in FT_EVAL_TASKS.keys()
-            ]
-        )
-        # IF we use dataset stats we want to turn off the pretrained normalizer
-        prithvi_args += " " + "--model.use_pretrained_normalizer=False"
-
-    return prithvi_args
+    module_path = get_launch_script_path(preset.launch_script_key)
+    logger.info(f"Using module path {module_path}")
+    return module_path
 
 
 def _get_sub_command(args: argparse.Namespace) -> str:
-    """Determine the sub command based on args and cluster."""
+    """Get the sub command."""
     if args.dry_run:
         return SubCmd.dry_run
-    elif args.cluster == "local":
+    if args.cluster == "local":
         return SubCmd.train
-    else:
-        return SubCmd.launch
+    return SubCmd.launch
 
 
 def _get_base_run_name(args: argparse.Namespace) -> str:
-    """Generate the base run name from checkpoint path or model name."""
+    """Get the base run name."""
     if args.model_name is not None:
-        logger.info(f"Overiding checkpoint name with {args.model_name}")
-        run_name = args.model_name
-    elif args.checkpoint_path is not None:
+        logger.info("Overriding checkpoint name with %s", args.model_name)
+        return args.model_name
+    if args.checkpoint_path is not None:
         parent_dir = os.path.basename(os.path.dirname(args.checkpoint_path))[:100]
         step_num = os.path.basename(args.checkpoint_path)
-        run_name = f"{parent_dir}_{step_num}"
-    else:
-        logger.warning(
-            "No model name provided or checkpoint path, using random run name"
-        )
-        run_name = str(uuid.uuid4())[:8]
-    return run_name
+        return f"{parent_dir}_{step_num}"
+    logger.warning("No model name or checkpoint path provided; using random run name")
+    return str(uuid.uuid4())[:8]
 
 
-def _get_checkpoint_args(checkpoint_path: str) -> str:
-    """Generate checkpoint arguments string."""
-    if checkpoint_path is not None:
-        return f"--trainer.load_path={checkpoint_path}"
-    return ""
+def _get_checkpoint_args(checkpoint_path: str | None) -> list[str]:
+    """Get the checkpoint arguments."""
+    if checkpoint_path:
+        return [f"--trainer.load_path={checkpoint_path}"]
+    return []
 
 
-def _get_model_specific_args(args: argparse.Namespace) -> str:
-    """Get model-specific command arguments."""
-    if args.dino_v3:
-        return get_dino_v3_args()
-    elif args.panopticon:
-        return get_panopticon_args()
-    elif args.clay:
-        return get_clay_args()
-    elif args.galileo:
-        return get_galileo_args()
-    elif args.terramind:
-        return get_terramind_args()
-    elif args.satlas:
-        return get_satlas_args()
-    elif args.croma:
-        return get_croma_args()
-    elif args.copernicusfm:
-        return get_copernicusfm_args()
-    elif args.presto:
-        return get_presto_args()
-    elif args.anysat:
-        return get_anysat_args()
-    elif args.tessera:
-        return get_tessera_args()
-    elif args.prithvi_v2:
-        return get_prithviv2_args()
-    return ""
-
-
-def _build_default_ft_command(
-    args: argparse.Namespace,
-    base_run_name: str,
-    sub_command: str,
+def _format_launch_command(
+    *,
+    module_path: str,
     launch_command: str,
-    checkpoint_args: str,
-    project_name: str,
-    extra: str,
-) -> str:
-    """Build command for running FT with default hyperparameters."""
-    lr = FT_LRs[0]
-    logger.info(f"Running FT defaults: lr={lr}")
-    run_name = f"{base_run_name}_FT_defaults"
-
-    cmd_args = _get_model_specific_args(args)
-    cmd_args += " " + ft_mode_args
-    cmd_args += " " + ft_lr_args_template.format(arg=lr)
-
-    module_path = (
-        args.module_path if args.module_path is not None else _get_module_path(args)
-    )
-    logger.info(f"Using module path {module_path}")
-
-    return (
-        f"TRAIN_SCRIPT_PATH={module_path} {launch_command} helios/internal/all_evals.py "
-        f"{sub_command} {run_name} {args.cluster} --launch.priority=high "
-        f"--launch.task_name=eval {checkpoint_args} --trainer.callbacks.wandb.project={project_name}{extra} {cmd_args} "
-        # We need to disable FSDP as that will create DTensor
-        "--train_module.dp_config=null"
-    )
-
-
-def _build_ft_hyperparameter_command(
-    args: argparse.Namespace,
-    params: dict,
-    base_run_name: str,
     sub_command: str,
-    launch_command: str,
-    checkpoint_args: str,
+    run_name: str,
+    cluster: str,
     project_name: str,
-    extra: str,
+    checkpoint_args: list[str],
+    extra_cli: Iterable[str],
+    model_args: list[str],
+    lr: float,
 ) -> str:
-    """Build command for running FT with specific hyperparameters."""
-    lr = params.get("ft_lr")
-
-    logger.info(f"Running FT with lr={lr}")
-    logger.info(
-        f"Running with module path {args.module_path} on cluster {args.cluster}"
-    )
-
-    run_name = f"{base_run_name}_FT_lr{lr}"
-
-    cmd_args = ""
-    cmd_args += " " + ft_mode_args
-    cmd_args += " " + ft_lr_args_template.format(arg=lr)
-    cmd_args += " " + _get_model_specific_args(args)
-
-    module_path = (
-        args.module_path if args.module_path is not None else _get_module_path(args)
-    )
-    return (
-        f"TRAIN_SCRIPT_PATH={module_path} {launch_command} helios/internal/all_evals.py "
-        f"{sub_command} {run_name} {args.cluster} --launch.priority=high {cmd_args} "
-        f"--launch.task_name=eval {checkpoint_args} --trainer.callbacks.wandb.project={project_name}{extra} "
-        # # We need to disable FSDP as that will create DTensor
-        "--train_module.dp_config=null"
-    )
-
-
-def _get_module_path(args: argparse.Namespace) -> str:
-    """Get the module path for the launch script."""
-    if args.dino_v3:
-        return get_launch_script_path("dino_v3")
-    elif args.panopticon:
-        return get_launch_script_path("panopticon")
-    elif args.terramind:
-        return get_launch_script_path("terramind")
-    elif args.croma:
-        return get_launch_script_path("croma")
-    elif args.clay:
-        return get_launch_script_path("clay")
-    elif args.galileo:
-        return get_launch_script_path("galileo")
-    elif args.presto:
-        return get_launch_script_path("presto")
-    elif args.satlas:
-        return get_launch_script_path("satlas")
-    elif args.tessera:
-        return get_launch_script_path("tessera")
-    elif args.prithvi_v2:
-        return get_launch_script_path("prithvi_v2")
-    else:
-        raise ValueError(f"Invalid model name: {args.model_name}")
+    """Format the launch command."""
+    parts = [
+        f"TRAIN_SCRIPT_PATH={module_path}",
+        launch_command,
+        "helios/internal/all_evals.py",
+        sub_command,
+        run_name,
+        cluster,
+        "--launch.priority=high",
+        "--launch.task_name=eval",
+    ]
+    parts.extend(checkpoint_args)
+    parts.append(f"--trainer.callbacks.wandb.project={project_name}")
+    parts.extend(extra_cli)
+    parts.extend(model_args)
+    parts.extend(FT_MODE_ARGS)
+    parts.extend(_format_ft_lr_args(lr))
+    parts.append("--train_module.dp_config=null")
+    return " ".join(parts)
 
 
 def build_commands(args: argparse.Namespace, extra_cli: list[str]) -> list[str]:
     """Build the commands for the sweep."""
     project_name = args.project_name or "helios_in_loop_evals"
-    extra = " " + " ".join(extra_cli) if extra_cli else ""
-
     sub_command = _get_sub_command(args)
     base_run_name = _get_base_run_name(args)
-    launch_command = "python3" if not sub_command == SubCmd.train else "torchrun"
+    launch_command = "python3" if sub_command != SubCmd.train else "torchrun"
+
+    selected_flag = _selected_model_flag(args)
+    model_args = _build_model_args(selected_flag)
+    module_path = _resolve_module_path(args, selected_flag)
     checkpoint_args = _get_checkpoint_args(args.checkpoint_path)
 
-    commands_to_run: list[str] = []
-
-    if args.defaults_only:
-        cmd = _build_default_ft_command(
-            args,
-            base_run_name,
-            sub_command,
-            launch_command,
-            checkpoint_args,
-            project_name,
-            extra,
-        )
-        commands_to_run.append(cmd)
-    else:
-        hp_params = ft_loop_through_params()
-        for params in hp_params:
-            cmd = _build_ft_hyperparameter_command(
-                args,
-                params,
-                base_run_name,
-                sub_command,
-                launch_command,
-                checkpoint_args,
-                project_name,
-                extra,
+    lrs = [FT_LRS[0]] if args.defaults_only else FT_LRS
+    commands: list[str] = []
+    for lr in lrs:
+        if args.defaults_only:
+            logger.info("Running FT defaults with lr=%s", lr)
+            run_suffix = "FT_defaults"
+        else:
+            logger.info("Running FT with lr=%s", lr)
+            run_suffix = f"FT_lr{lr}"
+        run_name = f"{base_run_name}_{run_suffix}"
+        commands.append(
+            _format_launch_command(
+                module_path=module_path,
+                launch_command=launch_command,
+                sub_command=sub_command,
+                run_name=run_name,
+                cluster=args.cluster,
+                project_name=project_name,
+                checkpoint_args=checkpoint_args,
+                extra_cli=extra_cli,
+                model_args=model_args,
+                lr=lr,
             )
-            commands_to_run.append(cmd)
-    return commands_to_run
+        )
+    return commands
 
 
 def main() -> None:
-    """Run the full evaluation sweep or just the defaults."""
-    parser = argparse.ArgumentParser()
+    """Run the fine-tune evaluation sweep."""
+    parser = argparse.ArgumentParser(description="Run finetune evaluation sweeps.")
     parser.add_argument("--cluster", type=str, required=True, help="Cluster name")
     parser.add_argument(
         "--checkpoint_path",
@@ -520,87 +289,34 @@ def main() -> None:
         type=str,
         required=False,
         default=None,
-        help="Path to module .py",
+        help="Path to module .py (overrides model preset defaults)",
     )
     parser.add_argument(
-        "--project_name", type=str, required=False, help="Wandb project name"
+        "--project_name",
+        type=str,
+        required=False,
+        help="Weights & Biases project name",
     )
     parser.add_argument(
         "--defaults_only",
         action="store_true",
-        help="If set, only run with default values (no sweep)",
+        help="Only run with the default learning rate",
     )
     parser.add_argument(
         "--dry_run",
         action="store_true",
-        help="If set, only print the commands that would be run",
+        help="Print the commands without launching them",
     )
     parser.add_argument(
         "--model_name",
         type=str,
         required=False,
-        help="If set, use this as the base run name",
+        help="Use this as the base run name",
     )
-    parser.add_argument(
-        "--dino_v3",
-        action="store_true",
-        help="If set, use the dino v3 normalization settings",
-    )
-    parser.add_argument(
-        "--panopticon",
-        action="store_true",
-        help="If set, use the panopticon normalization settings",
-    )
-    parser.add_argument(
-        "--terramind",
-        action="store_true",
-        help="If set, nothing really happens idk",
-    )
-    parser.add_argument(
-        "--galileo",
-        action="store_true",
-        help="If set, use the galileo normalization settings",
-    )
-    parser.add_argument(
-        "--satlas",
-        action="store_true",
-        help="If set, use the satlas normalization settings",
-    )
-    parser.add_argument(
-        "--croma",
-        action="store_true",
-        help="If set, use the croma normalization settings",
-    )
-    parser.add_argument(
-        "--clay",
-        action="store_true",
-        help="If set, use the clay normalization settings",
-    )
-    parser.add_argument(
-        "--copernicusfm",
-        action="store_true",
-        help="If set, use the copernicusfm normalization settings",
-    )
-    parser.add_argument(
-        "--presto",
-        action="store_true",
-        help="If set, use the presto normalization settings",
-    )
-    parser.add_argument(
-        "--anysat",
-        action="store_true",
-        help="If set, use the anysat normalization settings",
-    )
-    parser.add_argument(
-        "--tessera",
-        action="store_true",
-        help="If set, use the tessera normalization settings",
-    )
-    parser.add_argument(
-        "--prithvi_v2",
-        action="store_true",
-        help="If set, use the prithvi normalization settings",
-    )
+
+    for flag, preset in MODEL_PRESETS.items():
+        parser.add_argument(f"--{flag}", action="store_true", help=preset.help_text)
+
     args, extra_cli = parser.parse_known_args()
 
     env = os.environ.copy()
