@@ -351,7 +351,7 @@ class DownstreamEvaluatorCallback(Callback):
     evaluators: list[DownstreamEvaluator] = field(default_factory=list)
     eval_on_startup: bool = False
     cancel_after_first_eval: bool = False
-    run_on_test: bool = False
+    run_on_test: bool = True
 
     def _check_supported_modalities(self, evaluator: DownstreamEvaluator) -> bool:
         """Check if the evaluator is supported by the model."""
