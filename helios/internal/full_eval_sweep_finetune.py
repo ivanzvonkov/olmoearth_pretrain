@@ -18,7 +18,6 @@ from typing import Any
 from helios.evals.models import get_launch_script_path
 from helios.internal.all_evals import FT_EVAL_TASKS
 from helios.internal.experiment import SubCmd
-from helios.train.callbacks.evaluator_callback import EvalMode
 
 logger = getLogger(__name__)
 
@@ -41,7 +40,7 @@ def _format_per_task_args(overrides: dict[str, Any]) -> list[str]:
     return args
 
 
-FT_MODE_ARGS = _format_per_task_args({"eval_mode": EvalMode.FINETUNE})
+FT_MODE_ARGS = _format_per_task_args({"eval_mode": "FINETUNE"})
 DATASET_STATS_ARGS = _format_per_task_args({"norm_stats_from_pretrained": "False"})
 
 
