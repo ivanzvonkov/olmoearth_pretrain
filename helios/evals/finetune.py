@@ -190,7 +190,7 @@ def run_finetune_eval(
     # Trigger _init_head once with a tiny dry pass
     with torch.no_grad(), torch.autocast(device_type=device.type, dtype=torch.bfloat16):
         sample_batch, label = next(iter(train_loader))
-        _ = ft(_to_device(sample_batch, device), _to_device(label, device))
+        _ = ft(_to_device(sample_batch, device), label.to(device))
 
     total, trainable = count_params(ft)
     logger.info(f"Total parameters: {total:,}")
