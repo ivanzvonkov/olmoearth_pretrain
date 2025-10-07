@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 from torch.utils.data import DataLoader
 
 from helios.evals.datasets.configs import EvalDatasetConfig, TaskType
@@ -94,9 +94,12 @@ def _to_device(masked: MaskedHeliosSample, device: torch.device) -> MaskedHelios
 
 @torch.no_grad()
 def _eval_cls(
-    module: _BackboneWithHead, loader: DataLoader, device: torch.device
+    module: _BackboneWithHead,
+    loader: DataLoader,
+    device: torch.device,
+    is_multilabel: bool,
 ) -> float:
-    """Evaluate classification accuracy."""
+    """Evaluate classification metric (micro F1 for multilabel, accuracy otherwise)."""
     module.eval()
     logits_all, labels_all = [], []
     for masked, label in loader:
@@ -108,8 +111,17 @@ def _eval_cls(
         labels_all.append(label.cpu())
     logits = torch.cat(logits_all, 0)
     labels = torch.cat(labels_all, 0)
-    preds = torch.argmax(logits, dim=-1)
-    return accuracy_score(labels.numpy(), preds.numpy())
+    if is_multilabel:
+        preds = torch.sigmoid(logits).gt(0.5).int()
+        return f1_score(
+            labels.numpy().astype(int),
+            preds.numpy(),
+            average="micro",
+            zero_division=0,
+        )
+    else:
+        preds = torch.argmax(logits, dim=-1)
+        return accuracy_score(labels.numpy(), preds.numpy())
 
 
 @torch.no_grad()
@@ -257,7 +269,7 @@ def run_finetune_eval(
             opt.zero_grad()
 
         if task_config.task_type == TaskType.CLASSIFICATION:
-            val_metric = _eval_cls(ft, val_loader, device)
+            val_metric = _eval_cls(ft, val_loader, device, task_config.is_multilabel)
         else:
             val_metric = _eval_seg(
                 ft,
@@ -292,7 +304,9 @@ def run_finetune_eval(
 
     if best_val_metric == float("-inf"):
         if task_config.task_type == TaskType.CLASSIFICATION:
-            best_val_metric = _eval_cls(ft, val_loader, device)
+            best_val_metric = _eval_cls(
+                ft, val_loader, device, task_config.is_multilabel
+            )
         else:
             best_val_metric = _eval_seg(
                 ft,
@@ -307,7 +321,9 @@ def run_finetune_eval(
     if task_config.task_type == TaskType.CLASSIFICATION:
         val_acc = best_val_metric
         test_acc = (
-            _eval_cls(ft, test_loader, device) if test_loader is not None else 0.0
+            _eval_cls(ft, test_loader, device, task_config.is_multilabel)
+            if test_loader is not None
+            else 0.0
         )
         return val_acc, test_acc
     else:
