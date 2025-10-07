@@ -42,8 +42,6 @@ PRITHVI_STD = [
 # HLS bands: Blue, Green, Red, Narrow NIR, SWIR, SWIR 2
 SENTINEL2_L2A_BAND_NAMES = ["B02", "B03", "B04", "B08", "B11", "B12"]
 
-HF_HUB_ID = "ibm-nasa-geospatial/Prithvi-EO-2.0-300M"
-
 
 class PrithviV2Models(StrEnum):
     """Names for different Prithvi models on torch hub."""
