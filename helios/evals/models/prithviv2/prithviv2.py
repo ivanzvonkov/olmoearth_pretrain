@@ -84,7 +84,7 @@ class PrithviV2(nn.Module):
         """
         super().__init__()
 
-        model_size_directory = UPath(load_directory) / size.value
+        model_size_directory = UPath(load_directory) / size
         model_size_directory.mkdir(exist_ok=True)
 
         hub_id = MODEL_TO_HF_INFO[size]["hf_hub_id"]
@@ -242,11 +242,13 @@ class PrithviV2Config(Config):
     """olmo_core style config for PrithviV2 Wrapper."""
 
     load_directory: str = "/weka/dfive-default/helios/models/prithvi"
-    size: PrithviV2Models = PrithviV2Models.VIT_300
+    size: str | PrithviV2Models = PrithviV2Models.VIT_300
     use_pretrained_normalizer: bool = True
 
     def build(self) -> PrithviV2:
         """Build the PrithviV2 model."""
+        if isinstance(self.size, str):  # To make mypy happy
+            self.size = PrithviV2Models(self.size)
         return PrithviV2(
             load_directory=self.load_directory,
             size=self.size,

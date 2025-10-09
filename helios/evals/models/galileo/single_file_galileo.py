@@ -1206,7 +1206,14 @@ class Encoder(GalileoBase):
             # we take the inverse of the mask because a value
             # of True indicates the value *should* take part in
             # attention
-            x = blk(x=x, y=None, attn_mask=~new_m.bool())
+            temp_mask = ~new_m.bool()
+
+            if temp_mask.all():
+                # if all the tokens are used in attention we can pass a None mask
+                # to the attention block
+                temp_mask = None
+
+            x = blk(x=x, y=None, attn_mask=temp_mask)
 
         if exit_ids_seq is not None:
             assert exited_tokens is not None
@@ -1902,7 +1909,7 @@ MODEL_SIZE_TO_WEKA_PATH = {
 class GalileoConfig(Config):
     """olmo_core style config for GalileoWrapper."""
 
-    model_size: str = "base"
+    size: str = "base"
     patch_size: int = 4
     month: int = 6
     add_layernorm_on_exit: bool = True
@@ -1911,7 +1918,7 @@ class GalileoConfig(Config):
     def build(self) -> GalileoWrapper:
         """Build the Galileo model."""
         return GalileoWrapper(
-            pretrained_path=UPath(MODEL_SIZE_TO_WEKA_PATH[self.model_size]),
+            pretrained_path=UPath(MODEL_SIZE_TO_WEKA_PATH[self.size]),
             patch_size=self.patch_size,
             month=self.month,
             add_layernorm_on_exit=self.add_layernorm_on_exit,

@@ -122,6 +122,7 @@ def train_and_eval_probe(
     epochs: int = 50,
     eval_interval: int = 50,
     probe_type: ProbeType = ProbeType.LINEAR,
+    select_final_test_miou_based_on_epoch_of_max_val_miou: bool = False,
 ) -> tuple[float, float]:
     """Run a linear probe on the Helios model."""
     logger.info(f"Probe type {probe_type}")
@@ -223,23 +224,32 @@ def train_and_eval_probe(
                 task_type=config.task_type,
                 probe_type=probe_type,
             )
+            logger.debug(f"Epoch {end_epoch}, Test MIoU: {test_miou}")
             test_mious.append(test_miou)
     for i in range(len(val_mious)):
         logger.debug(f"Epoch {(i + 1) * eval_interval}, MIoU: {val_mious[i]}")
     max_val_miou = max(val_mious)
     max_epoch = (val_mious.index(max_val_miou) + 1) * eval_interval
     logger.debug(f"Max MIoU: {max_val_miou} at epoch {max_epoch}")
-    final_val_miou = val_mious[-1]
-    if final_val_miou < max_val_miou:
-        logger.warning(
-            f"Final MIoU: {final_val_miou} at epoch {epochs} is less than max MIoU: "
-            f"{max_val_miou} at epoch {max_epoch}"
+    if select_final_test_miou_based_on_epoch_of_max_val_miou:
+        assert len(test_mious) == len(val_mious), (
+            "if select_final_test_miou_based_on_epoch_of_max_val_miou is True, "
+            "test_mious and val_mious must have the same length"
         )
-    if len(test_mious) > 0:
-        final_test_miou = test_mious[-1]
+        test_miou = test_mious[val_mious.index(max_val_miou)]
+        val_miou = max_val_miou
     else:
-        final_test_miou = 0.0
-    return final_val_miou, final_test_miou
+        val_miou = val_mious[-1]
+        if val_miou < max_val_miou:
+            logger.warning(
+                f"Final MIoU: {val_miou} at epoch {epochs} is less than max MIoU: "
+                f"{max_val_miou} at epoch {max_epoch}"
+            )
+        if len(test_mious) > 0:
+            test_miou = test_mious[-1]
+        else:
+            test_miou = 0.0
+    return val_miou, test_miou
 
 
 def train_probe(
