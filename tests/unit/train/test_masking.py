@@ -1158,9 +1158,7 @@ def test_modality_cross_random_masking() -> None:
     assert (masked_sample.sentinel2_l2a_mask == expected_sentinel2_l2a_mask).all()
 
 
-def test_modality_cross_random_masking_always_gives_online_encoder_and_decoder_tokens() -> (
-    None
-):
+def test_modality_cross_random_masking_has_online_encoder_and_decoder_tokens() -> None:
     """Test modality cross random masking."""
     b, h, w, t = 4, 1, 1, 3
 
