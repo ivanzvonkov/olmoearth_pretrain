@@ -4,6 +4,7 @@ import logging
 import random
 
 import torch
+from einops import repeat
 
 from helios.data.constants import MISSING_VALUE, Modality
 from helios.data.dataset import HeliosSample
@@ -16,6 +17,7 @@ from helios.train.masking import (
     ModalitySpaceTimeMaskingStrategy,
     RandomMaskingStrategy,
     RandomRangeMaskingStrategy,
+    SafeRandomMaskingStrategy,
     SpaceMaskingStrategy,
     TimeMaskingStrategy,
 )
@@ -1251,6 +1253,63 @@ def test_mask_when_most_samples_are_missing() -> None:
     # also, check the original missing values are still missing
     assert (
         filled_mask[mask == MaskValue.MISSING.value] == MaskValue.MISSING.value
+    ).all()
+
+
+def test_safe_random_mask_when_most_samples_are_missing() -> None:
+    """Safe Random Masking.
+
+    Makes sure each band set has at least one encoded and one
+    decoded example per batch.
+    """
+    masking_strategy = SafeRandomMaskingStrategy(
+        encode_ratio=0.5,
+        decode_ratio=0.5,
+    )
+    b, t = 1, 7
+    s2_single_bs = torch.tensor(
+        [
+            2,
+            2,
+            MISSING_VALUE,
+            MISSING_VALUE,
+            MISSING_VALUE,
+            MISSING_VALUE,
+            MISSING_VALUE,
+        ]
+    )
+    s2 = repeat(
+        s2_single_bs,
+        "t -> b h w t d",
+        b=1,
+        h=1,
+        w=1,
+        d=Modality.SENTINEL2_L2A.num_bands,
+    )
+    days = torch.randint(1, 31, (b, 1, t), dtype=torch.long)
+    months = torch.randint(1, 13, (b, 1, t), dtype=torch.long)
+    years = torch.randint(2018, 2020, (b, 1, t), dtype=torch.long)
+    timestamps = torch.cat([days, months, years], dim=1)  # Shape: (B, 3, T)
+    batch = HeliosSample(
+        sentinel2_l2a=s2,
+        timestamps=timestamps,
+    )
+    mask = masking_strategy.apply_mask(batch, patch_size=1).sentinel2_l2a_mask
+    assert isinstance(mask, torch.Tensor)  # for mypy
+    for bandset_dim in range(mask.shape[-1]):
+        num_encoded = torch.sum(
+            mask[..., bandset_dim] == MaskValue.ONLINE_ENCODER.value,
+            dim=(1, 2, 3),
+        )
+        num_decoded = torch.sum(
+            mask[..., bandset_dim] == MaskValue.DECODER.value,
+            dim=(1, 2, 3),
+        )
+        assert (num_encoded > 0).all()
+        assert (num_decoded > 0).all()
+    # also, check the original missing values are still missing
+    assert (
+        mask[s2[..., : mask.shape[-1]] == MISSING_VALUE] == MaskValue.MISSING.value
     ).all()
 
 

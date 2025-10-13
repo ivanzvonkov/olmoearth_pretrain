@@ -1902,16 +1902,25 @@ class SafeRandomMaskingStrategy(MaskingStrategy):
                 mask = self.fill_mask_with_missing_values(instance, mask, modality)
 
                 # Make sure we always have encoded and decoded tokens
-                flat_mask = torch.flatten(mask, start_dim=1)
-                num_encoded = (flat_mask == MaskValue.ONLINE_ENCODER.value).sum(dim=-1)
-                num_decoded = (flat_mask == MaskValue.DECODER.value).sum(dim=-1)
-                no_encoded_indices = torch.argwhere(num_encoded == 0)
-                no_decoded_indices = torch.argwhere(num_decoded == 0)
+                for bandset_idx in range(mask.shape[-1]):
+                    flat_mask = torch.flatten(
+                        mask[..., bandset_idx], start_dim=1, end_dim=-1
+                    )
+                    num_encoded = (flat_mask == MaskValue.ONLINE_ENCODER.value).sum(
+                        dim=-1
+                    )
+                    num_decoded = (flat_mask == MaskValue.DECODER.value).sum(dim=-1)
+                    no_encoded_indices = torch.argwhere(num_encoded == 0)
+                    no_decoded_indices = torch.argwhere(num_decoded == 0)
 
-                for i in no_encoded_indices:
-                    mask[i] = self._random_fill_unmasked(mask[i], modality, patch_size)
-                for i in no_decoded_indices:
-                    mask[i] = self._random_fill_unmasked(mask[i], modality, patch_size)
+                    for i in no_encoded_indices:
+                        mask[i, ..., bandset_idx] = self._random_fill_unmasked(
+                            mask[i, ..., bandset_idx], modality, patch_size
+                        )
+                    for i in no_decoded_indices:
+                        mask[i, ..., bandset_idx] = self._random_fill_unmasked(
+                            mask[i, ..., bandset_idx], modality, patch_size
+                        )
 
                 output_dict[modality_name] = instance
                 output_dict[
