@@ -1,11 +1,11 @@
-"""Simple set up of latent predictor."""
+"""Simple set up of MAE networks."""
 
 from dataclasses import dataclass
 
 import torch.nn as nn
 from olmo_core.config import Config
 
-from olmoearth_pretrain.nn.flexihelios import (
+from olmoearth_pretrain.nn.flexi_vit import (
     EncoderConfig,
     PredictorConfig,
     ReconstructorConfig,
@@ -17,6 +17,8 @@ from olmoearth_pretrain.train.masking import MaskedOlmoEarthSample
 
 class MAE(nn.Module, DistributedMixins):
     """Masked Auto-Encoder Module."""
+
+    supports_multiple_modalities_at_once = True
 
     def __init__(
         self,

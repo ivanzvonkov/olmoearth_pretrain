@@ -14,7 +14,7 @@ from torch.distributed.fsdp import (
     register_fsdp_forward_method,
 )
 
-from olmoearth_pretrain.nn.flexihelios import TokensAndMasks
+from olmoearth_pretrain.nn.flexi_vit import TokensAndMasks
 from olmoearth_pretrain.nn.utils import DistributedMixins, unpack_encoder_output
 from olmoearth_pretrain.train.masking import MaskedOlmoEarthSample
 
@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 class Galileo(nn.Module, DistributedMixins):
     """Galileo Style."""
+
+    supports_multiple_modalities_at_once = True
 
     def __init__(
         self,
