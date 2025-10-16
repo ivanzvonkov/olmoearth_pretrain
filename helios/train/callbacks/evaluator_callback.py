@@ -293,9 +293,9 @@ class DownstreamEvaluatorCallback(Callback):
             logger.info("model has encoder")
             if hasattr(self.trainer.train_module.model.encoder, "supported_modalities"):
                 logger.info(
-                    f"encoder has supported_modalities: {self.trainer.train_module.model.encoder.supported_modalities}"
+                    f"encoder has supported_modalities: {self.trainer.train_module.model.encoder.supported_modality_names}"
                 )
-                return self.trainer.train_module.model.encoder.supported_modalities
+                return self.trainer.train_module.model.encoder.supported_modality_names
         else:
             print(self.trainer.train_module.model)
             logger.info(
@@ -370,12 +370,13 @@ class DownstreamEvaluatorCallback(Callback):
             eval_interval_steps = self.trainer.convert_duration_to_steps(
                 evaluator.eval_interval
             )
-            if self.step <= 1 or self.step % eval_interval_steps != 0:
-                continue
+            # TODO this should be after the step check below - moved for debugging.
             if not self._check_supported_modalities(evaluator):
                 logger.info(
                     f"Skipping {evaluator.evaluation_name} because it requires a modality that is not supported by the model"
                 )
+                continue
+            if self.step <= 1 or self.step % eval_interval_steps != 0:
                 continue
             self._perform_eval(evaluator)
 
