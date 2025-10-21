@@ -250,6 +250,9 @@ def _format_launch_command(
         "--launch.num_gpus=1",
         "--launch.preemptible=True",
         "--launch.task_name=eval",
+        # Overwrite the max duration to enable eval of the last step of the checkpoint
+        "--trainer.max_duration.value=700000",
+        "--trainer.max_duration.unit=steps",
     ]
     parts.extend(checkpoint_args)
     parts.append(f"--trainer.callbacks.wandb.project={project_name}")
