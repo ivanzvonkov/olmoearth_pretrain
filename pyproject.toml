@@ -94,6 +94,7 @@ dataset-creation = [
     "wandb>=0.19.0",
 ]
 dev = [
+    "pip>=25.2",
     "gitpython>=3.0,<4.0",
     "interrogate>=1.7.0",
     "pre-commit>=4.3.0",
