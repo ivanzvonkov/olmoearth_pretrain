@@ -23,7 +23,7 @@ from olmoearth_pretrain.internal.experiment import SubCmd
 logger = getLogger(__name__)
 
 # Fine-tune learning rates to sweep over.
-FT_LRS = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3]
+FT_LRS = [1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2]
 
 TASK_ARG_PREFIX = "--trainer.callbacks.downstream_evaluator.tasks"
 FT_TASK_NAMES = list(FT_EVAL_TASKS.keys())
@@ -251,7 +251,7 @@ def _format_launch_command(
         "--launch.preemptible=True",
         "--launch.task_name=eval",
         # Overwrite the max duration to enable eval of the last step of the checkpoint
-        "--trainer.max_duration.value=700000",
+        "--trainer.max_duration.value=1000000",
         "--trainer.max_duration.unit=steps",
     ]
     parts.extend(checkpoint_args)
@@ -278,23 +278,25 @@ def build_commands(args: argparse.Namespace, extra_cli: list[str]) -> list[str]:
     # LR sweep
     lrs = [FT_LRS[0]] if args.defaults_only else FT_LRS
 
-    # Normalizer sweep: default case (None) + one extra (True) if supported and requested
-    normalizer_options: list[bool | None] = [None]
+    # Normalizer sweep: default True, use model norm, if False, use dataset norm
+    normalizer_options: list[bool] = [True]
     if selected_flag is not None:
         preset = MODEL_PRESETS[selected_flag]
         if args.sweep_normalizer and preset.supports_pretrained_normalizer:
-            normalizer_options = [None, True]
+            normalizer_options = [True, False]
 
     commands: list[str] = []
     for lr in lrs:
         for norm_val in normalizer_options:
             if args.defaults_only:
                 run_suffix = "FT_defaults"
+            elif args.checkpoint_path:
+                run_suffix = f"FT_lr{lr}_norm_mixed"
             else:
                 if norm_val is True:
                     run_suffix = f"FT_lr{lr}_norm_pretrained_True"
                 else:
-                    run_suffix = f"FT_lr{lr}"
+                    run_suffix = f"FT_lr{lr}_norm_pretrained_False"
             run_name = f"{base_run_name}_{run_suffix}"
 
             model_args = _build_model_args(selected_flag, norm_val)
