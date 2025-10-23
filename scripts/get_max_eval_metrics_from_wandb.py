@@ -12,11 +12,11 @@ from olmoearth_pretrain.evals.models import (
     MODELS_WITH_MULTIPLE_SIZES,
     BaselineModelName,
 )
-from olmoearth_pretrain.internal.all_evals import EVAL_TASKS
+from olmoearth_pretrain.internal.all_evals import EVAL_TASKS, FT_EVAL_TASKS
 from olmoearth_pretrain.train.callbacks.evaluator_callback import EvalMode
 
 WANDB_ENTITY = "eai-ai2"
-METRICS = EVAL_TASKS.keys()
+METRICS = list(EVAL_TASKS.keys())
 
 # Dataset partitions to consider (excluding default)
 PARTITIONS = [
@@ -379,8 +379,17 @@ if __name__ == "__main__":
         action="store_true",
         help="Report test metrics based on the configuration of the validation results witht the highest score",
     )
+    parser.add_argument(
+        "--finetune",
+        action="store_true",
+        help="Use finetune evaluation tasks when determining metrics",
+    )
 
     args = parser.parse_args()
+
+    global METRICS
+    selected_tasks = FT_EVAL_TASKS if args.finetune else EVAL_TASKS
+    METRICS = list(selected_tasks.keys())
 
     if args.per_partition:
         if not args.run_prefix:

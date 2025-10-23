@@ -1,4 +1,4 @@
-"""Launch fine-tune evaluation sweeps for OlmoEarth Pretrain checkpoints.
+"""Launch fine-tune evaluation sweeps for OlmoEarth and other models.
 
 Example run:
 python olmoearth_pretrain/internal/full_eval_sweep_finetune.py --project_name 2025_10_08_phase2_finetune --module_path olmoearth_pretrain/evals/models/clay/clay_launch.py --cluster ai2/titan --model_name clay --clay --defaults_only
