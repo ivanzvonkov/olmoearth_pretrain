@@ -64,11 +64,11 @@ class BackboneWithHead(nn.Module):
         self._inited = True
 
     def forward(
-        self, batch: MaskedOlmoEarthSample, labels: torch.Tensor
+        self, batch: MaskedOlmoEarthSample, labels: torch.Tensor, is_train: bool = True
     ) -> torch.Tensor:
         """Forward pass through the model and head."""
         dev = next(self.wrapper.parameters()).device
-        emb, labels = self.wrapper(batch, labels)
+        emb, labels = self.wrapper(batch, labels, is_train=is_train)
         emb = cast(torch.Tensor, emb)
         emb_dim = emb.shape[-1]
         if not self._inited:
@@ -105,7 +105,7 @@ def _eval_cls(
         label = label.to(device=device)
         masked = _to_device(masked, device)
         with torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16):
-            logits, _ = module(masked, label)  # (B, C)
+            logits, _ = module(masked, label, is_train=False)  # (B, C)
         logits_all.append(logits.float().cpu())
         labels_all.append(label.cpu())
     logits = torch.cat(logits_all, 0)
@@ -138,7 +138,7 @@ def _eval_seg(
         label = label.to(device=device)
         masked = _to_device(masked, device)
         with torch.amp.autocast(device_type=device.type, dtype=torch.bfloat16):
-            logits, _ = module(masked, label)  # (B, H, W, C*p*p)
+            logits, _ = module(masked, label, is_train=False)  # (B, H, W, C*p*p)
             H, W = logits.shape[1], logits.shape[2]
             logits = rearrange(
                 logits,
@@ -215,6 +215,7 @@ def run_finetune_eval(
         sample_batch, label = next(iter(train_loader))
         _, _ = ft(_to_device(sample_batch, device), label.to(device))
 
+    # Freeze the backbone for the first 20% of the epochs
     freeze_epochs = math.ceil(0.2 * epochs) if epochs > 0 else 0
     backbone_unfrozen = freeze_epochs == 0
     if not backbone_unfrozen:
