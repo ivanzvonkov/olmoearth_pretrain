@@ -43,8 +43,6 @@ class BackboneWithHead(nn.Module):
             pooling_type=pooling_type,
             concat_features=False,
             use_pooled_tokens=use_pooled_tokens,
-            # Set this to False to avoid downsampling embeddings and labels for AnySat
-            is_train=False,
         )
         self.task_type = task_type
         self.patch_size = patch_size
@@ -228,14 +226,14 @@ def run_finetune_eval(
     else:
         loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
 
-    # Set patience to higher so that we don't missed the best model
-    patience = max(1, int(0.2 * epochs)) if epochs > 0 else 1
-    logger.info(f"Using early stopping patience of {patience} epochs")
+    # # Set patience to higher so that we don't missed the best model
+    # patience = max(1, int(0.2 * epochs)) if epochs > 0 else 1
+    # logger.info(f"Using early stopping patience of {patience} epochs")
 
     best_state = _snapshot_state_dict(ft)
     best_val_metric = float("-inf")
-    epochs_without_improvement = 0
-    should_stop = False
+    # epochs_without_improvement = 0
+    # should_stop = False
 
     ft.train()
     for epoch in range(epochs):
@@ -295,21 +293,21 @@ def run_finetune_eval(
         if val_metric > best_val_metric:
             best_val_metric = val_metric
             best_state = _snapshot_state_dict(ft)
-            epochs_without_improvement = 0
+            # epochs_without_improvement = 0
             logger.info(
                 f"New best validation metric {best_val_metric:.4f} at epoch {epoch + 1}"
             )
-        else:
-            epochs_without_improvement += 1
-            if epochs_without_improvement >= patience:
-                logger.info(
-                    "Early stopping triggered after "
-                    f"{epochs_without_improvement} epochs without improvement"
-                )
-                should_stop = True
+        # else:
+        #     epochs_without_improvement += 1
+        #     if epochs_without_improvement >= patience:
+        #         logger.info(
+        #             "Early stopping triggered after "
+        #             f"{epochs_without_improvement} epochs without improvement"
+        #         )
+        #         should_stop = True
 
-        if should_stop:
-            break
+        # if should_stop:
+        #     break
         ft.train()
 
     if best_val_metric == float("-inf"):
