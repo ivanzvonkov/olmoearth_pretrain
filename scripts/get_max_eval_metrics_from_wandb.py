@@ -199,7 +199,6 @@ def get_max_metrics_grouped(
 
         group_metrics[group_name] = metrics
         group_max_runs_per_metric[group_name] = max_runs_per_metric
-        print(f"Group max runs per metric: {group_max_runs_per_metric}")
 
     grouped_test_metrics = {}
     if get_test_metrics:
@@ -386,7 +385,9 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    metrics = list(FT_EVAL_TASKS.keys()) if args.finetune else list(EVAL_TASKS.keys())
+    all_metrics = (
+        list(FT_EVAL_TASKS.keys()) if args.finetune else list(EVAL_TASKS.keys())
+    )
 
     if args.per_partition:
         if not args.run_prefix:
@@ -401,7 +402,7 @@ if __name__ == "__main__":
         for partition in PARTITIONS:
             if partition in partition_metrics:
                 print(f"\n{partition}:")
-                for metric in metrics:
+                for metric in all_metrics:
                     # Try original name
                     key = f"eval/{metric}"
                     val = partition_metrics[partition].get(key)
@@ -442,7 +443,7 @@ if __name__ == "__main__":
         print("\nFinal Results:")
         for group_name, metrics in group_metrics.items():
             print(f"\n{group_name}:")
-            for metric in metrics:
+            for metric in all_metrics:
                 try:
                     k = f"eval/{metric}"
                     print(f"  {metric}: {metrics[k]}")
@@ -457,7 +458,7 @@ if __name__ == "__main__":
             print("\nFinal Test Results:")
             for group_name, metrics in group_test_metrics.items():
                 print(f"\n{group_name}:")
-                for metric in metrics:
+                for metric in all_metrics:
                     try:
                         k = f"eval/test/{metric}"
                         print(f"  {metric}: {metrics[k]}")
