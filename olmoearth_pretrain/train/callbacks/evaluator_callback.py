@@ -328,6 +328,7 @@ class DownstreamEvaluator:
         val_result, test_result = run_finetune_eval(
             task_name=self.evaluation_name,
             task_config=self.config,
+            trainer=self.trainer,
             model=model,
             device=self.device or self.trainer.device,
             lr=self.ft_lr,  # type: ignore

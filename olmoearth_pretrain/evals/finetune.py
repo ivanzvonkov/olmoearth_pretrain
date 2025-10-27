@@ -21,6 +21,7 @@ from olmoearth_pretrain.evals.datasets.configs import EvalDatasetConfig, TaskTyp
 from olmoearth_pretrain.evals.eval_wrapper import get_eval_wrapper
 from olmoearth_pretrain.evals.metrics import mean_iou
 from olmoearth_pretrain.train.masking import MaskedOlmoEarthSample
+from olmoearth_pretrain.train.trainer import Trainer
 
 logger = getLogger(__name__)
 
@@ -193,6 +194,7 @@ def _set_backbone_trainable(backbone: nn.Module, requires_grad: bool) -> None:
 def run_finetune_eval(
     task_name: str,
     task_config: EvalDatasetConfig,
+    trainer: Trainer,
     model: nn.Module,
     device: torch.device,
     lr: float,
@@ -305,6 +307,7 @@ def run_finetune_eval(
                             align_corners=True,
                         )
                 loss = loss_fn(logits, label)
+                trainer.record_metric(f"finetune/{task_name}/train/loss", loss.item())
                 logger.info(
                     f"Finetune Epoch [{epoch + 1}/{epochs}] Step [{i + 1}/{len(train_loader)}] Loss: {loss.item():.4f}"
                 )
@@ -322,6 +325,7 @@ def run_finetune_eval(
                 task_config.num_classes,
                 patch_size,
             )
+        trainer.record_metric(f"finetune/{task_name}/val/metric", val_metric)
         logger.info(
             f"Finetune Epoch [{epoch + 1}/{epochs}] Validation Metric: {val_metric:.4f}"
         )
