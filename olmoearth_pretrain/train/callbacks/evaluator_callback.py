@@ -492,7 +492,7 @@ class DownstreamEvaluatorCallback(Callback):
                 if isinstance(callback, OlmoEarthWandBCallback)
             )
             if wandb_callback.enabled:
-                wandb_callback.wandb.define_metrics(
+                wandb_callback.wandb.define_metric(
                     "finetune/*", step_metric="finetune_step"
                 )
                 wandb_callback.wandb.log({"finetune_step": 0})
