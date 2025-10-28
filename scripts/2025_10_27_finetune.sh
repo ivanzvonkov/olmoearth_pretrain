@@ -36,14 +36,19 @@ $SCRIPT --project_name $PROJECT_NAME --module_path olmoearth_pretrain/evals/mode
 $SCRIPT --project_name $PROJECT_NAME --module_path olmoearth_pretrain/evals/models/copernicusfm/copernicusfm_launch.py --cluster $CLUSTER --model copernicusfm --finetune_seed 1234 --launch.priority=high
 
 # OlmoEarth Base / Tiny / Nano from checkpoints
-$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/phase2.0_base_lr0.0001_wd0.02/step667200 --project_name 2025_10_25_phase2_finetune --module_path scripts/2025_10_02_phase2/base.py --cluster $CLUSTER --launch.priority=high --finetune_seed 0
-$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/phase2.0_base_lr0.0001_wd0.02/step667200 --project_name 2025_10_25_phase2_finetune --module_path scripts/2025_10_02_phase2/base.py --cluster $CLUSTER --launch.priority=high --finetune_seed 42
-$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/phase2.0_base_lr0.0001_wd0.02/step667200 --project_name 2025_10_25_phase2_finetune --module_path scripts/2025_10_02_phase2/base.py --cluster $CLUSTER --launch.priority=high --finetune_seed 1234
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/phase2.0_large_lr0.0001_wd0.002/step560000 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/large.py --cluster $CLUSTER --finetune_seed 0
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/phase2.0_large_lr0.0001_wd0.002/step560000 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/large.py --cluster $CLUSTER --finetune_seed 42
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/phase2.0_large_lr0.0001_wd0.002/step560000 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/large.py --cluster $CLUSTER --finetune_seed 1234
 
-$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/tiny_lr0.0002_wd0.02/step360000 --project_name 2025_10_25_phase2_finetune --module_path scripts/2025_10_02_phase2/tiny.py --cluster $CLUSTER --launch.priority=high --finetune_seed 0
-$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/tiny_lr0.0002_wd0.02/step360000 --project_name 2025_10_25_phase2_finetune --module_path scripts/2025_10_02_phase2/tiny.py --cluster $CLUSTER --launch.priority=high --finetune_seed 42
-$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/tiny_lr0.0002_wd0.02/step360000 --project_name 2025_10_25_phase2_finetune --module_path scripts/2025_10_02_phase2/tiny.py --cluster $CLUSTER --launch.priority=high --finetune_seed 1234
 
-$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/nano_lr0.001_wd0.002/step370000 --project_name 2025_10_25_phase2_finetune --module_path scripts/2025_10_02_phase2/nano.py --cluster $CLUSTER --launch.priority=high --finetune_seed 0
-$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/nano_lr0.001_wd0.002/step370000 --project_name 2025_10_25_phase2_finetune --module_path scripts/2025_10_02_phase2/nano.py --cluster $CLUSTER --launch.priority=high --finetune_seed 42
-$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/nano_lr0.001_wd0.002/step370000 --project_name 2025_10_25_phase2_finetune --module_path scripts/2025_10_02_phase2/nano.py --cluster $CLUSTER --launch.priority=high --finetune_seed 1234
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/phase2.0_base_lr0.0001_wd0.02/step667200 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/base.py --cluster $CLUSTER --finetune_seed 0
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/phase2.0_base_lr0.0001_wd0.02/step667200 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/base.py --cluster $CLUSTER --launch.priority=high --finetune_seed 42
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/phase2.0_base_lr0.0001_wd0.02/step667200 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/base.py --cluster $CLUSTER --launch.priority=high --finetune_seed 1234
+
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/tiny_lr0.0002_wd0.02/step360000 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/tiny.py --cluster $CLUSTER --finetune_seed 0
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/tiny_lr0.0002_wd0.02/step360000 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/tiny.py --cluster $CLUSTER --finetune_seed 42
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/tiny_lr0.0002_wd0.02/step360000 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/tiny.py --cluster $CLUSTER --finetune_seed 1234
+
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/nano_lr0.001_wd0.002/step370000 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/nano.py --cluster $CLUSTER --finetune_seed 0
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/nano_lr0.001_wd0.002/step370000 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/nano.py --cluster $CLUSTER --finetune_seed 42
+$SCRIPT --checkpoint_path /weka/dfive-default/helios/checkpoints/joer/nano_lr0.001_wd0.002/step370000 --project_name $PROJECT_NAME --module_path scripts/2025_10_02_phase2/nano.py --cluster $CLUSTER --finetune_seed 1234
