@@ -311,7 +311,7 @@ def build_commands(
         if args.defaults_only:
             run_suffix = "FT_defaults"
         elif args.checkpoint_path:
-            run_suffix = f"FT_lr{lr}_fix"
+            run_suffix = f"FT_lr{lr}"
         else:
             norm_suffix = ""
             if normalizer_value is not None:
