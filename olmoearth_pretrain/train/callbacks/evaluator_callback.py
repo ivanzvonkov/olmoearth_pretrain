@@ -2,11 +2,13 @@
 
 import gc
 import logging
+import random
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
 from functools import partial
 
+import numpy as np
 import torch
 from olmo_core.train.callbacks.callback import Callback, CallbackConfig
 from olmo_core.train.common import Duration
@@ -183,11 +185,30 @@ class DownstreamEvaluator:
             else None  # "finetune" handled explictly below in .val()
         )
 
-    def _get_data_loader(self, split: str, batch_size: int) -> DataLoader:
+    def _get_data_loader(
+        self, split: str, batch_size: int, seed: int | None = None
+    ) -> DataLoader:
         """Get the data loader for the given split."""
         logger.info(
             f"Getting data loader for {self.dataset} with norm method {self.norm_method} and norm stats from pretrained {self.norm_stats_from_pretrained}"
         )
+
+        generator = None
+        worker_init_fn = None
+        if seed is not None:
+            split_offsets = {"train": 0, "valid": 1, "test": 2}
+            split_seed = seed + split_offsets.get(split, 0)
+            generator = torch.Generator()
+            generator.manual_seed(split_seed)
+
+            def _worker_init_fn(worker_id: int) -> None:
+                worker_seed = split_seed + worker_id
+                random.seed(worker_seed)
+                np.random.seed(worker_seed)
+                torch.manual_seed(worker_seed)
+
+            worker_init_fn = _worker_init_fn
+
         return DataLoader(
             get_eval_dataset(
                 eval_dataset=self.dataset,
@@ -201,6 +222,8 @@ class DownstreamEvaluator:
             collate_fn=eval_collate_fn,
             batch_size=batch_size,
             num_workers=self.num_workers,
+            generator=generator,
+            worker_init_fn=worker_init_fn,
         )
 
     def _get_embeddings(
@@ -299,11 +322,17 @@ class DownstreamEvaluator:
         """Validate the model using finetuning."""
         logger.info(f"Validating {self.dataset} with finetune")
 
-        train_loader = self._get_data_loader("train", self.ft_batch_size)
-        val_loader = self._get_data_loader("valid", self.ft_batch_size)
+        train_loader = self._get_data_loader(
+            "train", self.ft_batch_size, seed=self.finetune_seed
+        )
+        val_loader = self._get_data_loader(
+            "valid", self.ft_batch_size, seed=self.finetune_seed
+        )
 
         if self.run_on_test:
-            test_loader = self._get_data_loader("test", self.ft_batch_size)
+            test_loader = self._get_data_loader(
+                "test", self.ft_batch_size, seed=self.finetune_seed
+            )
         else:
             test_loader = None
 
