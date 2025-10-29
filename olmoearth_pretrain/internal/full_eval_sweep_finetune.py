@@ -131,7 +131,7 @@ MODEL_PRESETS: dict[str, ModelPreset] = {
     "satlas": ModelPreset(
         per_task_overrides={"norm_method": "NormMethod.NORM_YES_CLIP"},
         task_specific_overrides={
-            # "pastis_sentinel2": {"ft_batch_size": 8},
+            "pastis_sentinel2": {"ft_batch_size": 8},
         },
         launch_script_key="satlas",
         supports_pretrained_normalizer=True,
