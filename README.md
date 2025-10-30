@@ -31,7 +31,7 @@ OlmoEarth is built using [OLMo-core](https://github.com/allenai/OLMo-core.git). 
 ## Model Summary
 
 The OlmoEarth models are trained on three satellite modalities (Sentinel 2, Sentinel 1 and Landsat) and six derived maps (OpenStreetMap, WorldCover).
-| Model Size | :hugging_face: | Encoder Params | Decoder Params |
+| Model Size | Weights | Encoder Params | Decoder Params |
 | --- | --- | --- | --- |
 | Nano | [link](https://huggingface.co/allenai/OlmoEarth-v1-Nano) | 1.4M | 800K |
 | Tiny | [link](https://huggingface.co/allenai/OlmoEarth-v1-Tiny) | 6.2M | 1.9M |
