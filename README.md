@@ -4,7 +4,7 @@
   <br>
 </div>
 <p align="center">
-  <a href="huggingface.co/collections/allenai/olmoearth">
+  <a href="https://huggingface.co/collections/allenai/olmoearth">
     <img alt="Model Checkpoints" src="https://img.shields.io/badge/%F0%9F%A4%97%20HF-Models-yellow">
   </a>
 </p>
