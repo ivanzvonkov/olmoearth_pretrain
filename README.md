@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/OlmoEarth-logo.png" alt="FlexOlmo Logo" style="width: 600px; margin-left:'auto' margin-right:'auto' display:'block'"/>
+  <img src="assets/OlmoEarth-logo.png" alt="OlmoEarth Logo" style="width: 600px; margin-left:'auto' margin-right:'auto' display:'block'"/>
   <br>
   <br>
 </div>
@@ -36,6 +36,16 @@ The OlmoEarth models are trained on three satellite modalities (Sentinel 2, Sent
 | Nano | [link](https://huggingface.co/allenai/OlmoEarth-v1-Nano) | 1.4M | 800K |
 | Tiny | [link](https://huggingface.co/allenai/OlmoEarth-v1-Tiny) | 6.2M | 1.9M |
 | Base | [link](https://huggingface.co/allenai/OlmoEarth-v1-Base) | 89M | 30M |
+
+## Data Summary
+
+Our pretraining dataset contains around 300,000 samples from around the world of 2.56km×2.56km regions, although many samples contain only a subset of the timesteps and modalities.
+
+The distribution of the samples is available below:
+
+<img src="assets/datamap.png" alt="Training sample distribution" style="width: 500px; margin-left:'auto' margin-right:'auto' display:'block'"/>
+
+The dataset can be downloaded [here](https://huggingface.co/datasets/allenai/olmoearth_pretrain_dataset).
 
 ## Training scripts
 
