@@ -205,6 +205,7 @@ class MockOlmoEarthDataLoader(DataLoaderBase):
         )
         self._seed = 42
         self._epoch = 0
+        self.min_patch_size = 1
 
     def _iter_batches(self) -> Iterable[Any]:
         return iter(())
