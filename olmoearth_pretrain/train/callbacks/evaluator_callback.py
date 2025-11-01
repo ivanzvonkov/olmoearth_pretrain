@@ -344,12 +344,13 @@ class DownstreamEvaluator:
         original_state = {
             k: v.detach().cpu().clone() for k, v in model.state_dict().items()
         }
-        original_training_mode = model.training
 
         # Resolve patch size if model exposes it
         if hasattr(model, "patch_size"):
             logger.info(
-                f"Using patch size {max(self.patch_size, model.patch_size)} for {self.dataset} with model patch size {model.patch_size} and task patch size {self.patch_size}"
+                f"Using patch size {max(self.patch_size, model.patch_size)} for {self.dataset}\
+                with model patch size {model.patch_size} and task patch size {self.patch_size}\
+                (max of {self.patch_size} and {model.patch_size})"
             )
             # Use the max patch size of the model and the task
             self.patch_size = max(self.patch_size, model.patch_size)
@@ -391,10 +392,6 @@ class DownstreamEvaluator:
                 f"Downstream evaluator {self.evaluation_name} val score: {val_result}, test score: {test_result}"
             )
             model.load_state_dict(original_state)
-            if original_training_mode:
-                model.train()
-            else:
-                model.eval()
 
             torch.cuda.empty_cache()
             gc.collect()
@@ -500,7 +497,7 @@ class DownstreamEvaluatorCallback(Callback):
                 if evaluator.eval_mode == EvalMode.FINETUNE:
                     if wandb_callback.enabled:
                         wandb_callback.wandb.define_metric(
-                            f"finetune/{evaluator.evaluation_name}/*",
+                            f"{evaluator.evaluation_name}/*",
                             step_metric=f"{evaluator.evaluation_name}_step",
                         )
                         wandb_callback.wandb.log(

@@ -327,7 +327,7 @@ def run_finetune_eval(
                     wandb_logger.log(
                         {
                             f"{task_name}_step": epoch * num_batches + i,
-                            f"finetune/{task_name}/train_loss": loss.item(),
+                            f"{task_name}/train_loss": loss.item(),
                         }
                     )
                 logger.info(
@@ -351,7 +351,7 @@ def run_finetune_eval(
             wandb_logger.log(
                 {
                     f"{task_name}_step": (epoch + 1) * num_batches,
-                    f"finetune/{task_name}/val_metric": val_metric,
+                    f"{task_name}/val_metric": val_metric,
                 }
             )
         logger.info(
