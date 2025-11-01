@@ -198,7 +198,7 @@ class MockOlmoEarthDataLoader(DataLoaderBase):
         """Initialize the mock loader with trivial single-rank defaults."""
         super().__init__(
             work_dir="./",
-            global_batch_size=1,
+            global_batch_size=128,
             dp_world_size=1,
             dp_rank=0,
             fs_local_rank=0,
