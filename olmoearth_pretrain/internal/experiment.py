@@ -136,7 +136,6 @@ class OlmoEarthEvaluateConfig(Config):
 
     run_name: str
     model: Config
-    train_module: OlmoEarthTrainModuleConfig
     trainer: TrainerConfig
     init_seed: int = 12536
 
@@ -209,10 +208,6 @@ def build_config(
 def build_evaluate_config(
     common: CommonComponents,
     model_config_builder: Callable[[CommonComponents], Config],
-    train_module_config_builder: Callable[
-        [CommonComponents],
-        OlmoEarthTrainModuleConfig,
-    ],
     trainer_config_builder: Callable[[CommonComponents], TrainerConfig],
     overrides: list[str],
 ) -> OlmoEarthEvaluateConfig:
@@ -222,12 +217,10 @@ def build_evaluate_config(
     common = common.merge(common_overrides)
     logger.info("Common: %s", common)
     model_config = model_config_builder(common)
-    train_module_config = train_module_config_builder(common)
     trainer_config = trainer_config_builder(common)
     config = OlmoEarthEvaluateConfig(
         run_name=common.run_name,
         model=model_config,
-        train_module=train_module_config,
         trainer=trainer_config,
     )
     config = config.merge(overrides)
@@ -302,10 +295,9 @@ def evaluate(config: OlmoEarthExperimentConfig) -> None:
     model = config.model.build()
     device = get_default_device()
     model = model.to(device)
-    # train_module = config.train_module.build(model)
+    data_loader = MockOlmoEarthDataLoader()
     train_module = MockLatentMIMTrainModule()
     train_module.model = model
-    data_loader = MockOlmoEarthDataLoader()
     trainer = config.trainer.build(train_module, data_loader)
     # Record the config to W&B/Comet and each checkpoint dir.
     config_dict = config.as_config_dict()
@@ -526,12 +518,10 @@ If running command on a local machine ie from a session, you can use the [b]loca
         )
     elif cmd == SubCmd.evaluate:
         assert model_config_builder is not None
-        assert train_module_config_builder is not None
         assert trainer_config_builder is not None
         config = build_evaluate_config(
             common=common,
             model_config_builder=model_config_builder,
-            train_module_config_builder=train_module_config_builder,
             trainer_config_builder=trainer_config_builder,
             overrides=overrides,
         )

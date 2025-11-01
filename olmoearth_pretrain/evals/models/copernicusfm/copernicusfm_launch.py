@@ -2,7 +2,7 @@
 
 import logging
 
-from olmoearth_pretrain.evals.models.satlas.satlas import SatlasConfig
+from olmoearth_pretrain.evals.models import CopernicusFMConfig
 from olmoearth_pretrain.internal.experiment import (
     CommonComponents,
 )
@@ -10,7 +10,7 @@ from olmoearth_pretrain.internal.experiment import (
 logger = logging.getLogger(__name__)
 
 
-def build_model_config(common: CommonComponents) -> SatlasConfig:
+def build_model_config(common: CommonComponents) -> CopernicusFMConfig:
     """Build the model config for an experiment."""
-    model_config = SatlasConfig()
+    model_config = CopernicusFMConfig()
     return model_config

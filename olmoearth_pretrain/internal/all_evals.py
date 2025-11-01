@@ -450,14 +450,14 @@ if __name__ == "__main__":
         from olmoearth_pretrain.internal.common import build_common_components
 
     build_model_config = user_mod.build_model_config
+<<<<<<< HEAD
     build_train_module_config = user_mod.build_train_module_config
     build_dataset_config = user_mod.build_dataset_config
     build_dataloader_config = user_mod.build_dataloader_config
+=======
+>>>>>>> f29dbb5f (attempt to remove train module)
     main(
         common_components_builder=build_common_components,
         model_config_builder=build_model_config,
-        train_module_config_builder=build_train_module_config,
-        dataset_config_builder=build_dataset_config,
-        dataloader_config_builder=build_dataloader_config,
         trainer_config_builder=build_trainer_config,
     )
