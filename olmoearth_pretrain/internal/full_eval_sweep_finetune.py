@@ -277,34 +277,26 @@ def _format_launch_command(
     seed_args: Iterable[str],
 ) -> str:
     """Format the launch command."""
-    if sub_command == SubCmd.evaluate:
-        parts = [
-            f"TRAIN_SCRIPT_PATH={module_path}",
-            launch_command,
-            EVAL_LAUNCH_PATH,
-            sub_command,
-            run_name,
-            cluster,
-            # Overwrite the max duration to enable eval of the last step of the checkpoint
-            "--trainer.max_duration.value=10000000",
-            "--trainer.max_duration.unit=steps",
-        ]
-    else:
-        parts = [
-            f"TRAIN_SCRIPT_PATH={module_path}",
-            launch_command,
-            EVAL_LAUNCH_PATH,
-            sub_command,
-            run_name,
-            cluster,
-            "--launch.priority=urgent",
-            "--launch.num_gpus=1",
-            "--launch.preemptible=True",
-            "--launch.task_name=eval",
-            # Overwrite the max duration to enable eval of the last step of the checkpoint
-            "--trainer.max_duration.value=10000000",
-            "--trainer.max_duration.unit=steps",
-        ]
+    parts = [
+        f"TRAIN_SCRIPT_PATH={module_path}",
+        launch_command,
+        EVAL_LAUNCH_PATH,
+        sub_command,
+        run_name,
+        cluster,
+        # Overwrite the max duration to enable eval of the last step of the checkpoint
+        "--trainer.max_duration.value=10000000",
+        "--trainer.max_duration.unit=steps",
+    ]
+    if sub_command != SubCmd.evaluate:
+        parts.extend(
+            [
+                "--launch.priority=urgent",
+                "--launch.num_gpus=1",
+                "--launch.preemptible=True",
+                "--launch.task_name=eval",
+            ]
+        )
     parts.extend(checkpoint_args)
     parts.append(f"--trainer.callbacks.wandb.project={project_name}")
     parts.extend(extra_cli)

@@ -1,5 +1,10 @@
 """utility Functions for hyper parameter sweeps."""
 
+from collections.abc import Iterable
+from typing import Any
+
+from olmo_core.data.data_loader import DataLoaderBase
+
 EXIT_CONFIG_TYPES = ["zero", "half", "full", "varied"]
 
 
@@ -184,3 +189,47 @@ MODEL_SIZE_ARGS = {
         "mlp_ratio": 4.0,
     },
 }
+
+
+class MockOlmoEarthDataLoader(DataLoaderBase):
+    """Minimal OlmoEarth dataloader that only satisfies the abstract interface."""
+
+    def __init__(self) -> None:
+        """Initialize the mock loader with trivial single-rank defaults."""
+        super().__init__(
+            work_dir="./",
+            global_batch_size=1,
+            dp_world_size=1,
+            dp_rank=0,
+            fs_local_rank=0,
+        )
+        self._seed = 42
+        self._epoch = 0
+
+    def _iter_batches(self) -> Iterable[Any]:
+        return iter(())
+
+    def state_dict(self) -> dict[str, Any]:
+        """Return the minimal persisted state for the mock loader."""
+        return {"seed": self._seed, "epoch": self._epoch}
+
+    def load_state_dict(self, state_dict: dict[str, Any]) -> None:  # noqa: D401
+        """No-op for the mock dataloader."""
+        self._seed = state_dict.get("seed", self._seed)
+        self._epoch = state_dict.get("epoch", self._epoch)
+
+    def reshuffle(
+        self, epoch: int | None = None, in_memory: bool = False, **_: Any
+    ) -> None:
+        """Record the provided epoch; other parameters are ignored."""
+        if epoch is not None:
+            self._epoch = epoch
+
+    @property
+    def total_batches(self) -> int:
+        """Report zero batches, as the mock loader never yields data."""
+        return 0
+
+    def get_mock_batch(self) -> None:
+        """Return no batch payload; this stub does not fabricate data."""
+        return None

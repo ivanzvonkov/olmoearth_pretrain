@@ -8,7 +8,6 @@ from typing import cast
 
 import numpy as np
 from olmo_core.config import Config, StrEnum
-from olmo_core.data.data_loader import DataLoaderBase
 from olmo_core.distributed.utils import get_local_rank
 from olmo_core.launch.beaker import BeakerLaunchConfig, ExperimentSpec
 from olmo_core.train import (
@@ -30,6 +29,7 @@ from olmoearth_pretrain.data.visualize import visualize_sample
 from olmoearth_pretrain.inference_benchmarking.run_throughput_benchmark import (
     ThroughputBenchmarkRunnerConfig,
 )
+from olmoearth_pretrain.internal.utils import MockOlmoEarthDataLoader
 from olmoearth_pretrain.train.train_module.train_module import (
     OlmoEarthTrainModuleConfig,
 )
@@ -260,12 +260,7 @@ def evaluate(config: OlmoEarthExperimentConfig) -> None:
     device = get_default_device()
     model = model.to(device)
     train_module = config.train_module.build(model)
-    # Pass a mock data loader here
-    data_loader = DataLoaderBase(
-        work_dir="./",
-        global_batch_size=1,
-    )
-
+    data_loader = MockOlmoEarthDataLoader()
     trainer = config.trainer.build(train_module, data_loader)
     # Record the config to W&B/Comet and each checkpoint dir.
     config_dict = config.as_config_dict()
