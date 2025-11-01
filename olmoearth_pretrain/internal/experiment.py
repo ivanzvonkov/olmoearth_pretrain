@@ -29,7 +29,10 @@ from olmoearth_pretrain.data.visualize import visualize_sample
 from olmoearth_pretrain.inference_benchmarking.run_throughput_benchmark import (
     ThroughputBenchmarkRunnerConfig,
 )
-from olmoearth_pretrain.internal.utils import MockOlmoEarthDataLoader
+from olmoearth_pretrain.internal.utils import (
+    MockLatentMIMTrainModule,
+    MockOlmoEarthDataLoader,
+)
 from olmoearth_pretrain.train.train_module.train_module import (
     OlmoEarthTrainModuleConfig,
 )
@@ -299,7 +302,8 @@ def evaluate(config: OlmoEarthExperimentConfig) -> None:
     model = config.model.build()
     device = get_default_device()
     model = model.to(device)
-    train_module = config.train_module.build(model)
+    # train_module = config.train_module.build(model)
+    train_module = MockLatentMIMTrainModule()
     data_loader = MockOlmoEarthDataLoader()
     trainer = config.trainer.build(train_module, data_loader)
     # Record the config to W&B/Comet and each checkpoint dir.

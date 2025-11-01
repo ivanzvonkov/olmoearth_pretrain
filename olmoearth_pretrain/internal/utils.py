@@ -3,7 +3,9 @@
 from collections.abc import Iterable
 from typing import Any
 
+import torch
 from olmo_core.data.data_loader import DataLoaderBase
+from olmo_core.train.train_module import EvalBatchSpec, TrainModule
 
 EXIT_CONFIG_TYPES = ["zero", "half", "full", "varied"]
 
@@ -235,3 +237,40 @@ class MockOlmoEarthDataLoader(DataLoaderBase):
     def get_mock_batch(self) -> None:
         """Return no batch payload; this stub does not fabricate data."""
         return None
+
+
+class MockLatentMIMTrainModule(TrainModule):
+    """Minimal TrainModule stub for LatentMIM-style configs."""
+
+    def __init__(self) -> None:
+        """Initialize the mock train module."""
+        super().__init__()
+
+    @property
+    def eval_batch_spec(self) -> EvalBatchSpec:
+        """Return a trivial eval batch specification."""
+        return EvalBatchSpec(rank_batch_size=1)
+
+    def state_dict(self, *, optim: bool | None = None) -> dict[str, Any]:
+        """Return an empty state dict."""
+        del optim
+        return {}
+
+    def load_state_dict(self, state_dict: dict[str, Any]) -> None:
+        """Ignore any state dict content."""
+        del state_dict
+
+    def train_batch(self, batch: dict[str, Any], dry_run: bool = False) -> None:
+        """No-op training step."""
+        del batch, dry_run
+
+    def eval_batch(self, batch: dict[str, Any], labels: Any | None = None) -> Any:
+        """Return a constant tensor to satisfy interface expectations."""
+        del batch, labels
+        return torch.tensor(0.0)
+
+    def optim_step(self) -> None:
+        """No-op optimizer step."""
+
+    def zero_grads(self) -> None:
+        """No-op gradient reset."""

@@ -4,16 +4,11 @@ import logging
 
 from olmo_core.optim import AdamWConfig
 from olmo_core.optim.scheduler import WSD
-from upath import UPath
 
-from olmoearth_pretrain.data.concat import OlmoEarthConcatDatasetConfig
 from olmoearth_pretrain.data.constants import Modality
-from olmoearth_pretrain.data.dataloader import OlmoEarthDataLoaderConfig
-from olmoearth_pretrain.data.dataset import OlmoEarthDatasetConfig
 from olmoearth_pretrain.evals.models import AnySatConfig
 from olmoearth_pretrain.internal.experiment import (
     CommonComponents,
-    OlmoEarthVisualizeConfig,
 )
 from olmoearth_pretrain.train.loss import LossConfig
 from olmoearth_pretrain.train.masking import MaskingConfig
@@ -67,42 +62,4 @@ def build_train_module_config(
         scheduler=scheduler,
         ema_decay=(1.0, 1.0),
         dp_config=None,
-    )
-
-
-def build_dataloader_config(common: CommonComponents) -> OlmoEarthDataLoaderConfig:
-    """Build the dataloader config for an experiment."""
-    # things should be set during building
-
-    return OlmoEarthDataLoaderConfig(
-        num_workers=0,
-        global_batch_size=512,
-        token_budget=1500,
-        prefetch_factor=4,
-        sampled_hw_p_list=list(range(5, 13)),
-        min_patch_size=MIN_PATCH_SIZE,
-        max_patch_size=MAX_PATCH_SIZE,
-        work_dir=common.save_folder,
-        seed=3622,
-    )
-
-
-def build_dataset_config(common: CommonComponents) -> OlmoEarthDatasetConfig:
-    """Build the dataset config for an experiment."""
-    dataset_configs = [
-        # ENsure this is any existing dataset
-        OlmoEarthDatasetConfig(
-            h5py_dir="/weka/dfive-default/helios/dataset/osmbig/h5py_data_w_missing_timesteps_zstd_3_128_x_4/landsat_openstreetmap_raster_sentinel1_sentinel2_l2a_srtm_worldcover/1297928",
-            training_modalities=common.training_modalities,
-        ),
-    ]
-    return OlmoEarthConcatDatasetConfig(dataset_configs=dataset_configs)
-
-
-def build_visualize_config(common: CommonComponents) -> OlmoEarthVisualizeConfig:
-    """Build the visualize config for an experiment."""
-    return OlmoEarthVisualizeConfig(
-        num_samples=None,
-        output_dir=str(UPath(common.save_folder) / "visualizations"),
-        std_multiplier=2.0,
     )
