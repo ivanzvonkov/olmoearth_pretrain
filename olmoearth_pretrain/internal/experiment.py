@@ -339,6 +339,7 @@ class SubCmd(StrEnum):
     launch = "launch"
     train = "train"
     train_single = "train_single"
+    evaluate = "evaluate"
     prep = "prep"
     launch_prep = "launch_prep"
     dry_run = "dry_run"
@@ -360,7 +361,7 @@ class SubCmd(StrEnum):
             prepare_cli_environment()
         elif self == SubCmd.train:
             prepare_training_environment()
-        elif self == SubCmd.train_single:
+        elif self == SubCmd.train_single or self == SubCmd.evaluate:
             prepare_training_environment(backend=None)
         else:
             raise NotImplementedError(self)
