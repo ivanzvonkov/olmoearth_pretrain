@@ -466,6 +466,9 @@ If running command on a local machine ie from a session, you can use the [b]loca
         sys.exit(1)
 
     script, cmd, run_name, cluster, *overrides = sys.argv
+    logger.info(
+        f"Script: {script}, Cmd: {cmd}, Run Name: {run_name}, Cluster: {cluster}, Overrides: {overrides}"
+    )
     common = common_components_builder(script, cmd, run_name, cluster, overrides)
 
     cmd = SubCmd(cmd)
