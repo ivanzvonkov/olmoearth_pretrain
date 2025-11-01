@@ -304,6 +304,7 @@ def evaluate(config: OlmoEarthExperimentConfig) -> None:
     model = model.to(device)
     # train_module = config.train_module.build(model)
     train_module = MockLatentMIMTrainModule()
+    train_module.model = model
     data_loader = MockOlmoEarthDataLoader()
     trainer = config.trainer.build(train_module, data_loader)
     # Record the config to W&B/Comet and each checkpoint dir.

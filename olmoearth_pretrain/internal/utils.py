@@ -245,6 +245,7 @@ class MockLatentMIMTrainModule(TrainModule):
     def __init__(self) -> None:
         """Initialize the mock train module."""
         super().__init__()
+        self.model = torch.nn.Identity()
 
     @property
     def eval_batch_spec(self) -> EvalBatchSpec:
