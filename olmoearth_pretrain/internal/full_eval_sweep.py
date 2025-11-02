@@ -524,7 +524,7 @@ def _build_default_command(
     logger.info(f"Using module path {module_path}")
     cmd_args += _get_model_size_args(args.model, size)
     cmd_args += _get_load_checkpoints_args(args.model)
-    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch else ""
+    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch_evaluate else ""
     return (
         f"TRAIN_SCRIPT_PATH={module_path} {launch_command} {EVAL_LAUNCH_PATH} "
         f"{sub_command} {run_name} {args.cluster} {launch_overrides} "
@@ -575,7 +575,7 @@ def _build_hyperparameter_command(
     cmd_args += _get_load_checkpoints_args(args.model)
     cmd_args += _get_model_size_args(args.model, size)
 
-    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch else ""
+    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch_evaluate else ""
     # if init_seed is set add to base run name
     if "init_seed" in extra:
         run_name += f"_seed{extra.split('init_seed=')[1].split(' ')[0]}"
@@ -684,7 +684,7 @@ def _build_command_from_eval_settings(
     cmd_args += _get_load_checkpoints_args(args.model)
     cmd_args += _get_model_size_args(args.model, size)
 
-    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch else ""
+    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch_evaluate else ""
     # if init_seed is set add to base run name
     if "init_seed" in extra:
         run_name += f"_seed{extra.split('init_seed=')[1].split(' ')[0]}"
