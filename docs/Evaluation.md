@@ -47,13 +47,12 @@ The sweep scripts set `TRAIN_SCRIPT_PATH` automatically and choose `torchrun` fo
 ### Prerequisites
 
 - Python environment configured as described in [Pretraining.md](Pretraining.md#environment-setup).
-- One 80 GB GPU (A100 or H100 recommended). If you see OOM errors, lower the batch size can help.
-- W&B API key (`WANDB_API_KEY`) if you want metrics to stream automatically.
+- One 80 GB GPU (A100 or H100 recommended). If you see OOM errors when running some tasks, consider reducing the fine-tuning batch size by passing the override `--TASK_NAME.ft_batch_size`.
 
 ### Supported Models
 
 - **OlmoEarth models:** Nano, Tiny, Base, and Large size.
-- **Others:** `dino_v3`, `panopticon`, `galileo`, `satlas`, `croma`, `copernicusfm`, `presto`, `anysat`, `tessera`, `prithvi_v2`, `terramind`, `clay`. Multi-size variants (e.g. `croma_large`, `galileo_large`, `terramind_large`) are handled automatically by the sweep scripts when requested.
+- **Others:** `dino_v3`, `panopticon`, `galileo`, `satlas`, `croma`, `copernicusfm`, `presto`, `anysat`, `tessera`, `prithvi_v2`, `terramind`, `clay`. Multi-size variants (e.g. `croma_large`, `galileo_large`, `terramind_large`) are also supported.
 
 ---
 
