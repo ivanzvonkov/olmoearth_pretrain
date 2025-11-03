@@ -319,7 +319,7 @@ def build_commands(
     sub_command = _get_sub_command(args)
     selected_preset = args.model
     base_run_name = _get_base_run_name(args, selected_preset)
-    launch_command = "torchrun" if args.cluster == "local" else "python3"
+    launch_command = "python3"
 
     module_path = _resolve_module_path(args, selected_preset)
     checkpoint_args = _get_checkpoint_args(args.checkpoint_path)

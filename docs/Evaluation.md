@@ -83,6 +83,8 @@ The sweep scripts set `TRAIN_SCRIPT_PATH` automatically and select `torchrun` fo
 source .venv-olmoearth_pretrain/bin/activate
 ```
 
+If you would like to evaluate the models against the Breizhcrops dataset, breizhcrops must be explicitly imported into the codebase. You can do this by running `uv pip install breizhcrops==0.0.4.1`.
+
 ### 2. Run a dry run to inspect the planned commands
 
 ```bash
