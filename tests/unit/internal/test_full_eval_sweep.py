@@ -477,7 +477,7 @@ class TestIntegration:
                     base_args,
                     [
                         "--extra",
-                        "--trainer.callbacks.downstream_evaluator.tasks_to_run=[m_eurosat,sickle_landsat]",
+                        "--trainer.callbacks.downstream_evaluator.tasks_to_run=[m_eurosat]",
                     ],
                 )
 
@@ -494,6 +494,6 @@ class TestIntegration:
             assert "--extra" in command
             assert "pre_trained" in command or "dataset" in command
             assert (
-                "--trainer.callbacks.downstream_evaluator.tasks_to_run=[m_eurosat,sickle_landsat]"
+                "--trainer.callbacks.downstream_evaluator.tasks_to_run=[m_eurosat]"
                 in command
             )

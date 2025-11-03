@@ -145,19 +145,6 @@ DATASET_TO_CONFIG = {
         supported_modalities=[Modality.SENTINEL2_L2A.name],
         timeseries=True,
     ),
-    "sickle": EvalDatasetConfig(
-        task_type=TaskType.SEGMENTATION,
-        imputes=[],
-        num_classes=2,
-        is_multilabel=False,
-        height_width=32,
-        supported_modalities=[
-            Modality.LANDSAT.name,
-            Modality.SENTINEL1.name,
-            Modality.SENTINEL2_L2A.name,
-        ],
-        timeseries=True,
-    ),
     "nandi": EvalDatasetConfig(
         task_type=TaskType.CLASSIFICATION,
         imputes=[],

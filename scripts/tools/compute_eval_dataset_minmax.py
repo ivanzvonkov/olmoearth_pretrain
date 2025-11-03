@@ -11,7 +11,6 @@ Non-geobench datasets include:
 - pastis (Sentinel-2 L2A, Sentinel-1)
 - pastis128 (Sentinel-2 L2A, Sentinel-1)
 - breizhcrops (Sentinel-2 L2A)
-- sickle (Sentinel-2 L2A, Sentinel-1, Landsat-8)
 """
 
 import argparse
@@ -32,21 +31,11 @@ from helios.evals.datasets import (
     MADOS_DIR,
     PASTIS_DIR,
     PASTIS_DIR_ORIG,
-    SICKLE_DIR,
 )
 from helios.evals.datasets.breizhcrops import LEVEL, BreizhCrops
 from helios.evals.datasets.constants import (
     EVAL_S1_BAND_NAMES,
     EVAL_S2_BAND_NAMES,
-)
-from helios.evals.datasets.sickle_dataset import (
-    L8_BAND_STATS as SICKLE_L8_BAND_STATS,
-)
-from helios.evals.datasets.sickle_dataset import (
-    S1_BAND_STATS as SICKLE_S1_BAND_STATS,
-)
-from helios.evals.datasets.sickle_dataset import (
-    S2_BAND_STATS as SICKLE_S2_BAND_STATS,
 )
 
 
@@ -285,118 +274,6 @@ def compute_breizhcrops_stats(
     return stats
 
 
-def compute_sickle_stats(
-    path_to_splits: UPath, max_samples: int | None = None, num_workers: int = 1
-) -> dict:
-    """Compute min/max stats for SICKLE dataset."""
-    print("Computing stats for SICKLE (Sentinel-2 L2A, Sentinel-1, Landsat-8)...")
-
-    split_dir = "sickle_train"
-    s2_dir = path_to_splits / split_dir / "s2_images"
-    s1_dir = path_to_splits / split_dir / "s1_images"
-    l8_dir = path_to_splits / split_dir / "l8_images"
-
-    # Get all image files
-    s2_files = sorted(s2_dir.glob("*.pt"))
-    s1_files = sorted(s1_dir.glob("*.pt"))
-    l8_files = sorted(l8_dir.glob("*.pt"))
-
-    # Limit samples if requested
-    if max_samples is not None:
-        s2_files = s2_files[:max_samples]
-        s1_files = s1_files[:max_samples]
-        l8_files = l8_files[:max_samples]
-        print(f"Limited to {max_samples} samples (smoke test mode)")
-
-    # Initialize min/max trackers
-    s2_mins = [float("inf")] * len(SICKLE_S2_BAND_STATS.keys())
-    s2_maxs = [float("-inf")] * len(SICKLE_S2_BAND_STATS.keys())
-    s1_mins = [float("inf")] * len(SICKLE_S1_BAND_STATS.keys())
-    s1_maxs = [float("-inf")] * len(SICKLE_S1_BAND_STATS.keys())
-    l8_mins = [float("inf")] * len(SICKLE_L8_BAND_STATS.keys())
-    l8_maxs = [float("-inf")] * len(SICKLE_L8_BAND_STATS.keys())
-
-    # Process S2 images in parallel
-    print(
-        f"  Processing {len(s2_files)} Sentinel-2 images with {num_workers} workers..."
-    )
-    if num_workers > 1:
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            futures = {
-                executor.submit(_process_image_file, f, "s2"): f for f in s2_files
-            }
-            for future in tqdm(as_completed(futures), total=len(s2_files), desc="S2"):
-                mins, maxs = future.result()
-                for band_idx in range(len(mins)):
-                    s2_mins[band_idx] = min(s2_mins[band_idx], mins[band_idx])
-                    s2_maxs[band_idx] = max(s2_maxs[band_idx], maxs[band_idx])
-    else:
-        for s2_file in tqdm(s2_files, desc="S2"):
-            mins, maxs = _process_image_file(s2_file, "s2")
-            for band_idx in range(len(mins)):
-                s2_mins[band_idx] = min(s2_mins[band_idx], mins[band_idx])
-                s2_maxs[band_idx] = max(s2_maxs[band_idx], maxs[band_idx])
-
-    # Process S1 images in parallel
-    print(
-        f"  Processing {len(s1_files)} Sentinel-1 images with {num_workers} workers..."
-    )
-    if num_workers > 1:
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            futures = {
-                executor.submit(_process_image_file, f, "s1"): f for f in s1_files
-            }
-            for future in tqdm(as_completed(futures), total=len(s1_files), desc="S1"):
-                mins, maxs = future.result()
-                for band_idx in range(len(mins)):
-                    s1_mins[band_idx] = min(s1_mins[band_idx], mins[band_idx])
-                    s1_maxs[band_idx] = max(s1_maxs[band_idx], maxs[band_idx])
-    else:
-        for s1_file in tqdm(s1_files, desc="S1"):
-            mins, maxs = _process_image_file(s1_file, "s1")
-            for band_idx in range(len(mins)):
-                s1_mins[band_idx] = min(s1_mins[band_idx], mins[band_idx])
-                s1_maxs[band_idx] = max(s1_maxs[band_idx], maxs[band_idx])
-
-    # Process L8 images in parallel
-    print(
-        f"  Processing {len(l8_files)} Landsat-8 images with {num_workers} workers..."
-    )
-    if num_workers > 1:
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            futures = {
-                executor.submit(_process_image_file, f, "l8"): f for f in l8_files
-            }
-            for future in tqdm(as_completed(futures), total=len(l8_files), desc="L8"):
-                mins, maxs = future.result()
-                for band_idx in range(len(mins)):
-                    l8_mins[band_idx] = min(l8_mins[band_idx], mins[band_idx])
-                    l8_maxs[band_idx] = max(l8_maxs[band_idx], maxs[band_idx])
-    else:
-        for l8_file in tqdm(l8_files, desc="L8"):
-            mins, maxs = _process_image_file(l8_file, "l8")
-            for band_idx in range(len(mins)):
-                l8_mins[band_idx] = min(l8_mins[band_idx], mins[band_idx])
-                l8_maxs[band_idx] = max(l8_maxs[band_idx], maxs[band_idx])
-
-    stats = {
-        "sentinel2_l2a": {
-            band_name: {"min": s2_mins[i], "max": s2_maxs[i]}
-            for i, band_name in enumerate(SICKLE_S2_BAND_STATS.keys())
-        },
-        "sentinel1": {
-            band_name: {"min": s1_mins[i], "max": s1_maxs[i]}
-            for i, band_name in enumerate(SICKLE_S1_BAND_STATS.keys())
-        },
-        "landsat": {
-            band_name: {"min": l8_mins[i], "max": l8_maxs[i]}
-            for i, band_name in enumerate(SICKLE_L8_BAND_STATS.keys())
-        },
-    }
-
-    return stats
-
-
 def main():
     """Main function to compute min/max stats for all non-geobench datasets."""
     parser = argparse.ArgumentParser(
@@ -474,15 +351,6 @@ def main():
         )
     except Exception as e:
         print(f"ERROR processing BreizhCrops: {e}")
-        traceback.print_exc()
-
-    # SICKLE
-    try:
-        all_stats["sickle"] = compute_sickle_stats(
-            SICKLE_DIR, args.max_samples, args.num_workers
-        )
-    except Exception as e:
-        print(f"ERROR processing SICKLE: {e}")
         traceback.print_exc()
 
     project_root = Path(__file__).parent.parent

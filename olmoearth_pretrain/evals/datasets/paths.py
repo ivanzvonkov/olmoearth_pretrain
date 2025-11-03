@@ -13,7 +13,6 @@ _DEFAULTS = {
     "PASTIS_DIR": "/weka/dfive-default/presto_eval_sets/pastis_r",
     "PASTIS_DIR_ORIG": "/weka/dfive-default/presto_eval_sets/pastis_r_origsize",
     "PASTIS_DIR_PARTITION": "/weka/dfive-default/presto_eval_sets/pastis",
-    "SICKLE_DIR": "/weka/dfive-default/presto_eval_sets/sickle",
     "NANDI_DIR": "/weka/dfive-default/rslearn-eai/datasets/crop/kenya_nandi/20250625",
     "AWF_DIR": "/weka/dfive-default/rslearn-eai/datasets/crop/awf_2023",
 }
@@ -27,6 +26,5 @@ PASTIS_DIR_ORIG = UPath(os.getenv("PASTIS_DIR_ORIG", _DEFAULTS["PASTIS_DIR_ORIG"
 PASTIS_DIR_PARTITION = UPath(
     os.getenv("PASTIS_DIR_PARTITION", _DEFAULTS["PASTIS_DIR_PARTITION"])
 )
-SICKLE_DIR = UPath(os.getenv("SICKLE_DIR", _DEFAULTS["SICKLE_DIR"]))
 NANDI_DIR = UPath(os.getenv("NANDI_DIR", _DEFAULTS["NANDI_DIR"]))
 AWF_DIR = UPath(os.getenv("AWF_DIR", _DEFAULTS["AWF_DIR"]))
