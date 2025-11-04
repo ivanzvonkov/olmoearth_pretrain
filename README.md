@@ -50,9 +50,16 @@ The OlmoEarth models are trained on three satellite modalities (Sentinel 2, Sent
 
 ## Using OlmoEarth
 
-The OlmoEarth models exist as part of the [OlmoEarth platform](https://allenai.org/olmoearth). The OlmoEarth Platform is an end-to-end solution for scalable planetary intelligence, providing everything needed to go from raw data through R&D, to fine-tuning and production deployment.
+[InferenceQuickstart](docs/Inference-Quickstart.md) shows how to initialize the
+OlmoEarth model and apply it on a satellite image.
 
-Examples of active OlmoEarth deployments are available at [`olmoearth_projects`](github.com/allenai/olmoearth_projects).
+We also have several more in-depth tutorials for computing OlmoEarth embeddings and fine-tuning OlmoEarth on downstream tasks:
+
+- [Fine-tuning OlmoEarth for Segmentation](docs/tutorials/FinetuneOlmoEarthSegmentation.md)
+- [Computing Embeddings using OlmoEarth](https://github.com/allenai/rslearn/blob/master/docs/examples/OlmoEarthEmbeddings.md)
+- [Fine-tuning OlmoEarth in rslearn](https://github.com/allenai/rslearn/blob/master/docs/examples/FinetuneOlmoEarth.md)
+
+Additionally, [`olmoearth_projects`](github.com/allenai/olmoearth_projects) has several examples of active OlmoEarth deployments.
 
 ## Data Summary
 
