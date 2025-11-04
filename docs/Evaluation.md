@@ -17,7 +17,7 @@ This guide explains how we launch evaluations for OlmoEarth checkpoints and base
 ## Table of Contents
 
 1. [Evaluation Overview](#evaluation-overview)
-2. [Assets & Paths](#assets--paths)
+2. [Datasets & Model Checkpoints](#datasets--model-checkpoints)
 3. [Quick Start](#quick-start)
 4. [KNN / Linear Probing](#knn--linear-probing)
 5. [Finetune](#finetune-sweep)
@@ -30,8 +30,8 @@ This guide explains how we launch evaluations for OlmoEarth checkpoints and base
 
 We run evaluations through the same `olmoearth_pretrain/internal/experiment.py` entrypoint used for pretraining. The helper scripts below build the underlying launch commands:
 
-- `olmoearth_pretrain/internal/full_eval_sweep.py` runs KNN (classification) and linear probing (segmentation) sweeps for OlmoEarth checkpoints or baseline models, with optional sweeps over learning rate, pretrained/dataset normalizers, and pooling (mean or max).
-- `olmoearth_pretrain/internal/full_eval_sweep_finetune.py` runs fine-tuning sweeps for OlmoEarth checkpoints or baseline models, with optional sweeps over learning rate and pretrained/dataset normalizers.
+- `olmoearth_pretrain/internal/full_eval_sweep.py` runs KNN (classification) and linear probing (segmentation) sweeps for OlmoEarth checkpoints or baseline models, with optional sweeps over learning rate, pretrained / dataset normalizers, and pooling (mean or max).
+- `olmoearth_pretrain/internal/full_eval_sweep_finetune.py` runs fine-tuning sweeps for OlmoEarth checkpoints or baseline models, with optional sweeps over learning rate and pretrained / dataset normalizers.
 
 Both scripts use:
 - [`olmoearth_pretrain/internal/all_evals.py`](../olmoearth_pretrain/internal/all_evals.py) for the task registry (`EVAL_TASKS` for KNN and linear probing, and `FT_EVAL_TASKS` for fine-tuning).
@@ -47,12 +47,12 @@ The sweep scripts set `TRAIN_SCRIPT_PATH` automatically and select `torchrun` fo
 ### Prerequisites
 
 - Python environment configured as described in [Pretraining.md](Pretraining.md#environment-setup).
-- One 80 GB GPU (A100 or H100 recommended). If you see OOM errors when running some tasks, consider reducing the fine-tuning batch size via the override `--TASK_NAME.ft_batch_size`.
+- One 80 GB GPU (A100 or H100 recommended). If you see OOM errors when running some tasks, consider reducing the batch size, e.g., use the override `--TASK_NAME.ft_batch_size` to adjust batch size for fine-tuning.
 
 ### Supported Models
 
 - **OlmoEarth models:** Nano, Tiny, Base, and Large size.
-- **Others:** The list of supported baseline models is defined in `olmoearth_pretrain/evals/models/__init__.py`. Supported models include Galileo, Satlas, Terramind, Prithvi v2, Panopticon, CROMA, AnySat etc. Multi-size variants are also supported.
+- **Others:** Supported baseline models are defined in `olmoearth_pretrain/evals/models/__init__.py`, which includes Galileo, Satlas, Terramind, Prithvi v2, Panopticon, CROMA, AnySat etc. Multi-size variants (if available) are also supported.
 
 ---
 
@@ -71,7 +71,7 @@ The sweep scripts set `TRAIN_SCRIPT_PATH` automatically and select `torchrun` fo
     git clone git@hf.co:allenai/OlmoEarth-v1-Large
     ```
   - Pass the desired checkpoint directory via `--checkpoint_path` when running the evaluation sweeps.
-- **Baselines**: When using `--model=<name>`, the sweeps download/load checkpoints through the model wrappers, no extra setup required beyond dataset paths.
+- **Baselines**: When using `--model=<name>`, some models (e.g., AnySat, Panopticon, Terramind) will automatically download checkpoints from Hugging Face or TorchHub. Others models require manually downloading their checkpoints and set the model path in the config (e.g., set `load_directory` for Satlas model as defined in `olmoearth_pretrain/evals/models/satlas/satlas.py`).
 
 ---
 
