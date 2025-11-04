@@ -404,6 +404,8 @@ def build_trainer_config(common: CommonComponents) -> TrainerConfig:
         project=EVAL_WANDB_PROJECT,
         entity=WANDB_ENTITY,
         enabled=True,  # set to False to avoid wandb errors
+        upload_dataset_distribution_pre_train=False,
+        upload_modality_data_band_distribution_pre_train=False,
     )
     # Safe to collect everys tep for now
     garbage_collector_callback = GarbageCollectorCallback(gc_interval=1)
@@ -441,21 +443,14 @@ if __name__ == "__main__":
         raise ValueError("TRAIN_SCRIPT_PATH environment variable must be set")
     user_mod = load_user_module(module_path)
 
-    # 3) Inject all of the builder names into your namespace
     try:
         build_common_components = user_mod.build_common_components
     except AttributeError:
         from olmoearth_pretrain.internal.common import build_common_components
 
     build_model_config = user_mod.build_model_config
-    build_train_module_config = user_mod.build_train_module_config
-    build_dataset_config = user_mod.build_dataset_config
-    build_dataloader_config = user_mod.build_dataloader_config
     main(
         common_components_builder=build_common_components,
         model_config_builder=build_model_config,
-        train_module_config_builder=build_train_module_config,
-        dataset_config_builder=build_dataset_config,
-        dataloader_config_builder=build_dataloader_config,
         trainer_config_builder=build_trainer_config,
     )

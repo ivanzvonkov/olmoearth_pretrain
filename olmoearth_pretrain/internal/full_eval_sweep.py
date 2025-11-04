@@ -349,11 +349,12 @@ def get_prithviv2_args(pretrained_normalizer: bool = True) -> str:
 def _get_sub_command(args: argparse.Namespace) -> str:
     """Determine the sub command based on args and cluster."""
     if args.dry_run:
-        return SubCmd.dry_run
-    elif args.cluster == "local":
-        return SubCmd.train
+        return SubCmd.dry_run_evaluate
+    # If cluster is local, we run eval locally, if not, we launch evaluation on beaker
+    if args.cluster == "local":
+        return SubCmd.evaluate
     else:
-        return SubCmd.launch
+        return SubCmd.launch_evaluate
 
 
 def _get_base_run_name(
@@ -523,7 +524,7 @@ def _build_default_command(
     logger.info(f"Using module path {module_path}")
     cmd_args += _get_model_size_args(args.model, size)
     cmd_args += _get_load_checkpoints_args(args.model)
-    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch else ""
+    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch_evaluate else ""
     return (
         f"TRAIN_SCRIPT_PATH={module_path} {launch_command} {EVAL_LAUNCH_PATH} "
         f"{sub_command} {run_name} {args.cluster} {launch_overrides} "
@@ -574,7 +575,7 @@ def _build_hyperparameter_command(
     cmd_args += _get_load_checkpoints_args(args.model)
     cmd_args += _get_model_size_args(args.model, size)
 
-    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch else ""
+    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch_evaluate else ""
     # if init_seed is set add to base run name
     if "init_seed" in extra:
         run_name += f"_seed{extra.split('init_seed=')[1].split(' ')[0]}"
@@ -683,7 +684,7 @@ def _build_command_from_eval_settings(
     cmd_args += _get_load_checkpoints_args(args.model)
     cmd_args += _get_model_size_args(args.model, size)
 
-    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch else ""
+    launch_overrides = LAUNCH_OVERRIDES if sub_command == SubCmd.launch_evaluate else ""
     # if init_seed is set add to base run name
     if "init_seed" in extra:
         run_name += f"_seed{extra.split('init_seed=')[1].split(' ')[0]}"
@@ -707,7 +708,7 @@ def build_commands(args: argparse.Namespace, extra_cli: list[str]) -> list[str]:
     extra = " " + " ".join(extra_cli) if extra_cli else ""
 
     sub_command = _get_sub_command(args)
-    launch_command = "python3" if not sub_command == SubCmd.train else "torchrun"
+    launch_command = "python3" if not sub_command == SubCmd.evaluate else "torchrun"
     checkpoint_args = _get_checkpoint_args(args.checkpoint_path)
 
     commands_to_run = []

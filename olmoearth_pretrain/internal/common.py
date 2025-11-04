@@ -230,6 +230,8 @@ def build_common_components(
     ]
     if cmd == SubCmd.launch:
         cmd_to_launch = SubCmd.train
+    elif cmd == SubCmd.launch_evaluate:
+        cmd_to_launch = SubCmd.evaluate
     elif cmd == SubCmd.launch_prep:
         cmd_to_launch = SubCmd.prep
     elif cmd == SubCmd.launch_benchmark:

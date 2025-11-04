@@ -233,10 +233,12 @@ def _resolve_module_path(args: argparse.Namespace, selected_preset: str | None) 
 def _get_sub_command(args: argparse.Namespace) -> str:
     """Get the sub command."""
     if args.dry_run:
-        return SubCmd.dry_run
+        return SubCmd.dry_run_evaluate
+    # If cluster is local, we run eval locally, if not, we launch evaluation on beaker
     if args.cluster == "local":
-        return SubCmd.train
-    return SubCmd.launch
+        return SubCmd.evaluate
+    else:
+        return SubCmd.launch_evaluate
 
 
 def _get_base_run_name(args: argparse.Namespace, selected_preset: str | None) -> str:
@@ -284,14 +286,19 @@ def _format_launch_command(
         sub_command,
         run_name,
         cluster,
-        "--launch.priority=urgent",
-        "--launch.num_gpus=1",
-        "--launch.preemptible=True",
-        "--launch.task_name=eval",
         # Overwrite the max duration to enable eval of the last step of the checkpoint
         "--trainer.max_duration.value=10000000",
         "--trainer.max_duration.unit=steps",
     ]
+    if cluster != "local":
+        parts.extend(
+            [
+                "--launch.priority=urgent",
+                "--launch.num_gpus=1",
+                "--launch.preemptible=True",
+                "--launch.task_name=eval",
+            ]
+        )
     parts.extend(checkpoint_args)
     parts.append(f"--trainer.callbacks.wandb.project={project_name}")
     parts.extend(extra_cli)
@@ -299,7 +306,7 @@ def _format_launch_command(
     parts.extend(FT_MODE_ARGS)
     parts.extend(_format_ft_lr_args(lr))
     parts.extend(seed_args)
-    parts.append("--train_module.dp_config=null")
+    # parts.append("--train_module.dp_config=null")
     return " ".join(parts)
 
 
@@ -312,7 +319,7 @@ def build_commands(
     sub_command = _get_sub_command(args)
     selected_preset = args.model
     base_run_name = _get_base_run_name(args, selected_preset)
-    launch_command = "python3" if sub_command != SubCmd.train else "torchrun"
+    launch_command = "python3" if not sub_command == SubCmd.evaluate else "torchrun"
 
     module_path = _resolve_module_path(args, selected_preset)
     checkpoint_args = _get_checkpoint_args(args.checkpoint_path)
