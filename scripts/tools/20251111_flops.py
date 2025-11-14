@@ -3,12 +3,23 @@
 import os
 import sys
 from contextlib import contextmanager
+from pathlib import Path
 
 import torch
 from thop import clever_format, profile
 
 from olmoearth_pretrain.data.constants import Modality
-from olmoearth_pretrain.evals.models import AnySat
+from olmoearth_pretrain.evals.models import (
+    AnySat,
+    Clay,
+    Croma,
+    GalileoWrapper,
+    Panopticon,
+    PrithviV2,
+    PrithviV2Models,
+    Satlas,
+    Terramind,
+)
 from olmoearth_pretrain.evals.models.dinov3.dinov3 import DINOv3, DinoV3Models
 from olmoearth_pretrain.nn.flexi_vit import Encoder, PoolingType
 from olmoearth_pretrain.train.masking import MaskedOlmoEarthSample, MaskValue
@@ -109,65 +120,83 @@ if __name__ == "__main__":
     ]
 
     models = [
-        # Encoder(  # large encoder
-        #     embedding_size=1024,
-        #     min_patch_size=1,
-        #     max_patch_size=8,
-        #     num_heads=16,
-        #     mlp_ratio=4,
-        #     depth=24,
-        #     drop_path=0.1,
-        #     supported_modalities=modalities,
-        #     max_sequence_length=24
-        # ),
-        # Encoder(  # base encoder
-        #     embedding_size=768,
-        #     min_patch_size=1,
-        #     max_patch_size=8,
-        #     num_heads=12,
-        #     mlp_ratio=4,
-        #     depth=12,
-        #     drop_path=0.1,
-        #     supported_modalities=modalities,
-        #     max_sequence_length=24
-        # ),
-        # Encoder(  # tiny encoder
-        #     embedding_size=192,
-        #     min_patch_size=1,
-        #     max_patch_size=8,
-        #     num_heads=3,
-        #     mlp_ratio=4,
-        #     depth=12,
-        #     drop_path=0.1,
-        #     supported_modalities=modalities,
-        #     max_sequence_length=24
-        # ),
-        # Encoder(  # nano encoder
-        #     embedding_size=128,
-        #     min_patch_size=1,
-        #     max_patch_size=8,
-        #     num_heads=8,
-        #     mlp_ratio=4,
-        #     depth=4,
-        #     drop_path=0.1,
-        #     supported_modalities=modalities,
-        #     max_sequence_length=24
-        # ),
-        # Terramind("base"),
-        # Terramind("large"),
-        # Satlas("."),
-        # PrithviV2(".", PrithviV2Models.VIT_300),
-        # PrithviV2(".", PrithviV2Models.VIT_600),
-        # Panopticon(),
-        # GalileoWrapper(pretrained_path=Path("/Users/gabrieltseng/Documents/code/presto-v3/data/final_models/nano")),
-        # GalileoWrapper(pretrained_path=Path("/Users/gabrieltseng/Documents/code/presto-v3/data/final_models/tiny")),
-        # GalileoWrapper(pretrained_path=Path("/Users/gabrieltseng/Documents/code/presto-v3/data/final_models/base")),
+        Encoder(  # large encoder
+            embedding_size=1024,
+            min_patch_size=1,
+            max_patch_size=8,
+            num_heads=16,
+            mlp_ratio=4,
+            depth=24,
+            drop_path=0.1,
+            supported_modalities=modalities,
+            max_sequence_length=24,
+        ),
+        Encoder(  # base encoder
+            embedding_size=768,
+            min_patch_size=1,
+            max_patch_size=8,
+            num_heads=12,
+            mlp_ratio=4,
+            depth=12,
+            drop_path=0.1,
+            supported_modalities=modalities,
+            max_sequence_length=24,
+        ),
+        Encoder(  # tiny encoder
+            embedding_size=192,
+            min_patch_size=1,
+            max_patch_size=8,
+            num_heads=3,
+            mlp_ratio=4,
+            depth=12,
+            drop_path=0.1,
+            supported_modalities=modalities,
+            max_sequence_length=24,
+        ),
+        Encoder(  # nano encoder
+            embedding_size=128,
+            min_patch_size=1,
+            max_patch_size=8,
+            num_heads=8,
+            mlp_ratio=4,
+            depth=4,
+            drop_path=0.1,
+            supported_modalities=modalities,
+            max_sequence_length=24,
+        ),
+        Terramind("base"),
+        Terramind("large"),
+        Satlas("."),
+        PrithviV2(".", PrithviV2Models.VIT_300),
+        PrithviV2(".", PrithviV2Models.VIT_600),
+        Panopticon(),
+        GalileoWrapper(
+            pretrained_path=Path(
+                "/Users/gabrieltseng/Documents/code/presto-v3/data/final_models/nano"
+            )
+        ),
+        GalileoWrapper(
+            pretrained_path=Path(
+                "/Users/gabrieltseng/Documents/code/presto-v3/data/final_models/tiny"
+            )
+        ),
+        GalileoWrapper(
+            pretrained_path=Path(
+                "/Users/gabrieltseng/Documents/code/presto-v3/data/final_models/base"
+            )
+        ),
         DINOv3(DinoV3Models.LARGE_SATELLITE),
         DINOv3(DinoV3Models.FULL_7B_SATELLITE),
-        # Croma(size="base", load_directory="/Users/gabrieltseng/Documents/code/presto-v3/data/baseline_weights"),
-        # Croma(size="large", load_directory="/Users/gabrieltseng/Documents/code/presto-v3/data/baseline_weights"),
-        # Clay(load_path="clay/clay-v1.5.ckpt"),
-        # AnySat()
+        Croma(
+            size="base",
+            load_directory="/Users/gabrieltseng/Documents/code/presto-v3/data/baseline_weights",
+        ),
+        Croma(
+            size="large",
+            load_directory="/Users/gabrieltseng/Documents/code/presto-v3/data/baseline_weights",
+        ),
+        Clay(load_path="clay/clay-v1.5.ckpt"),
+        AnySat(),
     ]
 
     for model in models:
