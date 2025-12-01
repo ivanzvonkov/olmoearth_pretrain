@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------
-// Generates Togo cropland map from embeddings
-// Author: Ivan Zvonkov (izvonkov@umd.edu)
+// Evaluates Togo cropland maps
+// Author: Ivan Zvonkov (ivan.zvonkov@gmail.com)
 //------------------------------------------------------------------------------------
 
 var roi = ee
