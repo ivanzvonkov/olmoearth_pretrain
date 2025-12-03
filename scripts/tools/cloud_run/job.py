@@ -22,23 +22,18 @@ IN_BUCKET = os.environ["IN_BUCKET"]
 OUT_BUCKET = os.environ["OUT_BUCKET"]
 BATCH_SIZE = 128 * 128
 
+# For querying bands from Google Earth Engine exported geotiffs
 BANDS = {
+    # Matches Modality.SENTINEL1.band_order: ['vv', 'vh']
     "sentinel1": ["VV", "VH"],
-    "sentinel2": [
-        "B1",
-        "B2",
-        "B3",
-        "B4",
-        "B5",
-        "B6",
-        "B7",
-        "B8",
-        "B8A",
-        "B9",
-        "B11",
-        "B12",
-    ],
-    "landsat": ["B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11"],
+
+    # Matches Modality.SENTINEL2_L2A.band_order
+    # ['B02', 'B03', 'B04', 'B08', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'B01', 'B09']
+    "sentinel2": ["B2", "B3", "B4", "B8", "B5", "B6", "B7", "B8A", "B11", "B12", "B1", "B9"],
+    
+    # Matches Modality.LANDSAT.band_order
+    # ['B8', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B9', 'B10', 'B11']
+    "landsat": ["B8", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B9", "B10", "B11"],
 }
 
 client = storage.Client(project=GCLOUD_PROJECT)
